@@ -1,0 +1,65 @@
+import { render, screen } from "@testing-library/react";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import { describe, expect, it, vi } from "vitest";
+
+import { AppShell } from "./AppShell.js";
+
+import type { Project } from "@beans-frontend/shared";
+
+const { useProjectsMock } = vi.hoisted(() => ({ useProjectsMock: vi.fn() }));
+
+vi.mock("../hooks/useProjects.js", () => ({ useProjects: useProjectsMock }));
+
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  prefix: "hh-",
+  counts: {
+    total: 10,
+    open: 4,
+    byType: { milestone: 0, epic: 0, feature: 0, task: 0, bug: 0 },
+    byStatus: { draft: 0, todo: 0, "in-progress": 0, completed: 0, scrapped: 0 },
+  },
+};
+
+function renderAppShell() {
+  const rootRoute = createRootRoute({ component: AppShell });
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => <div>outlet content</div>,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+
+  return render(<RouterProvider router={router} />);
+}
+
+describe("AppShell", () => {
+  it("renders the sidebar with projects, a search entry, and the routed outlet", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+
+    renderAppShell();
+
+    expect(await screen.findByText("handbellhub")).toBeInTheDocument();
+    expect(screen.getByText("outlet content")).toBeInTheDocument();
+    expect(screen.getByRole("search", { name: "Global search" })).toBeInTheDocument();
+  });
+
+  it("renders an empty sidebar while projects are still loading", async () => {
+    useProjectsMock.mockReturnValue({ data: undefined, isPending: true, isError: false });
+
+    renderAppShell();
+
+    expect(await screen.findByText("Overview")).toBeInTheDocument();
+    expect(screen.queryByText("handbellhub")).not.toBeInTheDocument();
+  });
+});

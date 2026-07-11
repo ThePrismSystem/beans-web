@@ -17,6 +17,7 @@
   "dependencies": {
     "@beans-frontend/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
+    "@tanstack/react-router": "^1.170.17",
     "graphql": "^16.10.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
@@ -26,6 +27,8 @@
     "@graphql-codegen/typescript": "^4.1.0",
     "@graphql-codegen/typescript-operations": "^4.4.0",
     "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.0",

@@ -10,6 +10,11 @@
   --t-feature: #3f6b5f;
   --t-task: #7a7f88;
   --t-bug: #a5452f;
+  --s-draft: #8a857b;
+  --s-todo: #55707a;
+  --s-in-progress: #9a6b1f;
+  --s-completed: #3f6b5f;
+  --s-scrapped: #a5452f;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-sans: system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
