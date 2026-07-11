@@ -186,6 +186,8 @@ All of the following are editable from the detail page; create is available via 
 
 ## 10. Testing
 
+- **Coverage:** enforced at **80%** for lines, functions, branches, and statements (v8 provider, per
+  template). CI fails the build below threshold.
 - **Unit (Vitest):** discovery/path-jail logic, aggregation/merge, GraphQL passthrough arg building,
   hierarchy-validity helpers, React components/hooks.
 - **Integration:** server endpoints against a temp fixture git root with real `.beans` projects and
