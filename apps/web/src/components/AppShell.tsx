@@ -1,4 +1,4 @@
-import { Outlet, useParams } from "@tanstack/react-router";
+import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { useEvents } from "../hooks/useEvents.js";
@@ -32,10 +32,10 @@ export function AppShell() {
               Updated
             </span>
           )}
-          <div className="search-entry" role="search" aria-label="Global search">
+          <Link to="/search" className="search-entry" role="search" aria-label="Global search">
             <span className="search-hint">Search beans</span>
             <kbd>⌘K</kbd>
-          </div>
+          </Link>
         </header>
         <main className="app-content">
           <Outlet />

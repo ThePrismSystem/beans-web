@@ -5,10 +5,7 @@ import { AnalyticsPage } from "./routes/analytics.js";
 import { BeanDetailPage } from "./routes/beanDetail.js";
 import { Overview } from "./routes/overview.js";
 import { ProjectList, validateProjectSearch } from "./routes/projectList.js";
-
-function ComingSoon() {
-  return <div>Coming soon</div>;
-}
+import { SearchPage } from "./routes/search.js";
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -40,7 +37,7 @@ const analyticsRoute = createRoute({
 const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/search",
-  component: ComingSoon,
+  component: SearchPage,
 });
 
 const routeTree = rootRoute.addChildren([
