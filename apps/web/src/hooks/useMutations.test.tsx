@@ -29,7 +29,7 @@ function makeWrapper() {
 }
 
 describe("useSetParent", () => {
-  it("sends ifMatch and invalidates bean/beans/projects queries on success", async () => {
+  it("does not send ifMatch (beans' etag check is currently unreliable) and invalidates bean/beans/projects queries on success", async () => {
     const fetchMock = vi.fn(
       async (_url: string, _init: RequestInit) =>
         new Response(JSON.stringify({ data: { setParent: { id: "t1", etag: "new-etag" } } }), {
@@ -48,7 +48,7 @@ describe("useSetParent", () => {
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error("fetch was not called");
     const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
-    expect(body.variables).toEqual({ id: "t1", parentId: "m1", ifMatch: "old-etag" });
+    expect(body.variables).toEqual({ id: "t1", parentId: "m1" });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t1"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["beans", "demo"] });
@@ -82,7 +82,7 @@ describe("useSetParent", () => {
 });
 
 describe("useUpdateBean", () => {
-  it("merges etag into the input as ifMatch", async () => {
+  it("sends only the input, not ifMatch (beans' etag check is currently unreliable)", async () => {
     const fetchMock = vi.fn(
       async (_url: string, _init: RequestInit) =>
         new Response(JSON.stringify({ data: { updateBean: { id: "t1", etag: "new-etag" } } }), {
@@ -103,7 +103,7 @@ describe("useUpdateBean", () => {
     const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
     expect(body.variables).toEqual({
       id: "t1",
-      input: { title: "New title", ifMatch: "old-etag" },
+      input: { title: "New title" },
     });
   });
 
@@ -201,7 +201,7 @@ describe("link mutations", () => {
   ];
 
   for (const { name, hook, resultKey } of cases) {
-    it(`${name} sends ifMatch and invalidates bean/beans/projects on success`, async () => {
+    it(`${name} does not send ifMatch (beans' etag check is currently unreliable) and invalidates bean/beans/projects on success`, async () => {
       const fetchMock = vi.fn(
         async (_url: string, _init: RequestInit) =>
           new Response(JSON.stringify({ data: { [resultKey]: { id: "t1", etag: "new-etag" } } }), {
@@ -220,7 +220,7 @@ describe("link mutations", () => {
       const call = fetchMock.mock.calls[0];
       if (!call) throw new Error("fetch was not called");
       const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
-      expect(body.variables).toEqual({ id: "t1", targetId: "t2", ifMatch: "old-etag" });
+      expect(body.variables).toEqual({ id: "t1", targetId: "t2" });
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t1"] });
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["beans", "demo"] });

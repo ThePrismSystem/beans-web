@@ -17,6 +17,19 @@ import type { QueryClient, UseMutationResult } from "@tanstack/react-query";
 
 const ETAG_CONFLICT_PATTERN = /etag mismatch/i;
 
+// NOTE: mutations below accept an `etag` from the caller (the value most
+// recently read for this bean) but do not currently forward it as `ifMatch`.
+// The installed `beans` binary's mutation resolvers validate `ifMatch`
+// against a value that disagrees with the etag its own queries and
+// `beans show --etag-only` report for the identical, untouched bean — every
+// etag-guarded mutation is rejected with a false "etag mismatch", even
+// immediately after a fresh read with no intervening write (reproduced
+// against both a local build and the officially published `beans` release,
+// see task-16-report.md). Until that's fixed upstream, mutations omit
+// `ifMatch` so edits actually succeed; `isEtagConflict`/`describeMutationError`
+// stay in place so the conflict UI resumes working the moment beans's etag
+// check is fixed and starts returning genuine mismatches again.
+
 /** True when a mutation error is a beans etag/optimistic-concurrency conflict. */
 export function isEtagConflict(error: unknown): boolean {
   return error instanceof Error && ETAG_CONFLICT_PATTERN.test(error.message);
@@ -64,7 +77,7 @@ export function useUpdateBean(
         UPDATE_BEAN_MUTATION,
         {
           id: v.id,
-          input: { ...v.input, ifMatch: v.etag },
+          input: v.input,
         },
       );
       return data.updateBean;
@@ -131,7 +144,6 @@ export function useSetParent(
       const data = await projectGraphql<{ setParent: MutatedBean }>(project, SET_PARENT_MUTATION, {
         id: v.id,
         parentId: v.parentId,
-        ifMatch: v.etag,
       });
       return data.setParent;
     },
@@ -156,7 +168,6 @@ function useLinkMutation(
       const data = await projectGraphql<Record<typeof resultKey, MutatedBean>>(project, query, {
         id: v.id,
         targetId: v.targetId,
-        ifMatch: v.etag,
       });
       return data[resultKey];
     },
