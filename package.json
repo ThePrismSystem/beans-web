@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
+    "start": "pnpm --filter @beans-frontend/web build && pnpm --filter @beans-frontend/server start",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
@@ -32,6 +33,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "eslint-plugin-unicorn": "^63.0.0",
     "husky": "^9.1.7",
+    "knip": "^6.26.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.5.3",
     "typescript": "^5.7.3",
