@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 
 import { AppShell } from "./components/AppShell.js";
+import { AnalyticsPage } from "./routes/analytics.js";
 import { BeanDetailPage } from "./routes/beanDetail.js";
 import { Overview } from "./routes/overview.js";
 import { ProjectList, validateProjectSearch } from "./routes/projectList.js";
@@ -33,7 +34,7 @@ const beanRoute = createRoute({
 const analyticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/analytics",
-  component: ComingSoon,
+  component: AnalyticsPage,
 });
 
 const searchRoute = createRoute({

@@ -8,7 +8,7 @@ const STATUS_VAR: Record<BeanStatus, string> = {
   scrapped: "--s-scrapped",
 };
 
-const STATUS_LABEL: Record<BeanStatus, string> = {
+export const STATUS_LABEL: Record<BeanStatus, string> = {
   draft: "Draft",
   todo: "To do",
   "in-progress": "In progress",
