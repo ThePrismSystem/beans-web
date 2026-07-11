@@ -1,0 +1,85 @@
+# Contributing
+
+## Prerequisites
+
+Node.js 22+, pnpm, and the `beans` CLI on your `PATH` — see the [README](README.md#prerequisites).
+
+```bash
+pnpm install
+```
+
+## Workflow
+
+1. Create a branch: `type/short-desc` (e.g. `feat/global-search`, `fix/etag-mismatch`).
+2. Write a failing test before writing implementation code (TDD — see below).
+3. Make the smallest change that makes the test pass, then refactor.
+4. Run the full local quality gate before opening a PR (see [Quality gate](#quality-gate)).
+5. Commit using [Conventional Commits](#commit-messages).
+6. Open a PR against `main`.
+
+## Test-driven development
+
+New code and bug fixes are written test-first: **Red → Green → Refactor**.
+
+- **Unit tests** (`*.test.ts(x)`) cover every conditional branch, error path, and edge case —
+  loading/error/empty states for components and hooks, validation branches in `packages/shared`,
+  route handlers in `apps/server`. Don't write a test for something TypeScript already guarantees
+  at compile time.
+- **Integration tests** (`*.integration.test.ts`, `apps/server`) exercise the real `beans` binary
+  against a temp git root (see `apps/server/src/index.integration.test.ts` for the fixture
+  pattern: `beans init` then `beans create <title> -t <type>` in a `mkdtempSync` directory,
+  cleaned up in `afterAll`). Cover success and the primary failure modes (not found, conflict,
+  validation error).
+- **End-to-end tests** (`apps/web/e2e`, Playwright) validate the app the way a browser sees it —
+  full user flows against a real server and a real `beans` project, not mocks.
+
+When fixing a bug, first write a test that reproduces it (it should fail), then fix the bug until
+it passes. A failing test is never acceptable to merge or skip — if you inherit one, fix the root
+cause.
+
+## Coverage gate
+
+```bash
+pnpm -r test:coverage
+```
+
+Each package (`apps/server`, `apps/web`, `packages/shared`) is expected to hold at least 80%
+coverage; CI runs this as a gate on every PR.
+
+## Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org/), imperative mood, ≤72 characters,
+no trailing period:
+
+```
+type(scope): description
+```
+
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `style`, `perf`, `ci`, `build`.
+
+## Local checks
+
+Run these before pushing — they're exactly what CI runs:
+
+```bash
+pnpm format      # prettier --check .
+pnpm lint        # eslint . --max-warnings 0
+pnpm typecheck   # tsc across every package
+pnpm -r test:coverage
+pnpm -r build
+pnpm -r knip     # unused files/exports/dependencies
+pnpm spell       # cspell
+```
+
+## TypeScript conventions
+
+- No `as any`, no `as unknown as` double-casts, no `as never`, no `eslint-disable` comments — fix
+  the underlying type mismatch with proper narrowing, generics, or a utility type instead.
+- Extract magic numbers to named constants; remove unused imports as you go (`pnpm -r knip` will
+  also catch these).
+
+## LSP-first
+
+When exploring the codebase, prefer your editor's LSP (go-to-definition, find-references,
+workspace diagnostics) over text search — it understands the TypeScript project structure across
+the three packages far better than grep does.
