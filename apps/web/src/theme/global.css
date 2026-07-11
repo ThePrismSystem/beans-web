@@ -1,0 +1,54 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--hairline);
+  margin: 1.5em 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+.bean-id {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+#root {
+  min-height: 100vh;
+}

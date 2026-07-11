@@ -1,8 +1,8 @@
 function App() {
   return (
     <div>
-      <h1>beans-frontend</h1>
-      <p>Edit src/App.tsx and save to reload.</p>
+      <h1>beans</h1>
+      <p>Web foundation is up. Routing arrives in Task 10.</p>
     </div>
   );
 }
