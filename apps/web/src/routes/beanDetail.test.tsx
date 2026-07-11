@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -6,15 +6,70 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BeanDetailPage } from "./beanDetail.js";
 
+import type { Bean } from "@beans-frontend/shared";
 import type { BeanDetail } from "../hooks/useBean.js";
 
-const { useBeanMock } = vi.hoisted(() => ({ useBeanMock: vi.fn() }));
+const {
+  useBeanMock,
+  useBeansMock,
+  useUpdateBeanMock,
+  useSetParentMock,
+  useAddBlockingMock,
+  useRemoveBlockingMock,
+  useAddBlockedByMock,
+  useRemoveBlockedByMock,
+  useDeleteBeanMock,
+  useCreateBeanMock,
+  updateBeanMutate,
+  setParentMutate,
+  addBlockingMutate,
+  removeBlockingMutate,
+  addBlockedByMutate,
+  removeBlockedByMutate,
+  deleteBeanMutate,
+  createBeanMutate,
+} = vi.hoisted(() => ({
+  useBeanMock: vi.fn(),
+  useBeansMock: vi.fn(),
+  useUpdateBeanMock: vi.fn(),
+  useSetParentMock: vi.fn(),
+  useAddBlockingMock: vi.fn(),
+  useRemoveBlockingMock: vi.fn(),
+  useAddBlockedByMock: vi.fn(),
+  useRemoveBlockedByMock: vi.fn(),
+  useDeleteBeanMock: vi.fn(),
+  useCreateBeanMock: vi.fn(),
+  updateBeanMutate: vi.fn(),
+  setParentMutate: vi.fn(),
+  addBlockingMutate: vi.fn(),
+  removeBlockingMutate: vi.fn(),
+  addBlockedByMutate: vi.fn(),
+  removeBlockedByMutate: vi.fn(),
+  deleteBeanMutate: vi.fn(),
+  createBeanMutate: vi.fn(),
+}));
 
 vi.mock("../hooks/useBean.js", () => ({ useBean: useBeanMock }));
+vi.mock("../hooks/useBeans.js", () => ({ useBeans: useBeansMock, EMPTY_BEAN_FILTER: {} }));
+vi.mock("../hooks/useMutations.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/useMutations.js")>();
+  return {
+    ...actual,
+    useUpdateBean: useUpdateBeanMock,
+    useSetParent: useSetParentMock,
+    useAddBlocking: useAddBlockingMock,
+    useRemoveBlocking: useRemoveBlockingMock,
+    useAddBlockedBy: useAddBlockedByMock,
+    useRemoveBlockedBy: useRemoveBlockedByMock,
+    useDeleteBean: useDeleteBeanMock,
+    useCreateBean: useCreateBeanMock,
+  };
+});
 
 const bean: BeanDetail = {
   id: "t1",
@@ -38,6 +93,24 @@ const bean: BeanDetail = {
   blockedBy: [],
 };
 
+const otherMilestone: Bean = {
+  id: "m2",
+  slug: null,
+  path: "",
+  title: "Other Milestone",
+  status: "todo",
+  type: "milestone",
+  priority: "normal",
+  tags: [],
+  createdAt: "",
+  updatedAt: "",
+  body: "",
+  etag: "m2-etag",
+  parentId: null,
+  blockingIds: [],
+  blockedByIds: [],
+};
+
 function renderBeanDetail(initialLocation = "/p/demo/t1") {
   const rootRoute = createRootRoute();
   const beanRoute = createRoute({
@@ -45,12 +118,31 @@ function renderBeanDetail(initialLocation = "/p/demo/t1") {
     path: "/p/$project/$beanId",
     component: BeanDetailPage,
   });
+  const projectRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/p/$project",
+    component: () => <div>project list</div>,
+  });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([beanRoute]),
+    routeTree: rootRoute.addChildren([beanRoute, projectRoute]),
     history: createMemoryHistory({ initialEntries: [initialLocation] }),
   });
   return render(<RouterProvider router={router} />);
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  useBeanMock.mockReturnValue({ data: bean, isPending: false, isError: false });
+  useBeansMock.mockReturnValue({ data: [otherMilestone], isPending: false, isError: false });
+  useUpdateBeanMock.mockReturnValue({ mutate: updateBeanMutate, error: null });
+  useSetParentMock.mockReturnValue({ mutate: setParentMutate, error: null });
+  useAddBlockingMock.mockReturnValue({ mutate: addBlockingMutate, error: null });
+  useRemoveBlockingMock.mockReturnValue({ mutate: removeBlockingMutate, error: null });
+  useAddBlockedByMock.mockReturnValue({ mutate: addBlockedByMutate, error: null });
+  useRemoveBlockedByMock.mockReturnValue({ mutate: removeBlockedByMutate, error: null });
+  useDeleteBeanMock.mockReturnValue({ mutate: deleteBeanMutate, error: null });
+  useCreateBeanMock.mockReturnValue({ mutate: createBeanMutate, error: null });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -58,8 +150,6 @@ afterEach(() => {
 
 describe("BeanDetailPage", () => {
   it("renders the title, sanitized body, and a linked child", async () => {
-    useBeanMock.mockReturnValue({ data: bean, isPending: false, isError: false });
-
     renderBeanDetail();
 
     expect(await screen.findByText("Task One")).toBeInTheDocument();
@@ -94,5 +184,188 @@ describe("BeanDetailPage", () => {
     renderBeanDetail();
 
     expect(await screen.findByText("Failed to load bean.")).toBeInTheDocument();
+  });
+
+  it("fires the update mutation when the title is edited", async () => {
+    const user = userEvent.setup();
+
+    renderBeanDetail();
+
+    await user.click(await screen.findByText("Task One"));
+    const input = screen.getByLabelText("Title");
+    await user.clear(input);
+    await user.type(input, "Renamed task");
+    await user.keyboard("{Enter}");
+
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: { title: "Renamed task" },
+    });
+  });
+
+  it("fires the update mutation when the status changes", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.selectOptions(await screen.findByLabelText("Status"), "completed");
+
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: { status: "completed" },
+    });
+  });
+
+  it("fires the update mutation when the type changes", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.selectOptions(await screen.findByLabelText("Type"), "bug");
+
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: { type: "bug" },
+    });
+  });
+
+  it("fires the update mutation when the priority changes", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.selectOptions(await screen.findByLabelText("Priority"), "low");
+
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: { priority: "low" },
+    });
+  });
+
+  it("commits tags on blur", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    const tagsInput = await screen.findByLabelText("Tags");
+    await user.clear(tagsInput);
+    await user.type(tagsInput, "a, b");
+    await user.tab();
+
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: { tags: ["a", "b"] },
+    });
+  });
+
+  it("saves body edits through the body editor", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    const textarea = await screen.findByLabelText("Body");
+    await user.clear(textarea);
+    await user.type(textarea, "New body content");
+    await user.click(screen.getByRole("button", { name: "Save body" }));
+
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: { body: "New body content" },
+    });
+  });
+
+  it("prompts for a reason and scraps the bean", async () => {
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("no longer needed");
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Scrap" }));
+
+    expect(promptSpy).toHaveBeenCalled();
+    expect(updateBeanMutate).toHaveBeenCalledWith({
+      id: "t1",
+      etag: "abc",
+      input: {
+        status: "scrapped",
+        bodyMod: { append: "## Reasons for Scrapping\n\nno longer needed", replace: null },
+      },
+    });
+  });
+
+  it("does not scrap when the prompt is cancelled", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Scrap" }));
+
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+  });
+
+  it("deletes the bean after confirming", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    expect(deleteBeanMutate).toHaveBeenCalledWith({ id: "t1" }, expect.anything());
+  });
+
+  it("dispatches relation changes to the mutation hooks", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.selectOptions(await screen.findByLabelText("Parent"), "m2");
+
+    expect(setParentMutate).toHaveBeenCalledWith({ id: "t1", parentId: "m2", etag: "abc" });
+  });
+
+  it("submits a new bean pre-filled with the current bean as parent", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.type(screen.getByLabelText("Title"), "Child task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(createBeanMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Child task", parent: "t1" }),
+      expect.anything(),
+    );
+  });
+
+  it("shows a reload prompt for an etag conflict and clears it on reload", async () => {
+    useUpdateBeanMock.mockReturnValue({
+      mutate: updateBeanMutate,
+      error: new Error("graphql: etag mismatch: provided a, current is b"),
+    });
+    const refetch = vi.fn();
+    useBeanMock.mockReturnValue({ data: bean, isPending: false, isError: false, refetch });
+    const user = userEvent.setup();
+
+    renderBeanDetail();
+
+    expect(
+      await screen.findByText("This bean changed on disk — reload to see the latest."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reload" }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("shows the raw beans message for a non-conflict mutation error", async () => {
+    useSetParentMock.mockReturnValue({
+      mutate: setParentMutate,
+      error: new Error("invalid parent for type task"),
+    });
+
+    renderBeanDetail();
+
+    expect(await screen.findByText("invalid parent for type task")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reload" })).not.toBeInTheDocument();
   });
 });

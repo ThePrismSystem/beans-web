@@ -471,6 +471,236 @@ a {
   font-family: var(--font-serif);
 }
 
+/* Bean detail: inline editing affordances */
+
+.bean-detail-title-row select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+.bean-detail-title,
+.bean-detail-title-input {
+  cursor: text;
+}
+
+.bean-detail-title-input {
+  flex: 1;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-family: var(--font-serif);
+  font-size: inherit;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.bean-detail-priority-label,
+.bean-detail-tags-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bean-detail-priority-label select,
+.bean-detail-tags-label input {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+.bean-detail-section {
+  margin: 2rem 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.bean-detail-section-title {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bean-detail-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.bean-detail-delete {
+  color: var(--s-scrapped);
+  border-color: var(--s-scrapped);
+}
+
+.mutation-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--s-scrapped);
+  border-radius: 4px;
+  color: var(--s-scrapped);
+  font-size: 0.85rem;
+}
+
+.mutation-error p {
+  margin: 0;
+}
+
+/* Body editor */
+
+.body-editor-toolbar {
+  margin-bottom: 0.5rem;
+}
+
+.body-editor-textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.body-editor-preview {
+  padding: 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+}
+
+/* Relation editor */
+
+.relation-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.relation-editor-label {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.relation-editor-list {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.relation-editor-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.relation-editor-remove {
+  font-size: 0.75rem;
+  color: var(--s-scrapped);
+}
+
+/* Confirm dialog */
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 40%);
+  z-index: 100;
+}
+
+.confirm-dialog {
+  max-width: 24rem;
+  padding: 1.25rem;
+  border-radius: 6px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.confirm-dialog-danger {
+  color: var(--s-scrapped);
+  border-color: var(--s-scrapped);
+}
+
+/* Create bean form */
+
+.create-bean-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 32rem;
+}
+
+.create-bean-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.create-bean-field label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.create-bean-field input,
+.create-bean-field select,
+.create-bean-field textarea {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.create-bean-error {
+  margin: 0;
+  color: var(--s-scrapped);
+  font-size: 0.8rem;
+}
+
+.create-bean-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
 /* Responsive: reclaim horizontal space by shrinking the indentation unit
    (via the --indent token, redefined in tokens.css) instead of removing
    nesting entirely. */
