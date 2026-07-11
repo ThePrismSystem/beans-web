@@ -36,3 +36,10 @@ export interface ServerEvent {
   project: string;
   kind: "add" | "change" | "unlink";
 }
+
+export interface Analytics {
+  perProject: { project: string; total: number; open: number }[];
+  byType: Record<BeanType, number>;
+  byStatus: Record<BeanStatus, number>;
+  completedByMonth: { month: string; count: number }[];
+}
