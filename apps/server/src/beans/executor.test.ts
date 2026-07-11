@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBeansArgs, parseBeansResult, BeansError } from "./executor.js";
+import { buildBeansArgs, parseBeansResult } from "./executor.js";
 
 describe("buildBeansArgs", () => {
   it("passes config, json flag, and query as separate argv entries (no shell)", () => {
@@ -18,12 +18,10 @@ describe("buildBeansArgs", () => {
 });
 
 describe("parseBeansResult", () => {
-  it("returns data on success", () => {
-    expect(parseBeansResult('{"data":{"beans":[]}}')).toEqual({ beans: [] });
+  it("returns the raw result object the binary prints on success", () => {
+    expect(parseBeansResult('{"beans":[]}')).toEqual({ beans: [] });
   });
-  it("throws BeansError listing GraphQL error messages", () => {
-    expect(() => parseBeansResult('{"errors":[{"message":"bad parent"}]}')).toThrowError(
-      BeansError,
-    );
+  it("unwraps a `data` envelope if one is present (forward-compat)", () => {
+    expect(parseBeansResult('{"data":{"beans":[]}}')).toEqual({ beans: [] });
   });
 });

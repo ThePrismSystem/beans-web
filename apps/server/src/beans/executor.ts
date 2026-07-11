@@ -30,18 +30,24 @@ export function buildBeansArgs(opts: RunOpts): string[] {
 
 interface GraphqlResponse {
   data?: unknown;
-  errors?: { message: string }[];
 }
 
 export function parseBeansResult(stdout: string): unknown {
   const parsed = JSON.parse(stdout) as GraphqlResponse;
-  if (parsed.errors?.length) {
-    const messages = parsed.errors.map((e) => e.message);
-    throw new BeansError(messages.join("; "), messages);
-  }
   // The real `beans graphql --json` binary prints the query result directly
-  // (no `{"data": ...}` envelope) on success. Support both shapes.
+  // (no `{"data": ...}` envelope) on success. Unwrap defensively if present.
   return "data" in parsed ? parsed.data : parsed;
+}
+
+const ERROR_LINE = /^Error:\s*(.*)$/m;
+
+function extractBeansErrorMessage(err: unknown): string {
+  const e = err as { stderr?: unknown; message?: unknown };
+  const stderr = typeof e.stderr === "string" ? e.stderr : "";
+  const match = ERROR_LINE.exec(stderr);
+  if (match?.[1]) return match[1];
+  if (typeof e.message === "string") return e.message;
+  return String(err);
 }
 
 export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
@@ -53,7 +59,6 @@ export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
     return parseBeansResult(stdout);
   } catch (err) {
     if (err instanceof BeansError) throw err;
-    const message = err instanceof Error ? err.message : String(err);
-    throw new BeansError(`beans invocation failed: ${message}`);
+    throw new BeansError(extractBeansErrorMessage(err));
   }
 }
