@@ -55,6 +55,42 @@ describe("useEvents", () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ["analytics"] });
   });
 
+  it("ignores a non-JSON payload without throwing or invalidating", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const qc = new QueryClient();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+
+    const { result } = renderHook(() => useEvents(qc));
+
+    act(() => {
+      instances[0]?.onmessage?.({ data: "not json" } as MessageEvent<string>);
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.current.lastEvent).toBeNull();
+  });
+
+  it("ignores a valid-JSON payload of the wrong shape", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const qc = new QueryClient();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+
+    const { result } = renderHook(() => useEvents(qc));
+
+    act(() => {
+      instances[0]?.onmessage?.({ data: JSON.stringify({}) } as MessageEvent<string>);
+      instances[0]?.onmessage?.({
+        data: JSON.stringify({ project: 1, kind: "change" }),
+      } as MessageEvent<string>);
+      instances[0]?.onmessage?.({
+        data: JSON.stringify({ project: "p", kind: "boom" }),
+      } as MessageEvent<string>);
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.current.lastEvent).toBeNull();
+  });
+
   it("tracks the most recent event as lastEvent", () => {
     vi.stubGlobal("EventSource", FakeEventSource);
     const qc = new QueryClient();
