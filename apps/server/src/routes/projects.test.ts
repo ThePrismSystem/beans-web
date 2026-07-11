@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import type { AppDeps } from "../app.js";
@@ -13,6 +14,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     runGraphql: vi.fn(async () => ({})),
     search: vi.fn(async () => []),
     analytics: vi.fn(async () => fakeAnalytics()),
+    watcher: new EventEmitter(),
     ...overrides,
   };
 }
