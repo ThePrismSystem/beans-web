@@ -332,7 +332,10 @@ function BeanDetailContent({
         <section className="bean-detail-section">
           <h2 className="bean-detail-section-title">New bean</h2>
           <CreateBeanForm
-            candidates={candidates}
+            // Include the current bean so a pre-filled parent can render and be
+            // hierarchy-validated; RelationEditor still uses `candidates` (which
+            // excludes the current bean, since a bean cannot parent itself).
+            candidates={[bean, ...candidates]}
             defaultParentId={bean.id}
             onSubmit={handleCreateSubmit}
             onCancel={() => setIsCreating(false)}

@@ -1,6 +1,12 @@
 import { useState } from "react";
 
-import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES, canParent } from "@beans-frontend/shared";
+import {
+  BEAN_PRIORITIES,
+  BEAN_STATUSES,
+  BEAN_TYPES,
+  canParent,
+  validParentTypes,
+} from "@beans-frontend/shared";
 
 import type { CreateBeanInput } from "../api/generated.js";
 import type { ChangeEvent, FormEvent } from "react";
@@ -13,6 +19,29 @@ export interface CreateBeanFormProps {
   onCancel?: () => void;
 }
 
+/**
+ * Reconciles a pre-filled parent with a valid child type so the form can never
+ * open in a hierarchy-violating state. If the pre-filled parent admits at least
+ * one child type, the new bean defaults to the first such type and keeps the
+ * parent; if the parent's type admits no children (task/bug), the parent is
+ * cleared and the form opens blank with the default "task" type.
+ */
+function resolveInitialTypeAndParent(
+  candidates: Bean[],
+  defaultParentId: string | null,
+): { type: BeanType; parentId: string } {
+  if (defaultParentId) {
+    const parent = candidates.find((candidate) => candidate.id === defaultParentId);
+    if (parent) {
+      const childType = BEAN_TYPES.find((option) => canParent(option, parent.type));
+      if (childType) {
+        return { type: childType, parentId: defaultParentId };
+      }
+    }
+  }
+  return { type: "task", parentId: "" };
+}
+
 export function CreateBeanForm({
   candidates,
   defaultParentId,
@@ -20,8 +49,12 @@ export function CreateBeanForm({
   onCancel,
 }: CreateBeanFormProps) {
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<BeanType>("task");
-  const [parentId, setParentId] = useState(defaultParentId ?? "");
+  const [type, setType] = useState<BeanType>(
+    () => resolveInitialTypeAndParent(candidates, defaultParentId ?? null).type,
+  );
+  const [parentId, setParentId] = useState(
+    () => resolveInitialTypeAndParent(candidates, defaultParentId ?? null).parentId,
+  );
   const [status, setStatus] = useState<BeanStatus>("todo");
   const [priority, setPriority] = useState<BeanPriority>("normal");
   const [tags, setTags] = useState("");
@@ -29,7 +62,10 @@ export function CreateBeanForm({
   const [titleError, setTitleError] = useState(false);
 
   const parentOptions = candidates.filter((candidate) => canParent(type, candidate.type));
-  const showParent = parentOptions.length > 0 || parentId !== "";
+  // Show the parent control iff the selected type can have a parent at all
+  // (hidden only for milestones), regardless of whether the project currently
+  // has candidate parents of the right type — matching RelationEditor.
+  const showParent = validParentTypes(type) !== null;
 
   function handleTypeChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextType = BEAN_TYPES.find((option) => option === event.target.value);
@@ -43,6 +79,18 @@ export function CreateBeanForm({
     if (!stillValid) {
       setParentId("");
     }
+  }
+
+  function handleParentChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextParentId = event.target.value;
+    // Only accept a parent that is a valid parent for the current type; any
+    // other value (including a stale one) collapses to "(none)".
+    const valid =
+      nextParentId === "" ||
+      candidates.some(
+        (candidate) => candidate.id === nextParentId && canParent(type, candidate.type),
+      );
+    setParentId(valid ? nextParentId : "");
   }
 
   function handleTagsChange(event: ChangeEvent<HTMLInputElement>) {
@@ -102,11 +150,7 @@ export function CreateBeanForm({
       {showParent && (
         <div className="create-bean-field">
           <label htmlFor="create-bean-parent">Parent</label>
-          <select
-            id="create-bean-parent"
-            value={parentId}
-            onChange={(event) => setParentId(event.target.value)}
-          >
+          <select id="create-bean-parent" value={parentId} onChange={handleParentChange}>
             <option value="">(none)</option>
             {parentOptions.map((option) => (
               <option key={option.id} value={option.id}>

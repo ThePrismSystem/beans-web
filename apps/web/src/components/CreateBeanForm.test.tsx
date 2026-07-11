@@ -76,9 +76,56 @@ describe("CreateBeanForm", () => {
     });
   });
 
-  it("pre-fills the parent with defaultParentId", () => {
-    render(<CreateBeanForm candidates={candidates} defaultParentId="m1" onSubmit={vi.fn()} />);
+  it("pre-fills a valid child type and the parent for a milestone defaultParentId", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<CreateBeanForm candidates={candidates} defaultParentId="m1" onSubmit={onSubmit} />);
 
+    // milestone can parent an epic (first valid child type in BEAN_TYPES order)
+    expect(screen.getByLabelText("Type")).toHaveValue("epic");
     expect(screen.getByLabelText("Parent")).toHaveValue("m1");
+
+    await user.type(screen.getByLabelText("Title"), "Child epic");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ type: "epic", parent: "m1" }));
+  });
+
+  it("clears a pre-filled parent whose type admits no children (task/bug)", async () => {
+    const taskCandidates: Bean[] = [{ ...base, id: "tk1", type: "task", title: "Task One" }];
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <CreateBeanForm candidates={taskCandidates} defaultParentId="tk1" onSubmit={onSubmit} />,
+    );
+
+    // A task cannot be a parent, so parentId is cleared and type stays "task".
+    expect(screen.getByLabelText("Type")).toHaveValue("task");
+    expect(screen.getByLabelText("Parent")).toHaveValue("");
+
+    await user.type(screen.getByLabelText("Title"), "Sibling task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ parent: null }));
+  });
+
+  it("hides the parent control for the milestone type", async () => {
+    const user = userEvent.setup();
+    render(<CreateBeanForm candidates={candidates} onSubmit={vi.fn()} />);
+
+    await user.selectOptions(screen.getByLabelText("Type"), "milestone");
+
+    expect(screen.queryByLabelText("Parent")).not.toBeInTheDocument();
+  });
+
+  it("still renders the Parent control when no candidate parents exist for a non-milestone type", () => {
+    // A task can have a parent; even with zero candidates, the Parent control
+    // must render (offering only "(none)") — the field is hidden only for
+    // milestones.
+    render(<CreateBeanForm candidates={[]} onSubmit={vi.fn()} />);
+
+    const parent = screen.getByLabelText("Parent");
+    expect(parent).toBeInTheDocument();
+    expect(parent).toHaveTextContent("(none)");
   });
 });

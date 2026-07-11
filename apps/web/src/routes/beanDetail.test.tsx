@@ -323,18 +323,44 @@ describe("BeanDetailPage", () => {
     expect(setParentMutate).toHaveBeenCalledWith({ id: "t1", parentId: "m2", etag: "abc" });
   });
 
-  it("submits a new bean pre-filled with the current bean as parent", async () => {
+  it("does not pre-fill the parent when the current bean is a task (no valid child)", async () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
     await user.click(await screen.findByRole("button", { name: "+ New bean" }));
-    await user.type(screen.getByLabelText("Title"), "Child task");
+    await user.type(screen.getByLabelText("Title"), "Sibling task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
-    expect(createBeanMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Child task", parent: "t1" }),
-      expect.anything(),
-    );
+    expect(createBeanMutate).toHaveBeenCalledTimes(1);
+    const [input] = createBeanMutate.mock.calls[0] as [Record<string, unknown>];
+    expect(input.parent).toBeNull();
+    expect(input.title).toBe("Sibling task");
+  });
+
+  it("pre-fills a valid child type and the current bean as parent for a milestone", async () => {
+    const milestoneBean: BeanDetail = {
+      ...bean,
+      id: "ms1",
+      title: "Milestone One",
+      type: "milestone",
+      parentId: null,
+      parent: null,
+      children: [],
+    };
+    useBeanMock.mockReturnValue({ data: milestoneBean, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderBeanDetail("/p/demo/ms1");
+
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.type(screen.getByLabelText("Title"), "Child epic");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(createBeanMutate).toHaveBeenCalledTimes(1);
+    const [input] = createBeanMutate.mock.calls[0] as [Record<string, unknown>];
+    expect(input.parent).toBe("ms1");
+    expect(input.type).toBe("epic"); // first BEAN_TYPES entry that canParent under a milestone
+    expect(input.title).toBe("Child epic");
   });
 
   it("shows a reload prompt for an etag conflict and clears it on reload", async () => {
