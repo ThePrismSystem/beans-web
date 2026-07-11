@@ -41,7 +41,7 @@ describe("useSetParent", () => {
 
     const { result } = renderHook(() => useSetParent("demo"), { wrapper });
 
-    result.current.mutate({ id: "t1", parentId: "m1", etag: "old-etag" });
+    result.current.mutate({ id: "t1", parentId: "m1" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -70,7 +70,7 @@ describe("useSetParent", () => {
 
     const { result } = renderHook(() => useSetParent("demo"), { wrapper });
 
-    result.current.mutate({ id: "t1", parentId: "m1", etag: "old-etag" });
+    result.current.mutate({ id: "t1", parentId: "m1" });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
 
@@ -213,7 +213,7 @@ describe("link mutations", () => {
 
       const { result } = renderHook(() => hook("demo"), { wrapper });
 
-      result.current.mutate({ id: "t1", targetId: "t2", etag: "old-etag" });
+      result.current.mutate({ id: "t1", targetId: "t2" });
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 

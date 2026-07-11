@@ -371,7 +371,6 @@ export type DeleteBeanMutation = { __typename?: "Mutation"; deleteBean: boolean 
 export type SetParentMutationVariables = Exact<{
   id: Scalars["ID"]["input"];
   parentId: InputMaybe<Scalars["String"]["input"]>;
-  ifMatch: InputMaybe<Scalars["String"]["input"]>;
 }>;
 
 export type SetParentMutation = {
@@ -382,7 +381,6 @@ export type SetParentMutation = {
 export type AddBlockingMutationVariables = Exact<{
   id: Scalars["ID"]["input"];
   targetId: Scalars["ID"]["input"];
-  ifMatch: InputMaybe<Scalars["String"]["input"]>;
 }>;
 
 export type AddBlockingMutation = {
@@ -393,7 +391,6 @@ export type AddBlockingMutation = {
 export type RemoveBlockingMutationVariables = Exact<{
   id: Scalars["ID"]["input"];
   targetId: Scalars["ID"]["input"];
-  ifMatch: InputMaybe<Scalars["String"]["input"]>;
 }>;
 
 export type RemoveBlockingMutation = {
@@ -404,7 +401,6 @@ export type RemoveBlockingMutation = {
 export type AddBlockedByMutationVariables = Exact<{
   id: Scalars["ID"]["input"];
   targetId: Scalars["ID"]["input"];
-  ifMatch: InputMaybe<Scalars["String"]["input"]>;
 }>;
 
 export type AddBlockedByMutation = {
@@ -415,7 +411,6 @@ export type AddBlockedByMutation = {
 export type RemoveBlockedByMutationVariables = Exact<{
   id: Scalars["ID"]["input"];
   targetId: Scalars["ID"]["input"];
-  ifMatch: InputMaybe<Scalars["String"]["input"]>;
 }>;
 
 export type RemoveBlockedByMutation = {

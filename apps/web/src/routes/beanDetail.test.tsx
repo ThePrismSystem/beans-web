@@ -320,7 +320,7 @@ describe("BeanDetailPage", () => {
 
     await user.selectOptions(await screen.findByLabelText("Parent"), "m2");
 
-    expect(setParentMutate).toHaveBeenCalledWith({ id: "t1", parentId: "m2", etag: "abc" });
+    expect(setParentMutate).toHaveBeenCalledWith({ id: "t1", parentId: "m2" });
   });
 
   it("does not pre-fill the parent when the current bean is a task (no valid child)", async () => {

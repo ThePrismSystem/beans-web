@@ -69,8 +69,8 @@ export const DELETE_BEAN_MUTATION = /* GraphQL */ `
 `;
 
 export const SET_PARENT_MUTATION = /* GraphQL */ `
-  mutation SetParent($id: ID!, $parentId: String, $ifMatch: String) {
-    setParent(id: $id, parentId: $parentId, ifMatch: $ifMatch) {
+  mutation SetParent($id: ID!, $parentId: String) {
+    setParent(id: $id, parentId: $parentId) {
       id
       etag
     }
@@ -78,8 +78,8 @@ export const SET_PARENT_MUTATION = /* GraphQL */ `
 `;
 
 export const ADD_BLOCKING_MUTATION = /* GraphQL */ `
-  mutation AddBlocking($id: ID!, $targetId: ID!, $ifMatch: String) {
-    addBlocking(id: $id, targetId: $targetId, ifMatch: $ifMatch) {
+  mutation AddBlocking($id: ID!, $targetId: ID!) {
+    addBlocking(id: $id, targetId: $targetId) {
       id
       etag
     }
@@ -87,8 +87,8 @@ export const ADD_BLOCKING_MUTATION = /* GraphQL */ `
 `;
 
 export const REMOVE_BLOCKING_MUTATION = /* GraphQL */ `
-  mutation RemoveBlocking($id: ID!, $targetId: ID!, $ifMatch: String) {
-    removeBlocking(id: $id, targetId: $targetId, ifMatch: $ifMatch) {
+  mutation RemoveBlocking($id: ID!, $targetId: ID!) {
+    removeBlocking(id: $id, targetId: $targetId) {
       id
       etag
     }
@@ -96,8 +96,8 @@ export const REMOVE_BLOCKING_MUTATION = /* GraphQL */ `
 `;
 
 export const ADD_BLOCKED_BY_MUTATION = /* GraphQL */ `
-  mutation AddBlockedBy($id: ID!, $targetId: ID!, $ifMatch: String) {
-    addBlockedBy(id: $id, targetId: $targetId, ifMatch: $ifMatch) {
+  mutation AddBlockedBy($id: ID!, $targetId: ID!) {
+    addBlockedBy(id: $id, targetId: $targetId) {
       id
       etag
     }
@@ -105,8 +105,8 @@ export const ADD_BLOCKED_BY_MUTATION = /* GraphQL */ `
 `;
 
 export const REMOVE_BLOCKED_BY_MUTATION = /* GraphQL */ `
-  mutation RemoveBlockedBy($id: ID!, $targetId: ID!, $ifMatch: String) {
-    removeBlockedBy(id: $id, targetId: $targetId, ifMatch: $ifMatch) {
+  mutation RemoveBlockedBy($id: ID!, $targetId: ID!) {
+    removeBlockedBy(id: $id, targetId: $targetId) {
       id
       etag
     }

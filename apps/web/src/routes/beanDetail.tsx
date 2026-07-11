@@ -148,19 +148,19 @@ function BeanDetailContent({
   function handleRelationChange(change: RelationChange) {
     switch (change.kind) {
       case "setParent":
-        setParent.mutate({ id: bean.id, parentId: change.parentId, etag: bean.etag });
+        setParent.mutate({ id: bean.id, parentId: change.parentId });
         break;
       case "addBlocking":
-        addBlocking.mutate({ id: bean.id, targetId: change.targetId, etag: bean.etag });
+        addBlocking.mutate({ id: bean.id, targetId: change.targetId });
         break;
       case "removeBlocking":
-        removeBlocking.mutate({ id: bean.id, targetId: change.targetId, etag: bean.etag });
+        removeBlocking.mutate({ id: bean.id, targetId: change.targetId });
         break;
       case "addBlockedBy":
-        addBlockedBy.mutate({ id: bean.id, targetId: change.targetId, etag: bean.etag });
+        addBlockedBy.mutate({ id: bean.id, targetId: change.targetId });
         break;
       case "removeBlockedBy":
-        removeBlockedBy.mutate({ id: bean.id, targetId: change.targetId, etag: bean.etag });
+        removeBlockedBy.mutate({ id: bean.id, targetId: change.targetId });
         break;
     }
   }

@@ -58,15 +58,18 @@ describe("GraphQL operation documents", () => {
     expect(BEAN_DETAIL_QUERY).toContain("blockedBy {");
   });
 
-  it("relation mutations accept an optional ifMatch argument", () => {
+  it("no mutation document references ifMatch (disabled pending an upstream beans fix)", () => {
     for (const document of [
+      UPDATE_BEAN_MUTATION,
+      CREATE_BEAN_MUTATION,
+      DELETE_BEAN_MUTATION,
       SET_PARENT_MUTATION,
       ADD_BLOCKING_MUTATION,
       REMOVE_BLOCKING_MUTATION,
       ADD_BLOCKED_BY_MUTATION,
       REMOVE_BLOCKED_BY_MUTATION,
     ]) {
-      expect(document).toContain("$ifMatch: String");
+      expect(document).not.toContain("ifMatch");
     }
   });
 });

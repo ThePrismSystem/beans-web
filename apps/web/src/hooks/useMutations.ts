@@ -17,8 +17,8 @@ import type { QueryClient, UseMutationResult } from "@tanstack/react-query";
 
 const ETAG_CONFLICT_PATTERN = /etag mismatch/i;
 
-// NOTE: mutations below accept an `etag` from the caller (the value most
-// recently read for this bean) but do not currently forward it as `ifMatch`.
+// NOTE: `useUpdateBean` still accepts an `etag` from the caller (the value
+// most recently read for this bean) but does not forward it as `ifMatch`.
 // The installed `beans` binary's mutation resolvers validate `ifMatch`
 // against a value that disagrees with the etag its own queries and
 // `beans show --etag-only` report for the identical, untouched bean — every
@@ -26,9 +26,10 @@ const ETAG_CONFLICT_PATTERN = /etag mismatch/i;
 // immediately after a fresh read with no intervening write (reproduced
 // against both a local build and the officially published `beans` release,
 // see task-16-report.md). Until that's fixed upstream, mutations omit
-// `ifMatch` so edits actually succeed; `isEtagConflict`/`describeMutationError`
-// stay in place so the conflict UI resumes working the moment beans's etag
-// check is fixed and starts returning genuine mismatches again.
+// `ifMatch` entirely (the other mutations below don't even accept an `etag`
+// variable); `isEtagConflict`/`describeMutationError` stay in place so the
+// conflict UI resumes working the moment beans's etag check is fixed and
+// starts returning genuine mismatches again.
 
 /** True when a mutation error is a beans etag/optimistic-concurrency conflict. */
 export function isEtagConflict(error: unknown): boolean {
@@ -132,7 +133,6 @@ export function useDeleteBean(
 export interface SetParentVariables {
   id: string;
   parentId: string | null;
-  etag: string;
 }
 
 export function useSetParent(
@@ -154,7 +154,6 @@ export function useSetParent(
 export interface LinkVariables {
   id: string;
   targetId: string;
-  etag: string;
 }
 
 function useLinkMutation(
