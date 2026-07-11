@@ -294,3 +294,51 @@ export type UpdateBeanInput = {
   /** New type */
   type: InputMaybe<Scalars["String"]["input"]>;
 };
+
+export type BeanDetailQueryVariables = Exact<{
+  id: Scalars["ID"]["input"];
+}>;
+
+export type BeanDetailQuery = {
+  __typename?: "Query";
+  bean: {
+    __typename?: "Bean";
+    id: string;
+    slug: string | null;
+    path: string;
+    title: string;
+    status: string;
+    type: string;
+    priority: string;
+    tags: Array<string>;
+    body: string;
+    etag: string;
+    parentId: string | null;
+    createdAt: string;
+    updatedAt: string;
+    blockingIds: Array<string>;
+    blockedByIds: Array<string>;
+    parent: { __typename?: "Bean"; id: string; title: string; type: string; status: string } | null;
+    children: Array<{
+      __typename?: "Bean";
+      id: string;
+      title: string;
+      type: string;
+      status: string;
+    }>;
+    blocking: Array<{
+      __typename?: "Bean";
+      id: string;
+      title: string;
+      type: string;
+      status: string;
+    }>;
+    blockedBy: Array<{
+      __typename?: "Bean";
+      id: string;
+      title: string;
+      type: string;
+      status: string;
+    }>;
+  } | null;
+};

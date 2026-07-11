@@ -380,6 +380,97 @@ a {
   width: 1.5rem;
 }
 
+/* Bean detail page */
+
+.bean-detail {
+  max-width: 42rem;
+}
+
+.bean-detail-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.bean-detail-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.bean-detail-title {
+  flex: 1;
+  font-family: var(--font-serif);
+}
+
+.bean-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.bean-detail-priority {
+  text-transform: capitalize;
+}
+
+.bean-detail-body {
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.bean-detail-body :first-child {
+  margin-top: 0;
+}
+
+/* Linked beans */
+
+.linked-beans {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.linked-beans-group-label {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.linked-beans-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hairline);
+}
+
+.linked-bean-item {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.linked-bean-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.linked-bean-link:hover {
+  background: var(--paper-raised);
+}
+
+.linked-bean-title {
+  font-family: var(--font-serif);
+}
+
 /* Responsive: reclaim horizontal space by shrinking the indentation unit
    (via the --indent token, redefined in tokens.css) instead of removing
    nesting entirely. */

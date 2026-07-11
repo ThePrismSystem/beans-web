@@ -18,7 +18,9 @@
     "@beans-frontend/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-router": "^1.170.17",
+    "dompurify": "^3.4.12",
     "graphql": "^16.10.0",
+    "marked": "^18.0.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
