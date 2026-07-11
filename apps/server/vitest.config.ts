@@ -19,6 +19,9 @@ export default defineConfig({
         "**/*.integration.spec.ts",
         "**/__tests__/**",
         "**/*.d.ts",
+        // entrypoint / live server bootstrap: calls serve() and BeansWatcher on
+        // real dirs at module load time, not exercised by tests
+        "src/index.ts",
       ],
       reporter: ["text", "lcov", "html"],
       reportsDirectory: "./coverage",
