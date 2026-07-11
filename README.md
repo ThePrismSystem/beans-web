@@ -110,6 +110,12 @@ pnpm --filter @beans-frontend/web exec playwright test
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more detail on the development workflow.
 
+## Known limitations
+
+- **Last-write-wins editing** — optimistic-concurrency (etag/`ifMatch`) guarding is disabled due
+  to an upstream `beans` v0.4.2 bug; see
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-limitation--optimistic-concurrency).
+
 ## License
 
 [MIT](LICENSE)

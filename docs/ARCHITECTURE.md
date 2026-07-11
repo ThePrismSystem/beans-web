@@ -71,6 +71,20 @@ in sync with `apps/web/beans.schema.graphql` via `graphql-codegen`, see `apps/we
 `/api/projects/:name/graphql`, so the request/response shapes are checked against the real
 `beans` schema at build time rather than hand-typed.
 
+## Known limitation — optimistic concurrency
+
+The `beans` GraphQL schema supports optimistic-concurrency guarding via an `ifMatch` etag argument
+on mutations, and the web app's mutation hooks (`apps/web/src/hooks/useMutations.ts`) still carry
+`isEtagConflict`/`describeMutationError` and a "this bean changed on disk — reload" UI prompt for
+it. In the installed `beans` v0.4.2 binary, though, mutation resolvers reject a freshly-queried
+etag as a mismatch even immediately after a read with no intervening write — every etag-guarded
+mutation fails, making editing impossible. Until that's fixed upstream, no mutation document sends
+`ifMatch`, so bean edits are **last-write-wins**: if a bean is edited both in the browser and via
+an external `beans` CLI invocation (or another agent/tab) between load and save, whichever save
+lands last silently overwrites the other, with no conflict surfaced. The conflict-handling code
+and UI are intentionally retained (not deleted) so re-adding `ifMatch` to the mutation documents is
+enough to reactivate real conflict detection once the upstream bug is fixed.
+
 ## Data flow
 
 ```
