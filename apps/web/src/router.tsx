@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter } from "@tanstack/react-rout
 
 import { AppShell } from "./components/AppShell.js";
 import { Overview } from "./routes/overview.js";
+import { ProjectList, validateProjectSearch } from "./routes/projectList.js";
 
 function ComingSoon() {
   return <div>Coming soon</div>;
@@ -18,7 +19,8 @@ const overviewRoute = createRoute({
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/p/$project",
-  component: ComingSoon,
+  validateSearch: validateProjectSearch,
+  component: ProjectList,
 });
 
 const beanRoute = createRoute({

@@ -228,3 +228,177 @@ a {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+/* Project list */
+
+.project-list-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-toggle button {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  background: var(--paper-raised);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.view-toggle button + button {
+  border-left: 1px solid var(--hairline);
+}
+
+.view-toggle button.active {
+  background: var(--paper);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Filter bar */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-bar input,
+.filter-bar select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.filter-search {
+  flex: 1 1 220px;
+}
+
+.filter-tags {
+  flex: 0 1 200px;
+}
+
+/* Bean row */
+
+.bean-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 4px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.bean-row:hover {
+  background: var(--paper-raised);
+}
+
+.bean-row-title {
+  flex: 1;
+  font-family: var(--font-serif);
+}
+
+/* Flat list */
+
+.flat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hairline);
+}
+
+.flat-list li {
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Hierarchy list */
+
+.hierarchy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.hierarchy-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--t-milestone);
+  font-size: 1.05rem;
+}
+
+.hierarchy-children {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hierarchy-node {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.hierarchy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.hierarchy-caret {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.hierarchy-caret-spacer {
+  flex-shrink: 0;
+  width: 1.5rem;
+}
+
+/* Responsive: reclaim horizontal space by shrinking the indentation unit
+   (via the --indent token, redefined in tokens.css) instead of removing
+   nesting entirely. */
+@media (max-width: 640px) {
+  .hierarchy-caret,
+  .hierarchy-caret-spacer {
+    width: 1.75rem;
+  }
+
+  .hierarchy-section-header {
+    font-size: 0.95rem;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+  }
+
+  .filter-bar input,
+  .filter-bar select {
+    width: 100%;
+  }
+}
