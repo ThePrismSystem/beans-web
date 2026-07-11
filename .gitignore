@@ -31,5 +31,6 @@ out/
 # Temporary files
 # Testing
 test-results/
+playwright-report/
 .tmp/
 .vscode/
