@@ -120,9 +120,38 @@ a {
 
 .app-header {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.75rem;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid var(--hairline);
+}
+
+.updated-pill {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  animation: updated-pill-fade 2000ms ease-out;
+}
+
+@keyframes updated-pill-fade {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .search-entry {
