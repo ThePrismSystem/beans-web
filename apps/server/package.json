@@ -1,0 +1,31 @@
+{
+  "name": "@beans-frontend/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude '**/*.integration.{test,spec}.ts'",
+    "test:coverage": "vitest run --coverage",
+    "test:unit:coverage": "vitest run --exclude '**/*.integration.{test,spec}.ts' --coverage",
+    "knip": "knip"
+  },
+  "dependencies": {
+    "@beans-frontend/shared": "workspace:*",
+    "@hono/node-server": "^1.13.0",
+    "hono": "^4.6.0",
+    "chokidar": "^4.0.0",
+    "@t3-oss/env-core": "^0.13.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.1.0",
+    "tsx": "^4.19.0",
+    "vitest": "^4.1.0"
+  }
+}

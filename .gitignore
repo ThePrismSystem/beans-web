@@ -1,6 +1,35 @@
-node_modules/
+
+*~
+# Agent config (per-contributor)
+build/
+# Build output
+.claude/
+CLAUDE.md
+coverage/
+# Dependencies
 dist/
-.superpowers/
-*.log
+.DS_Store
 .env
+.env.*
+!.env.example
+# Environment and secrets
 .env.local
+# IDE
+.idea/
+*.key
+*.log
+.next/
+node_modules/
+.nyc_output/
+out/
+*.patch
+*.pem
+.pnpm-store/
+.superpowers/
+*.swo
+*.swp
+# Temporary files
+# Testing
+test-results/
+.tmp/
+.vscode/
