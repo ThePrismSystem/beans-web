@@ -342,3 +342,83 @@ export type BeanDetailQuery = {
     }>;
   } | null;
 };
+
+export type UpdateBeanMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+  input: UpdateBeanInput;
+}>;
+
+export type UpdateBeanMutation = {
+  __typename?: "Mutation";
+  updateBean: { __typename?: "Bean"; id: string; etag: string };
+};
+
+export type CreateBeanMutationVariables = Exact<{
+  input: CreateBeanInput;
+}>;
+
+export type CreateBeanMutation = {
+  __typename?: "Mutation";
+  createBean: { __typename?: "Bean"; id: string; etag: string };
+};
+
+export type DeleteBeanMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+}>;
+
+export type DeleteBeanMutation = { __typename?: "Mutation"; deleteBean: boolean };
+
+export type SetParentMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+  parentId: InputMaybe<Scalars["String"]["input"]>;
+  ifMatch: InputMaybe<Scalars["String"]["input"]>;
+}>;
+
+export type SetParentMutation = {
+  __typename?: "Mutation";
+  setParent: { __typename?: "Bean"; id: string; etag: string };
+};
+
+export type AddBlockingMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+  targetId: Scalars["ID"]["input"];
+  ifMatch: InputMaybe<Scalars["String"]["input"]>;
+}>;
+
+export type AddBlockingMutation = {
+  __typename?: "Mutation";
+  addBlocking: { __typename?: "Bean"; id: string; etag: string };
+};
+
+export type RemoveBlockingMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+  targetId: Scalars["ID"]["input"];
+  ifMatch: InputMaybe<Scalars["String"]["input"]>;
+}>;
+
+export type RemoveBlockingMutation = {
+  __typename?: "Mutation";
+  removeBlocking: { __typename?: "Bean"; id: string; etag: string };
+};
+
+export type AddBlockedByMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+  targetId: Scalars["ID"]["input"];
+  ifMatch: InputMaybe<Scalars["String"]["input"]>;
+}>;
+
+export type AddBlockedByMutation = {
+  __typename?: "Mutation";
+  addBlockedBy: { __typename?: "Bean"; id: string; etag: string };
+};
+
+export type RemoveBlockedByMutationVariables = Exact<{
+  id: Scalars["ID"]["input"];
+  targetId: Scalars["ID"]["input"];
+  ifMatch: InputMaybe<Scalars["String"]["input"]>;
+}>;
+
+export type RemoveBlockedByMutation = {
+  __typename?: "Mutation";
+  removeBlockedBy: { __typename?: "Bean"; id: string; etag: string };
+};
