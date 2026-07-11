@@ -7,7 +7,7 @@ import type {
 } from "@beans-frontend/shared";
 import { BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
-export function fakeCounts(): ProjectCounts {
+function fakeCounts(): ProjectCounts {
   const byType = Object.fromEntries(BEAN_TYPES.map((t) => [t, 0])) as Record<BeanType, number>;
   const byStatus = Object.fromEntries(BEAN_STATUSES.map((s) => [s, 0])) as Record<
     BeanStatus,
