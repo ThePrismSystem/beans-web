@@ -302,7 +302,7 @@ a {
 }
 
 .filter-tags {
-  flex: 0 1 200px;
+  flex: 0 1 150px;
 }
 
 /* Desktop: all filters visible inline; the mobile disclosure toggle is hidden
