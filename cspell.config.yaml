@@ -36,6 +36,14 @@ words:
   - youruser
   - frontmatter
   - unstub
+  - hhroot
+  - romn
+  - mousedown
+  - srgb
+  - mediabox
+  - ringoutmn
+  - reparents
+  - navigations
 ignorePaths:
   - node_modules
   - dist
