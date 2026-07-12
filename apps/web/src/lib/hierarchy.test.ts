@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGroupedSections, buildTree, pruneTreeToMatches } from "./hierarchy.js";
+import {
+  buildGroupedSections,
+  buildTree,
+  collectCollapsibleIds,
+  pruneTreeToMatches,
+} from "./hierarchy.js";
 
 import type { Bean } from "@beans-frontend/shared";
 
@@ -141,5 +146,24 @@ describe("buildGroupedSections", () => {
     expect(sections[0]?.bean.id).toBe("e1");
     expect(sections[0]?.depth).toBe(0);
     expect(sections[0]?.leaves.map((b) => b.id)).toEqual(["t1"]);
+  });
+});
+
+describe("collectCollapsibleIds", () => {
+  it("collects ids of every node that has children", () => {
+    const nodes = [
+      {
+        bean: { id: "m1" } as never,
+        depth: 0,
+        children: [
+          {
+            bean: { id: "e1" } as never,
+            depth: 1,
+            children: [{ bean: { id: "t1" } as never, depth: 2, children: [] }],
+          },
+        ],
+      },
+    ];
+    expect(collectCollapsibleIds(nodes).sort()).toEqual(["e1", "m1"]);
   });
 });

@@ -3,7 +3,12 @@ import { useMemo, useState } from "react";
 import { BeanRow } from "./BeanRow.js";
 
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
-import { buildGroupedSections, buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
+import {
+  buildGroupedSections,
+  buildTree,
+  collectCollapsibleIds,
+  pruneTreeToMatches,
+} from "../lib/hierarchy.js";
 
 import type { BeanNode, GroupedSection } from "../lib/hierarchy.js";
 import type { Bean, BeanType } from "@beans-frontend/shared";
@@ -47,7 +52,6 @@ export function HierarchyList({
       roots: pruneTreeToMatches(tree.roots, matches),
     };
   }, [tree, typeFilter]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // CSS media queries can't restructure the DOM, so the shallower mobile
   // grouping (milestones + epics as section headers, everything else
   // flattened to one indent level beneath its nearest section) is driven by
@@ -57,6 +61,21 @@ export function HierarchyList({
     () => buildGroupedSections([...milestones, ...roots]),
     [milestones, roots],
   );
+  // The hierarchy starts fully collapsed: only top-level beans (and section
+  // headers) are visible until a caret is expanded. Recomputed whenever the
+  // underlying tree/grouping changes, which also resets any user-driven
+  // expand/collapse state back to fully collapsed.
+  const initialCollapsed = useMemo(() => {
+    const treeIds = collectCollapsibleIds([...milestones, ...roots]);
+    const sectionIds = grouped.sections.filter((s) => s.leaves.length > 0).map((s) => s.bean.id);
+    return new Set<string>([...treeIds, ...sectionIds]);
+  }, [milestones, roots, grouped]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(initialCollapsed);
+  const [seededFor, setSeededFor] = useState(initialCollapsed);
+  if (seededFor !== initialCollapsed) {
+    setSeededFor(initialCollapsed);
+    setCollapsed(initialCollapsed);
+  }
 
   function toggle(id: string) {
     setCollapsed((current) => toggleId(current, id));

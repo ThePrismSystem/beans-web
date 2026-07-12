@@ -50,6 +50,25 @@ export function pruneTreeToMatches(
   return result;
 }
 
+/**
+ * Recursively collects the id of every node that has at least one child,
+ * used to seed the collapsed set so a hierarchy starts fully collapsed
+ * (only leaf-less top-level nodes visible).
+ */
+export function collectCollapsibleIds(nodes: BeanNode[]): string[] {
+  const ids: string[] = [];
+  const walk = (list: BeanNode[]) => {
+    for (const node of list) {
+      if (node.children.length > 0) {
+        ids.push(node.bean.id);
+        walk(node.children);
+      }
+    }
+  };
+  walk(nodes);
+  return ids;
+}
+
 export interface GroupedSection {
   bean: Bean;
   /** Indent level for the section header itself (0 for a top-level section). */

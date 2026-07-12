@@ -203,6 +203,10 @@ describe("ProjectList", () => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
     });
     expect(screen.getByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
+
     expect(screen.getByText("Task One")).toBeInTheDocument();
     expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
   });

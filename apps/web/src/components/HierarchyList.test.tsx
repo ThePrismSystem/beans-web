@@ -60,8 +60,26 @@ describe("HierarchyList", () => {
     expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
   });
 
-  it("renders a nested task at a greater indent than its epic", async () => {
+  it("starts collapsed, showing only top-level sections", async () => {
+    const user = userEvent.setup();
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
+
+    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
+    expect(screen.queryByText("Task One")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
+
+    expect(screen.getByText("Epic One")).toBeInTheDocument();
+    expect(screen.queryByText("Task One")).not.toBeInTheDocument();
+  });
+
+  it("renders a nested task at a greater indent than its epic", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HierarchyList project="demo" beans={beans} />);
+
+    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
 
     const epicRow = (await screen.findByText("Epic One")).closest("[data-depth]");
     const taskRow = screen.getByText("Task One").closest("[data-depth]");
@@ -76,6 +94,8 @@ describe("HierarchyList", () => {
     const user = userEvent.setup();
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
 
+    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
     expect(await screen.findByText("Task One")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Collapse Epic One" }));
@@ -87,6 +107,8 @@ describe("HierarchyList", () => {
     const user = userEvent.setup();
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
 
+    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
     await screen.findByText("Task One");
     await user.click(screen.getByRole("button", { name: "Collapse Epic One" }));
     expect(screen.queryByText("Task One")).not.toBeInTheDocument();
@@ -112,13 +134,18 @@ describe("HierarchyList", () => {
 
   describe("with a type filter", () => {
     it("keeps ancestor milestones and epics as context while hiding non-matching beans", async () => {
+      const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={beans} typeFilter={["task"]} />);
 
       expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
-      expect(screen.getByText("Epic One")).toBeInTheDocument();
-      expect(screen.getByText("Task One")).toBeInTheDocument();
       expect(screen.getByText("Orphan Task")).toBeInTheDocument();
       expect(screen.queryByText("Empty Milestone")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
+      expect(screen.getByText("Epic One")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
+      expect(screen.getByText("Task One")).toBeInTheDocument();
     });
   });
 
@@ -136,10 +163,12 @@ describe("HierarchyList", () => {
 
     it("renders an epic as a section header with a deeply-nested task at a single indent beneath it", async () => {
       stubMobileViewport(true);
+      const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
 
       const epicHeading = await screen.findByRole("heading", { name: /Epic One/ });
       const epicRow = epicHeading.closest("[data-depth]");
+      await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
       const taskRow = (await screen.findByText("Deep Task")).closest("[data-depth]");
       expect(epicRow).not.toBeNull();
       expect(taskRow).not.toBeNull();
@@ -155,6 +184,7 @@ describe("HierarchyList", () => {
       const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
 
+      await user.click(await screen.findByRole("button", { name: "Expand Epic One" }));
       await screen.findByText("Deep Task");
 
       await user.click(screen.getByRole("button", { name: "Collapse Epic One" }));
@@ -166,10 +196,15 @@ describe("HierarchyList", () => {
 
     it("renders full nesting depth when the viewport does not match the mobile query", async () => {
       stubMobileViewport(false);
+      const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
 
+      await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+      await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
       const featureHeading = await screen.findByText("Feature One");
       expect(featureHeading.closest("[data-depth]")?.getAttribute("data-depth")).toBe("2");
+
+      await user.click(screen.getByRole("button", { name: "Expand Feature One" }));
       const taskRow = screen.getByText("Deep Task").closest("[data-depth]");
       expect(taskRow?.getAttribute("data-depth")).toBe("3");
     });
