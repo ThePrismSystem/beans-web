@@ -165,14 +165,6 @@ a {
   font-size: 0.9rem;
 }
 
-.search-entry kbd {
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--hairline);
-  border-radius: 3px;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-}
-
 .app-content {
   padding: 2rem;
 }

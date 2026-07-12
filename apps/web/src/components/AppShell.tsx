@@ -34,7 +34,6 @@ export function AppShell() {
           )}
           <Link to="/search" className="search-entry" role="search" aria-label="Global search">
             <span className="search-hint">Search beans</span>
-            <kbd>⌘K</kbd>
           </Link>
         </header>
         <main className="app-content">
