@@ -1,5 +1,5 @@
 import { Link, useSearch as useRouteSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
 import { StatusDot } from "../components/StatusDot.js";
@@ -29,6 +29,15 @@ function SearchResultRow({ hit }: { hit: SearchHit }) {
 export function SearchPage() {
   const routeSearch = useRouteSearch({ strict: false });
   const [query, setQuery] = useState(routeSearch.q ?? "");
+
+  // SearchPage never writes to the URL itself (only header-search Enter
+  // does), so it's safe to resync from the route whenever ?q= changes while
+  // this page stays mounted, e.g. navigating here again from the header
+  // search with a new query.
+  useEffect(() => {
+    setQuery(routeSearch.q ?? "");
+  }, [routeSearch.q]);
+
   const trimmed = query.trim();
   const debounced = useDebouncedValue(trimmed, SEARCH_DEBOUNCE_MS);
   const { data, isPending, isError } = useSearch(debounced);
