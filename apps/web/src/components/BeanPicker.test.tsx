@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BeanPicker } from "./BeanPicker.js";
 
+import type { BeanPickerProps } from "./BeanPicker.js";
+
 const candidates = [
   { id: "e1", title: "Epic one", type: "epic", status: "todo" } as never,
   { id: "e2", title: "Epic two", type: "epic", status: "completed" } as never,
@@ -116,5 +118,28 @@ describe("BeanPicker", () => {
     );
     await user.type(screen.getByLabelText("Search beans"), "nope");
     expect(screen.queryByText("Epic one")).not.toBeInTheDocument();
+  });
+
+  it("resets selection when reopened", async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    const props: BeanPickerProps = {
+      open: true,
+      title: "Add blocks",
+      candidates,
+      mode: "multi",
+      onPick,
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(<BeanPicker {...props} />);
+
+    await user.click(screen.getByLabelText("Select Epic one"));
+    expect(screen.getByRole("button", { name: "Add 1" })).toBeInTheDocument();
+
+    rerender(<BeanPicker {...props} open={false} />);
+    rerender(<BeanPicker {...props} open={true} />);
+
+    expect(screen.getByRole("button", { name: "Add 0" })).toBeDisabled();
+    expect(screen.getByLabelText("Select Epic one")).not.toBeChecked();
   });
 });

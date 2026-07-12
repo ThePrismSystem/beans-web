@@ -47,6 +47,21 @@ export function BeanPicker({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
+  // RelationEditor keeps its BeanPicker instances always mounted and toggles
+  // `open` instead of unmounting, so transient selection/filter state has to
+  // be reset explicitly on each closed→open transition. Without this, a
+  // previous multi-select stays checked after "Add" dispatches and closes
+  // the picker, and reopening lets that stale checked set be re-dispatched.
+  useEffect(() => {
+    if (open) {
+      setChecked([]);
+      setSearch("");
+      setTypes([]);
+      setStatuses([...OPEN_STATUSES]);
+      setPrefixes([]);
+    }
+  }, [open]);
+
   if (!open) return null;
 
   const prefixOptions = distinctPrefixes(candidates);
