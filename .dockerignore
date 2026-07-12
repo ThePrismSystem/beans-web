@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/coverage
+.git
+.github
+.superpowers
+.env
+.env.*
+*.log
+.DS_Store
+test-results
+playwright-report
+docs/superpowers

@@ -44,6 +44,13 @@ words:
   - ringoutmn
   - reparents
   - navigations
+  - authelia
+  - certresolver
+  - healthcheck
+  - homelab
+  - subfolders
+  - tmpfs
+  - websecure
 ignorePaths:
   - node_modules
   - dist

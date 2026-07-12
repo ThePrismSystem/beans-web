@@ -90,6 +90,15 @@ GIT_ROOT=/path/to/your/git/projects PORT=4780 pnpm start
 
 Then visit `http://127.0.0.1:4780`.
 
+### Docker
+
+A production `Dockerfile` (multi-stage: it also builds the `beans` CLI), a
+`.dockerignore`, and a reference `docker-compose.example.yml` are included. The
+image bind-mounts your projects directory read-write at `GIT_ROOT` and serves
+the SPA + API on port `4780`. See
+[`docs/DOCKER_HANDOFF.md`](docs/DOCKER_HANDOFF.md) for building, configuration,
+volume/ownership, Traefik, and security notes.
+
 ## Quality checks
 
 ```bash

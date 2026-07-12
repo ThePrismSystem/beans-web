@@ -1,0 +1,59 @@
+# Reference compose for beans-frontend.
+#
+# The real deployment folds this single service into an existing Docker Compose
+# stack fronted by Traefik (see docs/DOCKER_HANDOFF.md). This file is a working
+# standalone starting point — copy the `beans-frontend` service into your stack
+# and wire it to your Traefik network + labels.
+
+services:
+  beans-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Pin the beans CLI version instead of tracking latest (needs Go >= 1.24.6):
+      # args:
+      #   BEANS_VERSION: v0.4.2
+    image: beans-frontend:latest
+    container_name: beans-frontend
+    restart: unless-stopped
+
+    # Run as the host UID:GID that OWNS your git projects, so beans created or
+    # edited through the UI are written with your ownership rather than root's.
+    # user: "1000:1000"
+
+    environment:
+      GIT_ROOT: /projects # scan root inside the container (matches the mount below)
+      SCAN_DEPTH: "1" # each immediate subdir with a .beans.yml is one project
+      HOST: 0.0.0.0 # must bind all interfaces inside the container
+      PORT: "4780"
+      NODE_ENV: production
+      BEANS_BIN: beans # the static beans binary baked into the image (on PATH)
+
+    volumes:
+      # READ-WRITE on purpose: the UI creates / edits / scraps beans, which
+      # writes to the on-disk .beans files. Point the left side at your projects.
+      - /home/youruser/git:/projects
+
+    expose:
+      - "4780"
+
+    # For standalone testing WITHOUT Traefik, publish the port instead:
+    # ports:
+    #   - "4780:4780"
+
+    # --- Traefik (adapt entrypoints / certresolver / network to your stack) ---
+    # networks:
+    #   - traefik
+    # labels:
+    #   traefik.enable: "true"
+    #   traefik.http.routers.beans.rule: "Host(`beans.example.com`)"
+    #   traefik.http.routers.beans.entrypoints: "websecure"
+    #   traefik.http.routers.beans.tls.certresolver: "letsencrypt"
+    #   traefik.http.services.beans.loadbalancer.server.port: "4780"
+    #   # STRONGLY recommended: this UI reads AND writes your project data, so it
+    #   # must not be exposed unauthenticated. Protect it with your SSO middleware:
+    #   traefik.http.routers.beans.middlewares: "authelia@docker"
+
+# networks:
+#   traefik:
+#     external: true
