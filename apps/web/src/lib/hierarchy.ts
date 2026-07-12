@@ -49,3 +49,65 @@ export function pruneTreeToMatches(
   }
   return result;
 }
+
+export interface GroupedSection {
+  bean: Bean;
+  /** Indent level for the section header itself (0 for a top-level section). */
+  depth: number;
+  /** All non-container descendants, flattened to a single list regardless of original nesting depth. */
+  leaves: Bean[];
+}
+
+/**
+ * Collects every descendant of `node` that is NOT itself a milestone/epic
+ * section header into `sink`, flattening deep nesting (e.g. epic -> feature
+ * -> task) into a single list. Stops descending into a nested epic since
+ * that epic gets its own section instead of being absorbed as a leaf.
+ */
+function collectLeaves(node: BeanNode, sink: Bean[]): void {
+  for (const child of node.children) {
+    if (child.bean.type === "epic") {
+      continue;
+    }
+    sink.push(child.bean);
+    collectLeaves(child, sink);
+  }
+}
+
+function pushSections(node: BeanNode, depth: number, sections: GroupedSection[]): void {
+  const leaves: Bean[] = [];
+  collectLeaves(node, leaves);
+  leaves.sort((a, b) => a.title.localeCompare(b.title));
+  sections.push({ bean: node.bean, depth, leaves });
+  for (const child of node.children) {
+    if (child.bean.type === "epic") {
+      pushSections(child, depth + 1, sections);
+    }
+  }
+}
+
+/**
+ * Builds a shallow, mobile-friendly grouping from a full BeanNode tree
+ * (as produced by `buildTree`, optionally pruned by `pruneTreeToMatches`):
+ * milestones and epics become section headers, and every other descendant
+ * (features/tasks/bugs, at any depth) is flattened to a single indent level
+ * beneath its nearest milestone/epic section instead of nesting deeply.
+ * Parent-less non-container beans are returned as `rootLeaves` with no
+ * forced header, matching how `buildTree`'s `roots` render today.
+ */
+export function buildGroupedSections(nodes: BeanNode[]): {
+  sections: GroupedSection[];
+  rootLeaves: Bean[];
+} {
+  const sections: GroupedSection[] = [];
+  const rootLeaves: Bean[] = [];
+  for (const node of nodes) {
+    if (node.bean.type === "milestone" || node.bean.type === "epic") {
+      pushSections(node, 0, sections);
+    } else {
+      rootLeaves.push(node.bean);
+      collectLeaves(node, rootLeaves);
+    }
+  }
+  return { sections, rootLeaves };
+}

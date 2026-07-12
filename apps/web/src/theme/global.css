@@ -401,6 +401,14 @@ a {
   width: 1.5rem;
 }
 
+/* Grouped mobile hierarchy: milestones and epics both act as section
+   headers, so give the epic header its own hue instead of inheriting the
+   milestone color. */
+.hierarchy-grouped-section--epic > .hierarchy-section-header {
+  color: var(--t-epic);
+  font-size: 0.95rem;
+}
+
 /* Bean detail page */
 
 .bean-detail {
