@@ -1,11 +1,17 @@
 import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import { lazy } from "react";
 
 import { AppShell } from "./components/AppShell.js";
-import { AnalyticsPage } from "./routes/analytics.js";
 import { BeanDetailPage } from "./routes/beanDetail.js";
 import { Overview } from "./routes/overview.js";
 import { ProjectList, validateProjectSearch } from "./routes/projectList.js";
 import { SearchPage } from "./routes/search.js";
+
+// Analytics pulls in the charting library; code-split it so it isn't in the
+// initial bundle. Rendered under the Suspense boundary in AppShell.
+const AnalyticsPage = lazy(() =>
+  import("./routes/analytics.js").then((m) => ({ default: m.AnalyticsPage })),
+);
 
 const rootRoute = createRootRoute({ component: AppShell });
 

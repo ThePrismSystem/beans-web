@@ -94,4 +94,26 @@ describe("FilterBar", () => {
 
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_BEAN_FILTER, tags: [] });
   });
+
+  it("toggles the mobile filter disclosure", async () => {
+    const user = userEvent.setup();
+    render(<FilterBar filter={EMPTY_BEAN_FILTER} onChange={vi.fn()} />);
+
+    const toggle = screen.getByRole("button", { name: /^Filters/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows the active filter count on the disclosure toggle", () => {
+    render(
+      <FilterBar
+        filter={{ ...EMPTY_BEAN_FILTER, type: ["epic"], status: ["todo"] }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Filters (2)" })).toBeInTheDocument();
+  });
 });
