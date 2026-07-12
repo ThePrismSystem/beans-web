@@ -1,8 +1,9 @@
-import { Link, Outlet, useParams } from "@tanstack/react-router";
+import { Outlet, useParams } from "@tanstack/react-router";
 import { Suspense, useEffect, useState } from "react";
 
 import { useEvents } from "../hooks/useEvents.js";
 import { useProjects } from "../hooks/useProjects.js";
+import { HeaderSearch } from "./HeaderSearch.js";
 import { Sidebar } from "./Sidebar.js";
 
 const UPDATED_INDICATOR_DURATION_MS = 2000;
@@ -68,9 +69,7 @@ export function AppShell() {
               Updated
             </span>
           )}
-          <Link to="/search" className="search-entry" role="search" aria-label="Global search">
-            <span className="search-hint">Search beans</span>
-          </Link>
+          <HeaderSearch />
         </header>
         <main className="app-content">
           <Suspense fallback={<p className="muted">Loading…</p>}>

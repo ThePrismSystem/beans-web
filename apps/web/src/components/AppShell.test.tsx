@@ -20,6 +20,9 @@ const { useProjectsMock, useEventsMock } = vi.hoisted(() => ({
 
 vi.mock("../hooks/useProjects.js", () => ({ useProjects: useProjectsMock }));
 vi.mock("../hooks/useEvents.js", () => ({ useEvents: useEventsMock }));
+vi.mock("../hooks/useSearch.js", () => ({
+  useSearch: () => ({ data: undefined, isPending: false, isError: false }),
+}));
 
 const project: Project = {
   name: "handbellhub",

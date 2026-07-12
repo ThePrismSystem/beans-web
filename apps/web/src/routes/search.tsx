@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch as useRouteSearch } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
@@ -27,7 +27,8 @@ function SearchResultRow({ hit }: { hit: SearchHit }) {
 }
 
 export function SearchPage() {
-  const [query, setQuery] = useState("");
+  const routeSearch = useRouteSearch({ strict: false });
+  const [query, setQuery] = useState(routeSearch.q ?? "");
   const trimmed = query.trim();
   const debounced = useDebouncedValue(trimmed, SEARCH_DEBOUNCE_MS);
   const { data, isPending, isError } = useSearch(debounced);
