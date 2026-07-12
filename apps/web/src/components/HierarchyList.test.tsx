@@ -140,6 +140,58 @@ describe("HierarchyList", () => {
     });
   });
 
+  describe("with sort", () => {
+    // Top-level beans deliberately out of alphabetical order, plus a parent
+    // whose children are also out of alphabetical order, so a title-sort
+    // that leaked into `renderNode`'s children would be caught here too.
+    const unsorted: Bean[] = [
+      bean("cherry", "task", null, "Cherry"),
+      bean("apple", "task", null, "Apple"),
+      bean("parent", "epic", null, "Parent"),
+      bean("child-z", "task", "parent", "Zebra Child"),
+      bean("child-a", "task", "parent", "Apple Child"),
+      bean("banana", "task", null, "Banana"),
+    ];
+
+    it("sorts top-level rows by the given key and direction", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={unsorted} sort="title" dir="asc" />);
+
+      await screen.findByText("Apple");
+      const rows = document.querySelectorAll(".hierarchy-roots > .hierarchy-node");
+      const topLevelTitles = [...rows].map(
+        (row) => row.querySelector(".bean-row-title")?.textContent,
+      );
+      expect(topLevelTitles).toEqual(["Apple", "Banana", "Cherry", "Parent"]);
+    });
+
+    it("leaves a parent's children in their original tree order when top-level is sorted", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<HierarchyList project="demo" beans={unsorted} sort="title" dir="desc" />);
+
+      await user.click(await screen.findByRole("button", { name: "Expand Parent" }));
+
+      const childRows = document.querySelectorAll(".hierarchy-children > .hierarchy-node");
+      const childTitles = [...childRows].map(
+        (row) => row.querySelector(".bean-row-title")?.textContent,
+      );
+      // buildTree always sorts children alphabetically by title regardless
+      // of the top-level sort, so this stays ascending even though the
+      // top-level sort direction above is "desc".
+      expect(childTitles).toEqual(["Apple Child", "Zebra Child"]);
+    });
+
+    it("renders top-level rows in tree order when no sort is given", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={unsorted} />);
+
+      await screen.findByText("Cherry");
+      const rows = document.querySelectorAll(".hierarchy-roots > .hierarchy-node");
+      const topLevelTitles = [...rows].map(
+        (row) => row.querySelector(".bean-row-title")?.textContent,
+      );
+      expect(topLevelTitles).toEqual(["Cherry", "Apple", "Parent", "Banana"]);
+    });
+  });
+
   describe("flush top-level rows (#9)", () => {
     it("renders no carets, and no reserved caret column, when every top-level bean is childless", async () => {
       const onlyTasks: Bean[] = [

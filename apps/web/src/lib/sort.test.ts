@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sortBeans } from "./sort.js";
+import { beanComparator, sortBeans } from "./sort.js";
 
 import type { Bean } from "@beans-frontend/shared";
 
@@ -101,5 +101,28 @@ describe("sortBeans", () => {
     const beans = [bean({ id: "1", title: "Apple" })];
 
     expect(sortBeans(beans, "title", "asc")).not.toBe(beans);
+  });
+});
+
+describe("beanComparator", () => {
+  it("returns a negative number when the first bean sorts before the second", () => {
+    const a = bean({ id: "1", title: "Apple" });
+    const b = bean({ id: "2", title: "Banana" });
+
+    expect(beanComparator("title", "asc")(a, b)).toBeLessThan(0);
+  });
+
+  it("returns a positive number when the direction is reversed", () => {
+    const a = bean({ id: "1", title: "Apple" });
+    const b = bean({ id: "2", title: "Banana" });
+
+    expect(beanComparator("title", "desc")(a, b)).toBeGreaterThan(0);
+  });
+
+  it("returns zero for equal beans", () => {
+    const a = bean({ id: "1", title: "Apple" });
+    const b = bean({ id: "2", title: "Apple" });
+
+    expect(beanComparator("title", "asc")(a, b)).toBe(0);
   });
 });

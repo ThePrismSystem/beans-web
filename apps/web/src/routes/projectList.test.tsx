@@ -212,17 +212,34 @@ describe("ProjectList", () => {
     expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
   });
 
-  it("shows the sort control only in flat view", async () => {
+  it("shows the sort control in both hierarchy and flat view", async () => {
     useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
     const user = userEvent.setup();
 
     renderProjectList();
     await screen.findByText("Milestone One");
-    expect(screen.queryByLabelText("Sort by")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Sort by")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Flat" }));
 
     expect(screen.getByLabelText("Sort by")).toBeInTheDocument();
+  });
+
+  it("sorts only the top-level hierarchy rows by title, leaving nested children alone", async () => {
+    const cherryRoot: Bean = { ...milestone, id: "cherry", title: "Cherry", type: "task" };
+    const appleRoot: Bean = { ...milestone, id: "apple", title: "Apple", type: "task" };
+    const topLevelBeans = [milestone, epic, task, bug, cherryRoot, appleRoot];
+    useBeansMock.mockReturnValue({ data: topLevelBeans, isPending: false, isError: false });
+
+    renderProjectList("/p/testproj?sort=title");
+    await screen.findByText("Milestone One");
+
+    const topLevelRows = document.querySelectorAll(".hierarchy-roots > .hierarchy-node");
+    const topLevelTitles = [...topLevelRows].map(
+      (row) => row.querySelector(".bean-row-title")?.textContent,
+    );
+    expect(topLevelTitles).toEqual(["Apple", "Cherry", "Milestone One"]);
+    expect(screen.getByLabelText("Sort by")).toHaveValue("title");
   });
 
   it("sorts the flat list by title when ?sort=title is present in the URL", async () => {

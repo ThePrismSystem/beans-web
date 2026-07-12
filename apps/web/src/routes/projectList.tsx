@@ -218,6 +218,8 @@ export function ProjectList() {
         project={project}
         beans={hierarchyBeans ?? prefixFiltered}
         typeFilter={filter.type}
+        sort={search.sort}
+        dir={search.dir}
       />
     );
   }
@@ -250,27 +252,25 @@ export function ProjectList() {
         </div>
       </div>
       <FilterBar filter={filter} prefixOptions={prefixOptions} onChange={handleFilterChange} />
-      {view === "flat" && (
-        <div className="sort-control">
-          <label>
-            Sort
-            <select aria-label="Sort by" value={search.sort ?? ""} onChange={handleSortKeyChange}>
-              <option value="">Default</option>
-              <option value="type">Type</option>
-              <option value="title">Title</option>
-              <option value="status">Status</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            aria-label="Toggle sort direction"
-            onClick={handleSortDirToggle}
-            disabled={!search.sort}
-          >
-            {(search.dir ?? "asc") === "asc" ? "↑" : "↓"}
-          </button>
-        </div>
-      )}
+      <div className="sort-control">
+        <label>
+          Sort
+          <select aria-label="Sort by" value={search.sort ?? ""} onChange={handleSortKeyChange}>
+            <option value="">Default</option>
+            <option value="type">Type</option>
+            <option value="title">Title</option>
+            <option value="status">Status</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          aria-label="Toggle sort direction"
+          onClick={handleSortDirToggle}
+          disabled={!search.sort}
+        >
+          {(search.dir ?? "asc") === "asc" ? "↑" : "↓"}
+        </button>
+      </div>
       {renderList()}
     </div>
   );

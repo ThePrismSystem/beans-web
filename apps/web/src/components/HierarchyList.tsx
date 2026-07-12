@@ -3,8 +3,10 @@ import { useMemo, useState } from "react";
 import { BeanRow } from "./BeanRow.js";
 
 import { buildTree, collectCollapsibleIds, pruneTreeToMatches } from "../lib/hierarchy.js";
+import { beanComparator } from "../lib/sort.js";
 
 import type { BeanNode } from "../lib/hierarchy.js";
+import type { SortDir, SortKey } from "../lib/sort.js";
 import type { Bean, BeanType } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
@@ -26,6 +28,8 @@ export function HierarchyList({
   project,
   beans,
   typeFilter,
+  sort,
+  dir,
 }: {
   project: string;
   beans: Bean[];
@@ -36,6 +40,14 @@ export function HierarchyList({
    * collapse the hierarchy into a flat list).
    */
   typeFilter?: BeanType[];
+  /**
+   * When set, reorders only the top-level rows (milestones + roots) by this
+   * key. Nested children always keep their existing tree order (see
+   * buildTree, which sorts children alphabetically by title) so that
+   * expanding a parent never surprises the user with a reshuffled subtree.
+   */
+  sort?: SortKey;
+  dir?: SortDir;
 }) {
   const tree = useMemo(() => buildTree(beans), [beans]);
   const { milestones, roots } = useMemo(() => {
@@ -49,7 +61,12 @@ export function HierarchyList({
     };
   }, [tree, typeFilter]);
 
-  const topNodes = useMemo(() => [...milestones, ...roots], [milestones, roots]);
+  const topNodes = useMemo(() => {
+    const nodes = [...milestones, ...roots];
+    if (!sort) return nodes;
+    const cmp = beanComparator(sort, dir ?? "asc");
+    return [...nodes].sort((a, b) => cmp(a.bean, b.bean));
+  }, [milestones, roots, sort, dir]);
 
   // The hierarchy starts fully collapsed: only top-level beans are visible
   // until a caret is expanded. Recomputed whenever the underlying tree
