@@ -937,3 +937,20 @@ a {
   margin-bottom: 0.75rem;
   font-size: 1rem;
 }
+
+.checkbox-menu { position: relative; display: inline-block; }
+.checkbox-menu-trigger {
+  padding: 0.4rem 0.7rem; border: 1px solid var(--hairline); border-radius: 999px;
+  background: var(--paper-raised); color: var(--muted); font-size: 0.85rem; cursor: pointer;
+}
+.checkbox-menu-trigger.active { border-color: var(--accent); color: var(--accent); }
+.checkbox-menu-list {
+  position: absolute; z-index: 50; margin-top: 0.35rem; min-width: 10rem; padding: 0.4rem;
+  border: 1px solid var(--hairline); border-radius: 6px; background: var(--paper);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 15%); display: flex; flex-direction: column; gap: 0.15rem;
+}
+.checkbox-menu-item {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem;
+  border-radius: 4px; font-size: 0.9rem; cursor: pointer;
+}
+.checkbox-menu-item:hover { background: var(--paper-raised); }
