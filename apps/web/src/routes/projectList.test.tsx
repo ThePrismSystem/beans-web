@@ -39,15 +39,31 @@ const milestone: Bean = {
   blockedByIds: [],
 };
 
+const epic: Bean = {
+  ...milestone,
+  id: "e1",
+  title: "Epic One",
+  type: "epic",
+  parentId: "m1",
+};
+
 const task: Bean = {
   ...milestone,
   id: "t1",
   title: "Task One",
   type: "task",
-  parentId: "m1",
+  parentId: "e1",
 };
 
-const beans = [milestone, task];
+const bug: Bean = {
+  ...milestone,
+  id: "b1",
+  title: "Bug One",
+  type: "bug",
+  parentId: "e1",
+};
+
+const beans = [milestone, epic, task, bug];
 
 function renderProjectList(initialLocation = "/p/testproj") {
   const rootRoute = createRootRoute();
@@ -135,13 +151,14 @@ describe("ProjectList", () => {
     expect(window.localStorage.getItem("beans:view:testproj")).toBe("hierarchy");
   });
 
-  it("updates the URL search params and refetches when a filter changes", async () => {
+  it("updates the URL search params when a filter changes", async () => {
     useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
     const user = userEvent.setup();
 
     renderProjectList();
     await screen.findByRole("heading", { name: /Milestone One/ });
 
+    await user.click(screen.getByRole("button", { name: "Flat" }));
     await user.selectOptions(screen.getByLabelText("Type"), "task");
 
     await waitFor(() => {
@@ -153,6 +170,38 @@ describe("ProjectList", () => {
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
     });
+  });
+
+  it("sends the type filter to the server in flat view", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByRole("heading", { name: /Milestone One/ });
+    await user.click(screen.getByRole("button", { name: "Flat" }));
+
+    await user.selectOptions(screen.getByLabelText("Type"), "task");
+
+    await waitFor(() => {
+      expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
+    });
+  });
+
+  it("keeps ancestor sections visible and does not forward the type filter to the server in hierarchy view", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByRole("heading", { name: /Milestone One/ });
+
+    await user.selectOptions(screen.getByLabelText("Type"), "task");
+
+    await waitFor(() => {
+      expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
+    });
+    expect(screen.getByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(screen.getByText("Task One")).toBeInTheDocument();
+    expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
   });
 });
 

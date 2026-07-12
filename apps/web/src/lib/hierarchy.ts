@@ -29,3 +29,23 @@ export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanN
     .map((b) => build(b, 0));
   return { milestones, roots };
 }
+
+/**
+ * Prunes a tree of BeanNodes down to beans matching `predicate`, keeping any
+ * ancestor (milestone/epic/etc.) that has at least one matching descendant so
+ * it still renders as context/section header. Nodes with no match anywhere
+ * in their subtree, and no match themselves, are dropped entirely.
+ */
+export function pruneTreeToMatches(
+  nodes: BeanNode[],
+  predicate: (bean: Bean) => boolean,
+): BeanNode[] {
+  const result: BeanNode[] = [];
+  for (const node of nodes) {
+    const children = pruneTreeToMatches(node.children, predicate);
+    if (predicate(node.bean) || children.length > 0) {
+      result.push({ ...node, children });
+    }
+  }
+  return result;
+}

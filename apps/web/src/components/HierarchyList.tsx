@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 
 import { BeanRow } from "./BeanRow.js";
 
-import { buildTree } from "../lib/hierarchy.js";
+import { buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
 
 import type { BeanNode } from "../lib/hierarchy.js";
-import type { Bean } from "@beans-frontend/shared";
+import type { Bean, BeanType } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
 function toggleId(ids: Set<string>, id: string): Set<string> {
@@ -18,8 +18,32 @@ function toggleId(ids: Set<string>, id: string): Set<string> {
   return next;
 }
 
-export function HierarchyList({ project, beans }: { project: string; beans: Bean[] }) {
-  const { milestones, roots } = useMemo(() => buildTree(beans), [beans]);
+export function HierarchyList({
+  project,
+  beans,
+  typeFilter,
+}: {
+  project: string;
+  beans: Bean[];
+  /**
+   * When set, the tree is pruned client-side to beans matching one of these
+   * types plus their ancestor chain, instead of relying on the server-side
+   * type filter (which would exclude ancestor milestones/epics entirely and
+   * collapse the hierarchy into a flat list).
+   */
+  typeFilter?: BeanType[];
+}) {
+  const tree = useMemo(() => buildTree(beans), [beans]);
+  const { milestones, roots } = useMemo(() => {
+    if (!typeFilter || typeFilter.length === 0) {
+      return tree;
+    }
+    const matches = (bean: Bean) => typeFilter.includes(bean.type);
+    return {
+      milestones: pruneTreeToMatches(tree.milestones, matches),
+      roots: pruneTreeToMatches(tree.roots, matches),
+    };
+  }, [tree, typeFilter]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {

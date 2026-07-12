@@ -92,4 +92,16 @@ describe("HierarchyList", () => {
     expect(await screen.findByText("Empty Milestone")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Empty Milestone/ })).not.toBeInTheDocument();
   });
+
+  describe("with a type filter", () => {
+    it("keeps ancestor milestones and epics as context while hiding non-matching beans", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={beans} typeFilter={["task"]} />);
+
+      expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+      expect(screen.getByText("Epic One")).toBeInTheDocument();
+      expect(screen.getByText("Task One")).toBeInTheDocument();
+      expect(screen.getByText("Orphan Task")).toBeInTheDocument();
+      expect(screen.queryByText("Empty Milestone")).not.toBeInTheDocument();
+    });
+  });
 });

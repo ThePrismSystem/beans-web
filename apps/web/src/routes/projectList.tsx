@@ -83,7 +83,16 @@ export function ProjectList() {
     search: search.search ?? "",
   };
 
-  const { data: beans, isPending, isError } = useBeans(project, filter);
+  // In hierarchy view the type filter is applied client-side (see
+  // HierarchyList's `typeFilter` prop) so that ancestor milestones/epics
+  // stay visible as section context even when they don't themselves match
+  // the filtered type. Sending the type filter to the server would strip
+  // those ancestors from the response and buildTree would have nothing to
+  // nest the matches under, collapsing the tree into a flat list. Status,
+  // priority, tags, and search stay server-side for both views.
+  const serverFilter: BeanFilterInput = view === "hierarchy" ? { ...filter, type: [] } : filter;
+
+  const { data: beans, isPending, isError } = useBeans(project, serverFilter);
 
   function handleFilterChange(next: BeanFilterInput) {
     void navigate({
@@ -110,7 +119,7 @@ export function ProjectList() {
     return view === "flat" ? (
       <FlatList project={project} beans={beans} />
     ) : (
-      <HierarchyList project={project} beans={beans} />
+      <HierarchyList project={project} beans={beans} typeFilter={filter.type} />
     );
   }
 
