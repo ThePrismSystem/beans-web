@@ -13,7 +13,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     scanDepth: 4,
     listProjects: vi.fn(async () => [project]),
     runGraphql: vi.fn(async () => ({ beans: [{ id: "x-1" }] })),
-    search: vi.fn(async () => []),
+    search: vi.fn(async () => ({ hits: [], failures: [] })),
     analytics: vi.fn(async () => fakeAnalytics()),
     watcher: new EventEmitter(),
     ...overrides,
@@ -46,6 +46,18 @@ describe("POST /api/projects/:name/graphql", () => {
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for a malformed body missing a query", async () => {
+    const d = deps();
+    const app = createApp(d);
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ variables: { q: "x" } }),
+    });
+    expect(res.status).toBe(400);
+    expect(d.runGraphql).not.toHaveBeenCalled();
   });
 
   it("returns 400 with error messages when beans rejects", async () => {

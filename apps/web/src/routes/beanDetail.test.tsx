@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BeanDetailPage } from "./beanDetail.js";
 
 import type { Bean } from "@beans-frontend/shared";
-import type { BeanDetail } from "../hooks/useBean.js";
+import type { BeanDetail } from "@beans-frontend/shared";
 
 const {
   useBeanMock,
@@ -134,14 +134,15 @@ beforeEach(() => {
   vi.clearAllMocks();
   useBeanMock.mockReturnValue({ data: bean, isPending: false, isError: false });
   useBeansMock.mockReturnValue({ data: [otherMilestone], isPending: false, isError: false });
-  useUpdateBeanMock.mockReturnValue({ mutate: updateBeanMutate, error: null });
-  useSetParentMock.mockReturnValue({ mutate: setParentMutate, error: null });
-  useAddBlockingMock.mockReturnValue({ mutate: addBlockingMutate, error: null });
-  useRemoveBlockingMock.mockReturnValue({ mutate: removeBlockingMutate, error: null });
-  useAddBlockedByMock.mockReturnValue({ mutate: addBlockedByMutate, error: null });
-  useRemoveBlockedByMock.mockReturnValue({ mutate: removeBlockedByMutate, error: null });
-  useDeleteBeanMock.mockReturnValue({ mutate: deleteBeanMutate, error: null });
-  useCreateBeanMock.mockReturnValue({ mutate: createBeanMutate, error: null });
+  const idle = { error: null, isError: false, submittedAt: 0 };
+  useUpdateBeanMock.mockReturnValue({ mutate: updateBeanMutate, ...idle });
+  useSetParentMock.mockReturnValue({ mutate: setParentMutate, ...idle });
+  useAddBlockingMock.mockReturnValue({ mutate: addBlockingMutate, ...idle });
+  useRemoveBlockingMock.mockReturnValue({ mutate: removeBlockingMutate, ...idle });
+  useAddBlockedByMock.mockReturnValue({ mutate: addBlockedByMutate, ...idle });
+  useRemoveBlockedByMock.mockReturnValue({ mutate: removeBlockedByMutate, ...idle });
+  useDeleteBeanMock.mockReturnValue({ mutate: deleteBeanMutate, ...idle });
+  useCreateBeanMock.mockReturnValue({ mutate: createBeanMutate, ...idle });
 });
 
 afterEach(() => {
@@ -367,6 +368,8 @@ describe("BeanDetailPage", () => {
     useUpdateBeanMock.mockReturnValue({
       mutate: updateBeanMutate,
       error: new Error("graphql: etag mismatch: provided a, current is b"),
+      isError: true,
+      submittedAt: 1,
     });
     const refetch = vi.fn();
     useBeanMock.mockReturnValue({ data: bean, isPending: false, isError: false, refetch });
@@ -387,11 +390,35 @@ describe("BeanDetailPage", () => {
     useSetParentMock.mockReturnValue({
       mutate: setParentMutate,
       error: new Error("invalid parent for type task"),
+      isError: true,
+      submittedAt: 1,
     });
 
     renderBeanDetail();
 
     expect(await screen.findByText("invalid parent for type task")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reload" })).not.toBeInTheDocument();
+  });
+
+  it("does not show a stale error once a later mutation succeeds", async () => {
+    // updateBean failed earlier; setParent succeeded afterwards (higher submittedAt).
+    useUpdateBeanMock.mockReturnValue({
+      mutate: updateBeanMutate,
+      error: new Error("invalid parent for type task"),
+      isError: true,
+      submittedAt: 1,
+    });
+    useSetParentMock.mockReturnValue({
+      mutate: setParentMutate,
+      error: null,
+      isError: false,
+      submittedAt: 2,
+    });
+
+    renderBeanDetail();
+
+    await screen.findByText("Task One");
+    expect(screen.queryByText("invalid parent for type task")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ import { SearchPage } from "./search.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
-import type { SearchHit } from "../api/client.js";
+import type { SearchHit } from "@beans-frontend/shared";
 
 const { useSearchMock } = vi.hoisted(() => ({ useSearchMock: vi.fn() }));
 
@@ -29,7 +29,11 @@ describe("SearchPage", () => {
   });
 
   it("shows matching results once a query is entered", async () => {
-    useSearchMock.mockReturnValue({ data: [hit], isPending: false, isError: false });
+    useSearchMock.mockReturnValue({
+      data: { hits: [hit], failures: [] },
+      isPending: false,
+      isError: false,
+    });
     const user = userEvent.setup();
 
     renderWithRouter(<SearchPage />);
@@ -60,12 +64,30 @@ describe("SearchPage", () => {
   });
 
   it("shows an empty state when no beans match", async () => {
-    useSearchMock.mockReturnValue({ data: [], isPending: false, isError: false });
+    useSearchMock.mockReturnValue({
+      data: { hits: [], failures: [] },
+      isPending: false,
+      isError: false,
+    });
     const user = userEvent.setup();
 
     renderWithRouter(<SearchPage />);
     await user.type(await screen.findByLabelText("Search beans"), "zzz");
 
     expect(await screen.findByText('No beans match "zzz".')).toBeInTheDocument();
+  });
+
+  it("warns when some projects failed to search", async () => {
+    useSearchMock.mockReturnValue({
+      data: { hits: [hit], failures: ["beans"] },
+      isPending: false,
+      isError: false,
+    });
+    const user = userEvent.setup();
+
+    renderWithRouter(<SearchPage />);
+    await user.type(await screen.findByLabelText("Search beans"), "bell");
+
+    expect(await screen.findByText(/Some projects failed to search: beans/)).toBeInTheDocument();
   });
 });

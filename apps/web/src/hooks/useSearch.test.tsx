@@ -4,17 +4,26 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useSearch } from "./useSearch.js";
 
-import type { SearchHit } from "../api/client.js";
+import type { SearchResult } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());
 
-const hits: SearchHit[] = [
-  {
-    project: "handbellhub",
-    bean: { id: "hh-1", title: "Ring the bell", type: "task", status: "todo", priority: "normal" },
-  },
-];
+const searchResult: SearchResult = {
+  hits: [
+    {
+      project: "handbellhub",
+      bean: {
+        id: "hh-1",
+        title: "Ring the bell",
+        type: "task",
+        status: "todo",
+        priority: "normal",
+      },
+    },
+  ],
+  failures: [],
+};
 
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
@@ -25,16 +34,18 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe("useSearch", () => {
   it("fetches search hits for a non-empty query", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify(hits), { status: 200 }));
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(searchResult), { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderHook(() => useSearch("bell"), { wrapper });
+    const { result: hook } = renderHook(() => useSearch("bell"), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(hook.current.isSuccess).toBe(true);
     });
 
-    expect(result.current.data).toEqual(hits);
+    expect(hook.current.data).toEqual(searchResult);
     expect(fetchMock).toHaveBeenCalledWith("/api/search?q=bell");
   });
 

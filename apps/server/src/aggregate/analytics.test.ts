@@ -17,9 +17,11 @@ describe("buildAnalytics", () => {
     expect(a.byType.task).toBe(1);
     expect(a.byStatus.completed).toBe(1);
     expect(a.completedByMonth).toEqual([{ month: "2026-03", count: 1 }]);
+    expect(a.failures).toEqual([]);
   });
 
-  it("skips a project that errors, leaving it at zero counts, and orders projects and months", async () => {
+  it("surfaces a project that errors, leaving it at zero counts, and orders projects and months", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const run = vi.fn(async (cfg: string) => {
       if (cfg.includes("/broken/")) throw new Error("boom");
       if (cfg.includes("/z/")) {
@@ -44,5 +46,8 @@ describe("buildAnalytics", () => {
       { month: "2026-01", count: 1 },
       { month: "2026-02", count: 1 },
     ]);
+    expect(a.failures).toEqual(["broken"]);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });

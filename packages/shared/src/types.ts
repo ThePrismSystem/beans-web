@@ -23,6 +23,8 @@ export interface ProjectCounts {
   open: number;
   byType: Record<BeanType, number>;
   byStatus: Record<BeanStatus, number>;
+  /** True when the project's beans query failed during discovery; counts are then zeroed and unreliable. */
+  error: boolean;
 }
 
 export interface Project {
@@ -32,9 +34,11 @@ export interface Project {
   counts: ProjectCounts;
 }
 
+export type ServerEventKind = "add" | "change" | "unlink";
+
 export interface ServerEvent {
   project: string;
-  kind: "add" | "change" | "unlink";
+  kind: ServerEventKind;
 }
 
 export interface Analytics {
@@ -42,4 +46,30 @@ export interface Analytics {
   byType: Record<BeanType, number>;
   byStatus: Record<BeanStatus, number>;
   completedByMonth: { month: string; count: number }[];
+  /** Names of projects whose beans query failed; their beans are missing from the aggregates. */
+  failures: string[];
+}
+
+/** A single search match: the bean plus the project it lives in. */
+export interface SearchHit {
+  project: string;
+  bean: Pick<Bean, "id" | "title" | "type" | "status" | "priority">;
+}
+
+/** Result of a cross-project search: matches plus the projects that failed to search. */
+export interface SearchResult {
+  hits: SearchHit[];
+  /** Names of projects whose search failed; their potential matches are missing from `hits`. */
+  failures: string[];
+}
+
+/** A related bean shown in link lists — the minimal shape needed to render a row. */
+export type LinkedBean = Pick<Bean, "id" | "title" | "type" | "status">;
+
+/** A bean plus its resolved relationships, as returned by the bean-detail query. */
+export interface BeanDetail extends Bean {
+  parent: LinkedBean | null;
+  children: LinkedBean[];
+  blocking: LinkedBean[];
+  blockedBy: LinkedBean[];
 }

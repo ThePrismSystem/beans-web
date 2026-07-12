@@ -1,13 +1,7 @@
-import type {
-  Analytics,
-  BeanPriority,
-  BeanStatus,
-  BeanType,
-  Project,
-} from "@beans-frontend/shared";
+import type { Analytics, Project, SearchResult } from "@beans-frontend/shared";
 
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok && res.status !== 400) throw new Error(`request failed: ${res.status}`);
+  if (!res.ok) throw new Error(`request failed: ${res.status}`);
   return (await res.json()) as T;
 }
 
@@ -30,13 +24,8 @@ export async function projectGraphql<T>(
   return body.data as T;
 }
 
-export interface SearchHit {
-  project: string;
-  bean: { id: string; title: string; type: BeanType; status: BeanStatus; priority: BeanPriority };
-}
-
-export async function fetchSearch(q: string): Promise<SearchHit[]> {
-  return json<SearchHit[]>(await fetch(`/api/search?q=${encodeURIComponent(q)}`));
+export async function fetchSearch(q: string): Promise<SearchResult> {
+  return json<SearchResult>(await fetch(`/api/search?q=${encodeURIComponent(q)}`));
 }
 
 export async function fetchAnalytics(): Promise<Analytics> {

@@ -590,6 +590,16 @@ a {
   margin: 0;
 }
 
+.search-warning,
+.analytics-warning {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--s-in-progress);
+  border-radius: 4px;
+  color: var(--s-in-progress);
+  font-size: 0.85rem;
+}
+
 /* Body editor */
 
 .body-editor-toolbar {

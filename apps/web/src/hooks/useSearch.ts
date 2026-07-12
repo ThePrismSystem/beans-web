@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchSearch } from "../api/client.js";
 
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { SearchHit } from "../api/client.js";
+import type { SearchResult } from "@beans-frontend/shared";
 
-export function useSearch(query: string): UseQueryResult<SearchHit[]> {
+export function useSearch(query: string): UseQueryResult<SearchResult> {
   const trimmed = query.trim();
   return useQuery({
     queryKey: ["search", trimmed],

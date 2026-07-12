@@ -2,9 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import { BeanTypeTag } from "./BeanTypeTag.js";
 
-import type { Bean } from "@beans-frontend/shared";
-
-export type LinkedBean = Pick<Bean, "id" | "title" | "type" | "status">;
+import type { LinkedBean } from "@beans-frontend/shared";
 
 export interface LinkedBeansProps {
   project: string;

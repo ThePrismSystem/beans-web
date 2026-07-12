@@ -3,16 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { LinkedBean } from "../components/LinkedBeans.js";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { Bean } from "@beans-frontend/shared";
-
-export interface BeanDetail extends Bean {
-  parent: LinkedBean | null;
-  children: LinkedBean[];
-  blocking: LinkedBean[];
-  blockedBy: LinkedBean[];
-}
+import type { BeanDetail } from "@beans-frontend/shared";
 
 interface BeanDetailQueryResult {
   bean: BeanDetail | null;

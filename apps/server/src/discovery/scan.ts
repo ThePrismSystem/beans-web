@@ -1,8 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import { basename, join, relative, resolve, sep } from "node:path";
 import type { BeanStatus, BeanType, Project, ProjectCounts } from "@beans-frontend/shared";
-import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-frontend/shared";
 import { runBeansGraphql } from "../beans/executor.js";
+import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
 
 const IGNORED = new Set(["node_modules", ".git", ".beans", "dist", ".next", "coverage"]);
 
@@ -44,35 +45,37 @@ function parsePrefix(yml: string): string {
 }
 
 function emptyCounts(): ProjectCounts {
-  const byType = Object.fromEntries(BEAN_TYPES.map((t) => [t, 0])) as Record<BeanType, number>;
-  const byStatus = Object.fromEntries(BEAN_STATUSES.map((s) => [s, 0])) as Record<
-    BeanStatus,
-    number
-  >;
-  return { total: 0, open: 0, byType, byStatus };
+  return {
+    total: 0,
+    open: 0,
+    byType: zeroCounts(BEAN_TYPES),
+    byStatus: zeroCounts(BEAN_STATUSES),
+    error: false,
+  };
 }
 
 export async function discoverProjects(root: string, maxDepth: number): Promise<Project[]> {
   const dirs = await findProjectDirs(root, maxDepth);
-  return Promise.all(
-    dirs.map(async (dir) => {
-      const yml = await readFile(join(dir, ".beans.yml"), "utf8");
-      const counts = emptyCounts();
-      try {
-        const data = (await runBeansGraphql({
-          configPath: join(dir, ".beans.yml"),
-          query: "{ beans { type status } }",
-        })) as { beans: { type: BeanType; status: BeanStatus }[] };
-        for (const b of data.beans) {
-          counts.total += 1;
-          counts.byType[b.type] += 1;
-          counts.byStatus[b.status] += 1;
-          if (OPEN_STATUSES.includes(b.status)) counts.open += 1;
-        }
-      } catch {
-        // leave zeroed counts if beans query fails for this project
+  return mapWithConcurrency(dirs, BEANS_CONCURRENCY, async (dir) => {
+    const yml = await readFile(join(dir, ".beans.yml"), "utf8");
+    const counts = emptyCounts();
+    try {
+      const data = (await runBeansGraphql({
+        configPath: join(dir, ".beans.yml"),
+        query: "{ beans { type status } }",
+      })) as { beans: { type: BeanType; status: BeanStatus }[] };
+      for (const b of data.beans) {
+        counts.total += 1;
+        counts.byType[b.type] += 1;
+        counts.byStatus[b.status] += 1;
+        if (OPEN_STATUSES.includes(b.status)) counts.open += 1;
       }
-      return { name: basename(dir), path: dir, prefix: parsePrefix(yml), counts };
-    }),
-  );
+    } catch (err) {
+      // Zeroed counts stay, but flag the failure so callers/UI can tell an
+      // errored project apart from a genuinely empty one.
+      counts.error = true;
+      console.error(`beans discovery failed for ${dir}:`, err);
+    }
+    return { name: basename(dir), path: dir, prefix: parsePrefix(yml), counts };
+  });
 }

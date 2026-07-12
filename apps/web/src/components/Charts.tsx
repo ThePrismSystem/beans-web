@@ -46,7 +46,9 @@ const CHART_NEUTRAL = "#8a857b";
 const CHART_HAIRLINE = "#ddd5c4";
 const CHART_HEIGHT = 240;
 
-const AXIS_TICK = { fontSize: 12, fill: "var(--muted, #8a857b)" };
+// recharts renders tick `fill` as an SVG attribute, where a CSS `var()` won't
+// resolve — use the literal muted hue that mirrors the `--muted` token.
+const AXIS_TICK = { fontSize: 12, fill: CHART_NEUTRAL };
 
 function ChartSection({ title, children }: { title: string; children: ReactNode }) {
   return (

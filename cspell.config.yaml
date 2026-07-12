@@ -35,6 +35,7 @@ words:
   - dataviz
   - youruser
   - frontmatter
+  - unstub
 ignorePaths:
   - node_modules
   - dist

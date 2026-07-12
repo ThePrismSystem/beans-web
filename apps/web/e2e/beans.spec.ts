@@ -35,7 +35,7 @@ test("core client-visible contract", async ({ page }) => {
 
   await test.step("open the feature bean's detail page", async () => {
     await page.getByText(featureTitle).click();
-    await expect(page.locator("h1.bean-detail-title")).toHaveText(featureTitle);
+    await expect(page.locator("button.bean-detail-title")).toHaveText(featureTitle);
     // No parent/children exist yet at this point, so the panel renders empty
     // (zero-size, not "visible" in Playwright's strict sense) — just confirm
     // it's mounted here; the real, populated check comes after the child
@@ -45,11 +45,11 @@ test("core client-visible contract", async ({ page }) => {
 
   const editedTitle = `${featureTitle} (edited)`;
   await test.step("edit the bean's title", async () => {
-    await page.locator("h1.bean-detail-title").click();
+    await page.locator("button.bean-detail-title").click();
     const titleInput = page.getByLabel("Title", { exact: true });
     await titleInput.fill(editedTitle);
     await titleInput.press("Enter");
-    await expect(page.locator("h1.bean-detail-title")).toHaveText(editedTitle);
+    await expect(page.locator("button.bean-detail-title")).toHaveText(editedTitle);
   });
 
   const childTitle = `${editedTitle} child`;
@@ -63,7 +63,7 @@ test("core client-visible contract", async ({ page }) => {
     await createForm.getByRole("button", { name: "Create bean" }).click();
 
     // Successful creation navigates to the new child's detail page.
-    await expect(page.locator("h1.bean-detail-title")).toHaveText(childTitle);
+    await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);
   });
 
   await test.step("linked beans show the real parent/child relationship", async () => {

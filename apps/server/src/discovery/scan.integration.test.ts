@@ -29,14 +29,16 @@ describe("discoverProjects (real binary)", () => {
     expect(project?.path).toBe(projectDir);
     expect(project?.prefix.length).toBeGreaterThan(0);
     expect(project?.counts.total).toBeGreaterThanOrEqual(1);
+    expect(project?.counts.error).toBe(false);
   });
 
-  it("zeroes counts (does not crash) for a project whose beans query fails", async () => {
+  it("zeroes counts and flags the error (does not crash) for a project whose beans query fails", async () => {
     const projects = await discoverProjects(root, 4);
     const broken = projects.find((p) => p.name === "proj-broken");
     expect(broken?.path).toBe(brokenDir);
     expect(broken?.prefix).toBe("");
     expect(broken?.counts.total).toBe(0);
     expect(broken?.counts.open).toBe(0);
+    expect(broken?.counts.error).toBe(true);
   });
 });

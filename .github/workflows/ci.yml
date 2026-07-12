@@ -35,6 +35,24 @@ jobs:
       - name: Lint (zero warnings)
         run: pnpm lint
 
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    # Advisory-only: a newly published upstream advisory unrelated to the PR
+    # should surface here without blocking merges.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Audit dependencies
         run: pnpm audit --audit-level moderate
 
@@ -89,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage/
+          path: "**/coverage/"
           retention-days: 14
 
   build:

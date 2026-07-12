@@ -13,7 +13,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     scanDepth: 4,
     listProjects: vi.fn(async () => [project]),
     runGraphql: vi.fn(async () => ({})),
-    search: vi.fn(async () => []),
+    search: vi.fn(async () => ({ hits: [], failures: [] })),
     analytics: vi.fn(async () => fakeAnalytics()),
     watcher: new EventEmitter(),
     ...overrides,

@@ -42,6 +42,7 @@ const analytics: Analytics = {
     { month: "2026-05", count: 3 },
     { month: "2026-06", count: 6 },
   ],
+  failures: [],
 };
 
 describe("AnalyticsPage", () => {
@@ -87,6 +88,7 @@ describe("AnalyticsPage", () => {
         byType: analytics.byType,
         byStatus: analytics.byStatus,
         completedByMonth: [],
+        failures: [],
       },
       isPending: false,
       isError: false,
@@ -95,5 +97,17 @@ describe("AnalyticsPage", () => {
     renderWithRouter(<AnalyticsPage />);
 
     expect(await screen.findByText("No analytics data yet.")).toBeInTheDocument();
+  });
+
+  it("warns when some projects failed to load", async () => {
+    useAnalyticsMock.mockReturnValue({
+      data: { ...analytics, failures: ["beans"] },
+      isPending: false,
+      isError: false,
+    });
+
+    renderWithRouter(<AnalyticsPage />);
+
+    expect(await screen.findByText(/Some projects failed to load: beans/)).toBeInTheDocument();
   });
 });

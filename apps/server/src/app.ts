@@ -1,8 +1,7 @@
 import { EventEmitter } from "node:events";
 import { Hono } from "hono";
-import type { Analytics, Project } from "@beans-frontend/shared";
+import type { Analytics, Project, SearchResult } from "@beans-frontend/shared";
 
-import type { SearchHit } from "./aggregate/search.js";
 import { registerAnalytics } from "./routes/analytics.js";
 import { registerEvents } from "./routes/events.js";
 import { registerGraphql } from "./routes/graphql.js";
@@ -18,7 +17,7 @@ export interface AppDeps {
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<unknown>;
-  search(q: string): Promise<SearchHit[]>;
+  search(q: string): Promise<SearchResult>;
   analytics(): Promise<Analytics>;
   watcher: EventEmitter;
 }

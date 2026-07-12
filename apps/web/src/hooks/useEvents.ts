@@ -2,13 +2,13 @@ import { QueryClientContext } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
 
 import type { QueryClient } from "@tanstack/react-query";
-import type { ServerEvent } from "@beans-frontend/shared";
+import type { ServerEvent, ServerEventKind } from "@beans-frontend/shared";
 
 export interface UseEventsResult {
   lastEvent: ServerEvent | null;
 }
 
-function isServerEventKind(value: string): value is ServerEvent["kind"] {
+function isServerEventKind(value: string): value is ServerEventKind {
   return value === "add" || value === "change" || value === "unlink";
 }
 
@@ -51,6 +51,10 @@ export function useEvents(client?: QueryClient): UseEventsResult {
     source.onmessage = (event: MessageEvent<string>) => {
       const parsed = parseServerEvent(event.data);
       if (!parsed) {
+        // Surface (rather than silently drop) payloads we don't recognize —
+        // e.g. after a server-side event-shape change. `debug` keeps it out of
+        // the default console view while remaining discoverable.
+        console.debug("useEvents: dropped unrecognized SSE payload", event.data);
         return;
       }
       setLastEvent(parsed);

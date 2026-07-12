@@ -14,6 +14,7 @@ const analytics: Analytics = {
   byType: { milestone: 1, epic: 2, feature: 3, task: 3, bug: 1 },
   byStatus: { draft: 1, todo: 2, "in-progress": 1, completed: 5, scrapped: 1 },
   completedByMonth: [{ month: "2026-06", count: 5 }],
+  failures: [],
 };
 
 function wrapper({ children }: { children: ReactNode }) {

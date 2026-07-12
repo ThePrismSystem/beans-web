@@ -30,7 +30,7 @@ describe("server integration", () => {
       scanDepth: 4,
       listProjects,
       runGraphql: run,
-      search: async () => [],
+      search: async () => ({ hits: [], failures: [] }),
       analytics: async () => fakeAnalytics(),
       watcher: new EventEmitter(),
     });
@@ -45,7 +45,7 @@ describe("server integration", () => {
       scanDepth: 4,
       listProjects,
       runGraphql: run,
-      search: async () => [],
+      search: async () => ({ hits: [], failures: [] }),
       analytics: async () => fakeAnalytics(),
       watcher: new EventEmitter(),
     });

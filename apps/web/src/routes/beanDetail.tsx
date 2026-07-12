@@ -28,9 +28,8 @@ import {
 import { renderMarkdown } from "../lib/markdown.js";
 
 import type { ChangeEvent } from "react";
-import type { Bean } from "@beans-frontend/shared";
+import type { Bean, BeanDetail } from "@beans-frontend/shared";
 import type { RelationChange } from "../components/RelationEditor.js";
-import type { BeanDetail } from "../hooks/useBean.js";
 
 function formatTimestamp(value: string): string {
   const date = new Date(value);
@@ -43,14 +42,6 @@ interface BeanDetailContentProps {
   candidates: Bean[];
   navigate: ReturnType<typeof useNavigate>;
   refetch: () => void;
-  updateBean: ReturnType<typeof useUpdateBean>;
-  setParent: ReturnType<typeof useSetParent>;
-  addBlocking: ReturnType<typeof useAddBlocking>;
-  removeBlocking: ReturnType<typeof useRemoveBlocking>;
-  addBlockedBy: ReturnType<typeof useAddBlockedBy>;
-  removeBlockedBy: ReturnType<typeof useRemoveBlockedBy>;
-  deleteBean: ReturnType<typeof useDeleteBean>;
-  createBean: ReturnType<typeof useCreateBean>;
 }
 
 function BeanDetailContent({
@@ -59,15 +50,16 @@ function BeanDetailContent({
   candidates,
   navigate,
   refetch,
-  updateBean,
-  setParent,
-  addBlocking,
-  removeBlocking,
-  addBlockedBy,
-  removeBlockedBy,
-  deleteBean,
-  createBean,
 }: BeanDetailContentProps) {
+  const updateBean = useUpdateBean(project);
+  const setParent = useSetParent(project);
+  const addBlocking = useAddBlocking(project);
+  const removeBlocking = useRemoveBlocking(project);
+  const addBlockedBy = useAddBlockedBy(project);
+  const removeBlockedBy = useRemoveBlockedBy(project);
+  const deleteBean = useDeleteBean(project);
+  const createBean = useCreateBean(project);
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState(bean.body);
@@ -82,16 +74,22 @@ function BeanDetailContent({
     }
   }, [bean.id, bean.body, syncedBodyForId]);
 
-  const mutationError =
-    updateBean.error ??
-    setParent.error ??
-    addBlocking.error ??
-    removeBlocking.error ??
-    addBlockedBy.error ??
-    removeBlockedBy.error ??
-    deleteBean.error ??
-    createBean.error ??
-    null;
+  // Surface only the most recently fired mutation's error, so a later success
+  // clears a banner from an earlier failure instead of leaving it stuck.
+  const mutations = [
+    updateBean,
+    setParent,
+    addBlocking,
+    removeBlocking,
+    addBlockedBy,
+    removeBlockedBy,
+    deleteBean,
+    createBean,
+  ];
+  const latestMutation = mutations.reduce((latest, m) =>
+    m.submittedAt > latest.submittedAt ? m : latest,
+  );
+  const mutationError = latestMutation.isError ? latestMutation.error : null;
 
   function startEditingTitle() {
     setTitleDraft(bean.title);
@@ -235,9 +233,14 @@ function BeanDetailContent({
               }}
             />
           ) : (
-            <h1 className="bean-detail-title" onClick={startEditingTitle}>
+            <button
+              type="button"
+              className="bean-detail-title"
+              onClick={startEditingTitle}
+              aria-label={`Edit title: ${bean.title}`}
+            >
               {bean.title}
-            </h1>
+            </button>
           )}
           <select aria-label="Status" value={bean.status} onChange={handleStatusChange}>
             {BEAN_STATUSES.map((option) => (
@@ -361,15 +364,6 @@ export function BeanDetailPage() {
   const { data: bean, isPending, isError, refetch } = useBean(project, beanId);
   const { data: allBeans } = useBeans(project, EMPTY_BEAN_FILTER);
 
-  const updateBean = useUpdateBean(project);
-  const setParent = useSetParent(project);
-  const addBlocking = useAddBlocking(project);
-  const removeBlocking = useRemoveBlocking(project);
-  const addBlockedBy = useAddBlockedBy(project);
-  const removeBlockedBy = useRemoveBlockedBy(project);
-  const deleteBean = useDeleteBean(project);
-  const createBean = useCreateBean(project);
-
   if (isPending) {
     return <p className="muted">Loading bean…</p>;
   }
@@ -387,14 +381,6 @@ export function BeanDetailPage() {
       candidates={candidates}
       navigate={navigate}
       refetch={() => void refetch()}
-      updateBean={updateBean}
-      setParent={setParent}
-      addBlocking={addBlocking}
-      removeBlocking={removeBlocking}
-      addBlockedBy={addBlockedBy}
-      removeBlockedBy={removeBlockedBy}
-      deleteBean={deleteBean}
-      createBean={createBean}
     />
   );
 }

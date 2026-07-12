@@ -30,6 +30,11 @@ export function AnalyticsPage() {
   return (
     <div>
       <h1>Analytics</h1>
+      {analytics.failures.length > 0 && (
+        <p className="analytics-warning" role="status">
+          Some projects failed to load: {analytics.failures.join(", ")}. Totals may be incomplete.
+        </p>
+      )}
       <div className="analytics-totals">
         <div className="analytics-total">
           <span className="analytics-total-value">{total}</span>

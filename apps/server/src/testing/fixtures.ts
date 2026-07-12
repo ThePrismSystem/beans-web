@@ -1,19 +1,14 @@
-import type {
-  Analytics,
-  BeanStatus,
-  BeanType,
-  Project,
-  ProjectCounts,
-} from "@beans-frontend/shared";
-import { BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import type { Analytics, Project, ProjectCounts } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES, zeroCounts } from "@beans-frontend/shared";
 
 function fakeCounts(): ProjectCounts {
-  const byType = Object.fromEntries(BEAN_TYPES.map((t) => [t, 0])) as Record<BeanType, number>;
-  const byStatus = Object.fromEntries(BEAN_STATUSES.map((s) => [s, 0])) as Record<
-    BeanStatus,
-    number
-  >;
-  return { total: 0, open: 0, byType, byStatus };
+  return {
+    total: 0,
+    open: 0,
+    byType: zeroCounts(BEAN_TYPES),
+    byStatus: zeroCounts(BEAN_STATUSES),
+    error: false,
+  };
 }
 
 export function fakeProject(name: string): Project {
@@ -26,10 +21,11 @@ export function fakeProject(name: string): Project {
 }
 
 export function fakeAnalytics(): Analytics {
-  const byType = Object.fromEntries(BEAN_TYPES.map((t) => [t, 0])) as Record<BeanType, number>;
-  const byStatus = Object.fromEntries(BEAN_STATUSES.map((s) => [s, 0])) as Record<
-    BeanStatus,
-    number
-  >;
-  return { perProject: [], byType, byStatus, completedByMonth: [] };
+  return {
+    perProject: [],
+    byType: zeroCounts(BEAN_TYPES),
+    byStatus: zeroCounts(BEAN_STATUSES),
+    completedByMonth: [],
+    failures: [],
+  };
 }

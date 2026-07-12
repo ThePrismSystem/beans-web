@@ -30,6 +30,7 @@ const projects: Project[] = [
         completed: 0,
         scrapped: 0,
       },
+      error: false,
     },
   },
 ];

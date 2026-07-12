@@ -49,12 +49,11 @@ export function CreateBeanForm({
   onCancel,
 }: CreateBeanFormProps) {
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<BeanType>(
-    () => resolveInitialTypeAndParent(candidates, defaultParentId ?? null).type,
+  const [initial] = useState(() =>
+    resolveInitialTypeAndParent(candidates, defaultParentId ?? null),
   );
-  const [parentId, setParentId] = useState(
-    () => resolveInitialTypeAndParent(candidates, defaultParentId ?? null).parentId,
-  );
+  const [type, setType] = useState<BeanType>(initial.type);
+  const [parentId, setParentId] = useState(initial.parentId);
   const [status, setStatus] = useState<BeanStatus>("todo");
   const [priority, setPriority] = useState<BeanPriority>("normal");
   const [tags, setTags] = useState("");
