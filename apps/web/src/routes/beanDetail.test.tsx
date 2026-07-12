@@ -338,7 +338,8 @@ describe("BeanDetailPage", () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
-    await user.selectOptions(await screen.findByLabelText("Parent"), "m2");
+    await user.click(await screen.findByRole("button", { name: /set parent/i }));
+    await user.click(await screen.findByText("Other Milestone"));
 
     expect(setParentMutate).toHaveBeenCalledWith({ id: "t1", parentId: "m2" });
   });
