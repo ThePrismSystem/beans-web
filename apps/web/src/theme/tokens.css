@@ -10,11 +10,11 @@
   --t-feature: #3f6b5f;
   --t-task: #7a7f88;
   --t-bug: #a5452f;
-  --s-draft: #8a857b;
-  --s-todo: #55707a;
-  --s-in-progress: #9a6b1f;
-  --s-completed: #3f6b5f;
-  --s-scrapped: #a5452f;
+  --s-draft: #b4ada0;
+  --s-todo: #4a6fa5;
+  --s-in-progress: #c9992f;
+  --s-completed: #4c8a4c;
+  --s-scrapped: #8f6b63;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-sans: system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
@@ -33,6 +33,11 @@
   --hairline: #3a3630;
   --paper-raised: #2b2823;
   --muted: #9a948a;
+  --s-draft: #8c867a;
+  --s-todo: #7fa2d4;
+  --s-in-progress: #d9ac4f;
+  --s-completed: #6fae6f;
+  --s-scrapped: #b08a80;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,5 +47,10 @@
     --hairline: #3a3630;
     --paper-raised: #2b2823;
     --muted: #9a948a;
+    --s-draft: #8c867a;
+    --s-todo: #7fa2d4;
+    --s-in-progress: #d9ac4f;
+    --s-completed: #6fae6f;
+    --s-scrapped: #b08a80;
   }
 }
