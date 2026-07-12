@@ -193,7 +193,10 @@ a {
   border-radius: 6px;
   background: var(--paper);
   box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
-  overflow: hidden;
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .header-search-hit {
@@ -484,6 +487,8 @@ a {
 .bean-detail-title {
   flex: 1;
   font-family: var(--font-serif);
+  font-size: 1.6rem;
+  line-height: 1.25;
 }
 
 .bean-detail-inline-rows {
@@ -571,7 +576,8 @@ a {
   border-radius: 4px;
   padding: 0.1rem 0.4rem;
   font-family: var(--font-serif);
-  font-size: inherit;
+  font-size: 1.6rem;
+  line-height: 1.25;
   background: var(--paper);
   color: var(--ink);
 }
@@ -618,12 +624,17 @@ a {
 .inline-edit-pencil,
 .inline-edit-save,
 .inline-edit-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
   border: 1px solid var(--hairline);
   background: var(--paper-raised);
   border-radius: 6px;
-  padding: 0.3rem 0.5rem;
+  padding: 0.4rem 0.7rem;
   cursor: pointer;
   line-height: 1;
+  font-size: 1rem;
   color: var(--muted);
 }
 
@@ -799,6 +810,7 @@ a {
   background: var(--paper);
   border: 1px solid var(--hairline);
   overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .picker-head {
@@ -841,7 +853,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  max-height: 60vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .picker-row {
@@ -1062,13 +1076,15 @@ a {
 
   .filter-bar--open .filter-bar-advanced {
     display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
   }
 
-  .filter-bar-advanced select,
-  .filter-bar-advanced input {
-    width: 100%;
+  .filter-bar-advanced .filter-tags {
+    flex: 1 1 100%;
+    width: auto;
   }
 
   .picker {
