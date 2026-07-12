@@ -47,6 +47,17 @@ export function BeanPicker({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
+  // Lock background scrolling while the picker sheet is open so dragging
+  // inside it doesn't also scroll the page behind the backdrop.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
   // RelationEditor keeps its BeanPicker instances always mounted and toggles
   // `open` instead of unmounting, so transient selection/filter state has to
   // be reset explicitly on each closed→open transition. Without this, a

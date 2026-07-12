@@ -142,4 +142,27 @@ describe("BeanPicker", () => {
     expect(screen.getByRole("button", { name: "Add 0" })).toBeDisabled();
     expect(screen.getByLabelText("Select Epic one")).not.toBeChecked();
   });
+
+  it("locks body scroll while open", () => {
+    const props: BeanPickerProps = {
+      open: true,
+      title: "Set parent",
+      candidates,
+      mode: "single",
+      onPick: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const { rerender, unmount } = render(<BeanPicker {...props} />);
+
+    expect(document.body.style.overflow).toBe("hidden");
+
+    rerender(<BeanPicker {...props} open={false} />);
+    expect(document.body.style.overflow).not.toBe("hidden");
+
+    rerender(<BeanPicker {...props} open={true} />);
+    expect(document.body.style.overflow).toBe("hidden");
+
+    unmount();
+    expect(document.body.style.overflow).not.toBe("hidden");
+  });
 });
