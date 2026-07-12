@@ -451,6 +451,10 @@ a {
   width: 1.5rem;
 }
 
+.hierarchy-list--flush .hierarchy-caret-spacer {
+  display: none;
+}
+
 /* Bean detail page */
 
 .bean-detail {

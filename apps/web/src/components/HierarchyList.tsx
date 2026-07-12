@@ -62,6 +62,14 @@ export function HierarchyList({
     () => buildGroupedSections([...milestones, ...roots]),
     [milestones, roots],
   );
+  // When a project has no milestones/epics, every rendered row is a
+  // depth-0 leaf, so the only thing indenting beans away from the left
+  // edge is the caret spacer reserved for rows with children. Drop it via
+  // CSS so childless lists sit flush against the edge.
+  const hasSections = isMobile
+    ? grouped.sections.length > 0
+    : milestones.length > 0 || roots.some((r) => r.children.length > 0);
+  const listClass = `hierarchy-list${hasSections ? "" : " hierarchy-list--flush"}`;
   // The hierarchy starts fully collapsed: only top-level beans (and section
   // headers) are visible until a caret is expanded. Recomputed whenever the
   // underlying tree/grouping changes, which also resets any user-driven
@@ -156,7 +164,7 @@ export function HierarchyList({
 
   if (isMobile) {
     return (
-      <div className="hierarchy-list hierarchy-list-grouped">
+      <div className={`${listClass} hierarchy-list-grouped`}>
         {grouped.sections.map((section) => renderGroupedSection(section))}
         {grouped.rootLeaves.length > 0 && (
           <ul className="hierarchy-children hierarchy-roots">
@@ -168,7 +176,7 @@ export function HierarchyList({
   }
 
   return (
-    <div className="hierarchy-list">
+    <div className={listClass}>
       {milestones.map((milestone) => {
         const isCollapsed = collapsed.has(milestone.bean.id);
         return (

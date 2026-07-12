@@ -132,6 +132,27 @@ describe("HierarchyList", () => {
     expect(screen.queryByRole("button", { name: /Empty Milestone/ })).not.toBeInTheDocument();
   });
 
+  describe("flush-left alignment when there are no sections", () => {
+    const onlyTasks: Bean[] = [
+      bean("t1", "task", null, "Task One"),
+      bean("b1", "bug", null, "Bug One"),
+    ];
+
+    it("marks the list as flush when there are no milestones or epics", async () => {
+      const { container } = renderWithRouter(<HierarchyList project="demo" beans={onlyTasks} />);
+
+      expect(await screen.findByText("Task One")).toBeInTheDocument();
+      expect(container.querySelector(".hierarchy-list")).toHaveClass("hierarchy-list--flush");
+    });
+
+    it("does not mark the list as flush when a milestone section exists", async () => {
+      const { container } = renderWithRouter(<HierarchyList project="demo" beans={beans} />);
+
+      expect(await screen.findByText("Milestone One")).toBeInTheDocument();
+      expect(container.querySelector(".hierarchy-list")).not.toHaveClass("hierarchy-list--flush");
+    });
+  });
+
   describe("with a type filter", () => {
     it("keeps ancestor milestones and epics as context while hiding non-matching beans", async () => {
       const user = userEvent.setup();
