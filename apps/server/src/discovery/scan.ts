@@ -50,6 +50,7 @@ function emptyCounts(): ProjectCounts {
     open: 0,
     byType: zeroCounts(BEAN_TYPES),
     byStatus: zeroCounts(BEAN_STATUSES),
+    openByType: zeroCounts(BEAN_TYPES),
     error: false,
   };
 }
@@ -68,7 +69,10 @@ export async function discoverProjects(root: string, maxDepth: number): Promise<
         counts.total += 1;
         counts.byType[b.type] += 1;
         counts.byStatus[b.status] += 1;
-        if (OPEN_STATUSES.includes(b.status)) counts.open += 1;
+        if (OPEN_STATUSES.includes(b.status)) {
+          counts.open += 1;
+          counts.openByType[b.type] += 1;
+        }
       }
     } catch (err) {
       // Zeroed counts stay, but flag the failure so callers/UI can tell an

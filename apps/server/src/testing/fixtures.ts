@@ -7,6 +7,7 @@ function fakeCounts(): ProjectCounts {
     open: 0,
     byType: zeroCounts(BEAN_TYPES),
     byStatus: zeroCounts(BEAN_STATUSES),
+    openByType: zeroCounts(BEAN_TYPES),
     error: false,
   };
 }

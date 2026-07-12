@@ -20,6 +20,7 @@ const project: Project = {
     open: 4,
     byType: { milestone: 1, epic: 2, feature: 0, task: 1, bug: 0 },
     byStatus: { draft: 0, todo: 0, "in-progress": 0, completed: 0, scrapped: 0 },
+    openByType: { milestone: 0, epic: 0, feature: 0, task: 0, bug: 0 },
     error: false,
   },
 };
