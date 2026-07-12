@@ -428,28 +428,17 @@ a {
 /* Hierarchy list */
 
 .hierarchy-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.hierarchy-section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0 0 0.5rem;
-  padding: 0.15rem 0.35rem;
-  border-bottom: 1px solid var(--hairline);
-  border-radius: 4px 4px 0 0;
+.hierarchy-row--section {
   background: color-mix(in srgb, var(--t-milestone) 8%, transparent);
 }
 
-.hierarchy-section-header--epic {
+.hierarchy-row--section-epic {
   background: color-mix(in srgb, var(--t-epic) 8%, transparent);
-}
-
-.hierarchy-section-header .bean-row {
-  flex: 1;
 }
 
 .hierarchy-children {
@@ -470,23 +459,14 @@ a {
 
 .hierarchy-caret {
   flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2rem;
+  height: 2rem;
   border: none;
   background: none;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 1.15rem;
   cursor: pointer;
-}
-
-.hierarchy-caret-spacer {
-  flex-shrink: 0;
-  width: 1.5rem;
-}
-
-.hierarchy-list--flush .hierarchy-caret-spacer {
-  display: none;
 }
 
 /* Bean detail page */
@@ -987,8 +967,7 @@ a {
     min-height: 44px;
   }
 
-  .hierarchy-caret,
-  .hierarchy-caret-spacer {
+  .hierarchy-caret {
     width: 2.25rem;
   }
 
@@ -1123,8 +1102,7 @@ a {
     min-height: 44px;
   }
 
-  .hierarchy-caret,
-  .hierarchy-caret-spacer {
+  .hierarchy-caret {
     width: 2.25rem;
   }
 
