@@ -1,0 +1,46 @@
+version: "0.2"
+language: en
+words:
+  - vitest
+  - pnpm
+  - tsconfig
+  - commitlint
+  - cspell
+  - knip
+  - eslint
+  - prettier
+  - husky
+  - lcov
+  - nocheck
+  - noEmit
+  - jsdom
+  - typeof
+  - devcontainer
+  - automerge
+  - renovatebot
+  - codecov
+  - dependabot
+  - typecheck
+  - codegen
+  - browsable
+  - hmans
+  - Bleve
+  - handbellhub
+  - testproj
+  - refetches
+  - glassmorphism
+  - Menlo
+  - Consolas
+  - affordances
+  - dataviz
+  - youruser
+  - frontmatter
+  - unstub
+ignorePaths:
+  - node_modules
+  - dist
+  - build
+  - coverage
+  - pnpm-lock.yaml
+  - "*.min.js"
+  - "*.min.css"

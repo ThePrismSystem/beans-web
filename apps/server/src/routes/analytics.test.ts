@@ -1,0 +1,37 @@
+import { EventEmitter } from "node:events";
+import { describe, expect, it, vi } from "vitest";
+
+import { createApp } from "../app.js";
+import type { AppDeps } from "../app.js";
+import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
+
+const project = fakeProject("proj-a");
+
+function deps(overrides: Partial<AppDeps> = {}): AppDeps {
+  return {
+    root: "/root",
+    scanDepth: 4,
+    listProjects: vi.fn(async () => [project]),
+    runGraphql: vi.fn(async () => ({})),
+    search: vi.fn(async () => ({ hits: [], failures: [] })),
+    analytics: vi.fn(async () => fakeAnalytics()),
+    watcher: new EventEmitter(),
+    ...overrides,
+  };
+}
+
+describe("GET /api/analytics", () => {
+  it("returns the aggregated analytics from deps.analytics", async () => {
+    const analytics = {
+      ...fakeAnalytics(),
+      perProject: [{ project: "proj-a", total: 2, open: 1 }],
+      completedByMonth: [{ month: "2026-03", count: 1 }],
+    };
+    const d = deps({ analytics: vi.fn(async () => analytics) });
+    const app = createApp(d);
+    const res = await app.request("/api/analytics");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(analytics);
+    expect(d.analytics).toHaveBeenCalled();
+  });
+});
