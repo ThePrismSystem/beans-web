@@ -10,11 +10,11 @@ test("core client-visible contract", async ({ page }) => {
 
   await test.step("overview lists the seeded project", async () => {
     await page.goto("/");
-    await expect(page.locator(".project-card", { hasText: projectName })).toBeVisible();
+    await expect(page.locator(".project-row", { hasText: projectName })).toBeVisible();
   });
 
   await test.step("open the project", async () => {
-    await page.locator(".project-card", { hasText: projectName }).click();
+    await page.locator(".project-row", { hasText: projectName }).click();
     await expect(page.getByRole("heading", { name: projectName, exact: true })).toBeVisible();
   });
 
@@ -52,6 +52,30 @@ test("core client-visible contract", async ({ page }) => {
     await expect(page.locator("button.bean-detail-title")).toHaveText(editedTitle);
   });
 
+  await test.step("edit the body via the rendered/raw toggle", async () => {
+    const newBody = "Updated body via e2e.";
+    await page.getByRole("button", { name: "Edit body" }).click();
+    const bodyField = page.getByLabel("Body", { exact: true });
+    await bodyField.fill(newBody);
+    await page.getByRole("button", { name: "Save body" }).click();
+    await expect(page.locator(".bean-detail-body")).toContainText(newBody);
+  });
+
+  await test.step("edit priority through an inline-edit row", async () => {
+    await page.getByRole("button", { name: "Edit Priority" }).click();
+    await page.getByLabel("Priority editor").selectOption("high");
+    await page.getByRole("button", { name: "Save Priority" }).click();
+    await expect(page.locator(".inline-edit-row", { hasText: "Priority" })).toContainText("high");
+  });
+
+  await test.step("relationship picker modal opens and closes", async () => {
+    await page.getByRole("button", { name: "Add blocks" }).click();
+    const picker = page.getByRole("dialog", { name: "Add blocks" });
+    await expect(picker).toBeVisible();
+    await picker.getByRole("button", { name: "Close" }).click();
+    await expect(picker).toBeHidden();
+  });
+
   const childTitle = `${editedTitle} child`;
   await test.step("create a child bean respecting hierarchy", async () => {
     await page.getByRole("button", { name: "+ New bean" }).click();
@@ -80,11 +104,13 @@ test("core client-visible contract", async ({ page }) => {
     await expect(page.locator(".status-label")).toHaveText("Scrapped");
   });
 
-  await test.step("global search finds a bean", async () => {
-    await page.getByRole("search", { name: "Global search" }).click();
-    await expect(page).toHaveURL(/\/search$/);
-    await page.getByLabel("Search beans").fill(childTitle);
-    await expect(page.getByRole("link", { name: childTitle })).toBeVisible();
+  await test.step("header search shows a live dropdown hit", async () => {
+    const headerSearch = page.getByRole("search", { name: "Global search" });
+    await headerSearch.getByLabel("Search all beans").fill(childTitle);
+    const hit = page.locator(".header-search-dropdown").getByRole("link", { name: childTitle });
+    await expect(hit).toBeVisible();
+    await hit.click();
+    await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);
   });
 
   await test.step("analytics page renders", async () => {
