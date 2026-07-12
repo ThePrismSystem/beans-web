@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -211,6 +211,53 @@ describe("ProjectList", () => {
     expect(screen.getByText("Task One")).toBeInTheDocument();
     expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
   });
+
+  it("shows the sort control only in flat view", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+    expect(screen.queryByLabelText("Sort by")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Flat" }));
+
+    expect(screen.getByLabelText("Sort by")).toBeInTheDocument();
+  });
+
+  it("sorts the flat list by title when ?sort=title is present in the URL", async () => {
+    window.localStorage.setItem("beans:view:testproj", "flat");
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+
+    renderProjectList("/p/testproj?sort=title");
+    await screen.findByText("Task One");
+
+    const titles = screen
+      .getAllByRole("listitem")
+      .map((li) => within(li).getByText(/One$/).textContent);
+    expect(titles).toEqual(["Bug One", "Epic One", "Milestone One", "Task One"]);
+    expect(screen.getByLabelText("Sort by")).toHaveValue("title");
+  });
+
+  it("updates the URL when the sort key or direction changes", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+    await user.click(screen.getByRole("button", { name: "Flat" }));
+
+    await user.selectOptions(screen.getByLabelText("Sort by"), "type");
+    expect(screen.getByLabelText("Sort by")).toHaveValue("type");
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↑");
+
+    await user.click(screen.getByRole("button", { name: "Toggle sort direction" }));
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↓");
+
+    await user.selectOptions(screen.getByLabelText("Sort by"), "");
+    expect(screen.getByLabelText("Sort by")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toBeDisabled();
+  });
 });
 
 describe("validateProjectSearch", () => {
@@ -245,5 +292,19 @@ describe("validateProjectSearch", () => {
       prefix: ["romn", "hhroot"],
     });
     expect(validateProjectSearch({ prefix: "romn" })).toEqual({ prefix: ["romn"] });
+  });
+
+  it("accepts valid sort and dir values", () => {
+    expect(validateProjectSearch({ sort: "title", dir: "desc" })).toEqual({
+      sort: "title",
+      dir: "desc",
+    });
+    expect(validateProjectSearch({ sort: "type" })).toEqual({ sort: "type" });
+    expect(validateProjectSearch({ sort: "status" })).toEqual({ sort: "status" });
+  });
+
+  it("drops invalid sort and dir values", () => {
+    expect(validateProjectSearch({ sort: "not-a-key", dir: "sideways" })).toEqual({});
+    expect(validateProjectSearch({ sort: 5, dir: null })).toEqual({});
   });
 });

@@ -394,6 +394,50 @@ a {
   display: contents;
 }
 
+/* Sort control (flat view only) */
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.sort-control label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.sort-control select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.sort-control button {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.sort-control button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 /* Bean row */
 
 .bean-row {
@@ -977,7 +1021,8 @@ a {
   .linked-bean-link,
   .view-toggle button,
   .nav-toggle,
-  .filter-toggle {
+  .filter-toggle,
+  .sort-control button {
     min-height: 44px;
   }
 
@@ -991,6 +1036,7 @@ a {
 
   .filter-bar input,
   .filter-bar select,
+  .sort-control select,
   .inline-edit-value select,
   .inline-edit-value input,
   .create-bean-field input,
@@ -1114,7 +1160,8 @@ a {
   .picker-add,
   .picker-none,
   .relation-editor-section > button,
-  .bean-detail-body-actions button {
+  .bean-detail-body-actions button,
+  .sort-control button {
     min-height: 44px;
   }
 
@@ -1131,6 +1178,7 @@ a {
   .filter-tags,
   .header-search-input,
   .picker-search,
+  .sort-control select,
   .checkbox-menu-item,
   .inline-edit-value select,
   .inline-edit-value input,
