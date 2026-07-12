@@ -5,18 +5,20 @@ import { FilterBar } from "../components/FilterBar.js";
 import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
 
-import { useBeans } from "../hooks/useBeans.js";
+import { DEFAULT_BEAN_FILTER, useBeans } from "../hooks/useBeans.js";
+import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
 import type { BeanFilterInput } from "../hooks/useBeans.js";
-import type { BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { Bean, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
 
 export interface ProjectSearch {
   type?: BeanType[];
   status?: BeanStatus[];
   priority?: BeanPriority[];
   tags?: string[];
+  prefix?: string[];
   search?: string;
 }
 
@@ -41,10 +43,12 @@ export function validateProjectSearch(search: Record<string, unknown>): ProjectS
   const status = filterKnown(toStringArray(search.status), BEAN_STATUSES);
   const priority = filterKnown(toStringArray(search.priority), BEAN_PRIORITIES);
   const tags = toStringArray(search.tags);
+  const prefix = toStringArray(search.prefix);
   if (type.length > 0) result.type = type;
   if (status.length > 0) result.status = status;
   if (priority.length > 0) result.priority = priority;
   if (tags.length > 0) result.tags = tags;
+  if (prefix.length > 0) result.prefix = prefix;
   if (typeof search.search === "string" && search.search.length > 0) {
     result.search = search.search;
   }
@@ -77,9 +81,12 @@ export function ProjectList() {
 
   const filter: BeanFilterInput = {
     type: search.type ?? [],
-    status: search.status ?? [],
+    // With no status param present, default to the open statuses so
+    // completed/scrapped beans are hidden until explicitly requested.
+    status: search.status ?? [...DEFAULT_BEAN_FILTER.status],
     priority: search.priority ?? [],
     tags: search.tags ?? [],
+    prefix: search.prefix ?? [],
     search: search.search ?? "",
   };
 
@@ -89,10 +96,14 @@ export function ProjectList() {
   // the filtered type. Sending the type filter to the server would strip
   // those ancestors from the response and buildTree would have nothing to
   // nest the matches under, collapsing the tree into a flat list. Status,
-  // priority, tags, and search stay server-side for both views.
-  const serverFilter: BeanFilterInput = view === "hierarchy" ? { ...filter, type: [] } : filter;
+  // priority, tags, and search stay server-side for both views. Prefix is
+  // always applied client-side (see below), so it is never sent to the
+  // server either.
+  const serverFilter: BeanFilterInput =
+    view === "hierarchy" ? { ...filter, type: [], prefix: [] } : { ...filter, prefix: [] };
 
   const { data: beans, isPending, isError } = useBeans(project, serverFilter);
+  const prefixOptions = beans ? distinctPrefixes(beans) : [];
 
   function handleFilterChange(next: BeanFilterInput) {
     void navigate({
@@ -101,9 +112,29 @@ export function ProjectList() {
         status: next.status.length > 0 ? next.status : undefined,
         priority: next.priority.length > 0 ? next.priority : undefined,
         tags: next.tags.length > 0 ? next.tags : undefined,
+        prefix: next.prefix.length > 0 ? next.prefix : undefined,
         search: next.search.length > 0 ? next.search : undefined,
       },
     });
+  }
+
+  // Keep ancestor sections visible when pruning by prefix in hierarchy view
+  // (mirrors the type-filter pattern above): a matched bean's milestone/epic
+  // ancestors are kept even though they don't themselves match the prefix,
+  // so buildTree still has somewhere to nest the matches.
+  function withAncestors(list: Bean[], all: Bean[]): Bean[] {
+    const byId = new Map(all.map((b) => [b.id, b]));
+    const keep = new Map(list.map((b) => [b.id, b]));
+    for (const bean of list) {
+      let parentId = bean.parentId;
+      while (parentId && byId.has(parentId) && !keep.has(parentId)) {
+        const parent = byId.get(parentId);
+        if (!parent) break;
+        keep.set(parentId, parent);
+        parentId = parent.parentId;
+      }
+    }
+    return [...keep.values()];
   }
 
   function renderList() {
@@ -113,14 +144,18 @@ export function ProjectList() {
     if (isError) {
       return <p className="muted">Failed to load beans.</p>;
     }
-    if (beans.length === 0) {
+    const prefixFiltered =
+      filter.prefix.length > 0
+        ? beans.filter((b) => filter.prefix.includes(beanPrefix(b.id)))
+        : beans;
+    if (prefixFiltered.length === 0) {
       return <p className="muted">No beans match the current filters.</p>;
     }
-    return view === "flat" ? (
-      <FlatList project={project} beans={beans} />
-    ) : (
-      <HierarchyList project={project} beans={beans} typeFilter={filter.type} />
-    );
+    if (view === "flat") {
+      return <FlatList project={project} beans={prefixFiltered} />;
+    }
+    const hierarchyBeans = filter.prefix.length > 0 ? withAncestors(prefixFiltered, beans) : beans;
+    return <HierarchyList project={project} beans={hierarchyBeans} typeFilter={filter.type} />;
   }
 
   return (
@@ -150,7 +185,7 @@ export function ProjectList() {
           </button>
         </div>
       </div>
-      <FilterBar filter={filter} onChange={handleFilterChange} />
+      <FilterBar filter={filter} prefixOptions={prefixOptions} onChange={handleFilterChange} />
       {renderList()}
     </div>
   );

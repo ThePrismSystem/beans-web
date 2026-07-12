@@ -159,13 +159,14 @@ describe("ProjectList", () => {
     await screen.findByRole("heading", { name: /Milestone One/ });
 
     await user.click(screen.getByRole("button", { name: "Flat" }));
-    await user.selectOptions(screen.getByLabelText("Type"), "task");
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
     });
 
-    await user.selectOptions(screen.getByLabelText("Type"), "");
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
@@ -180,7 +181,8 @@ describe("ProjectList", () => {
     await screen.findByRole("heading", { name: /Milestone One/ });
     await user.click(screen.getByRole("button", { name: "Flat" }));
 
-    await user.selectOptions(screen.getByLabelText("Type"), "task");
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
@@ -194,7 +196,8 @@ describe("ProjectList", () => {
     renderProjectList();
     await screen.findByRole("heading", { name: /Milestone One/ });
 
-    await user.selectOptions(screen.getByLabelText("Type"), "task");
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
@@ -230,5 +233,12 @@ describe("validateProjectSearch", () => {
 
   it("ignores values that are neither strings nor arrays", () => {
     expect(validateProjectSearch({ type: 5, priority: null })).toEqual({});
+  });
+
+  it("validates prefix search param as a string array", () => {
+    expect(validateProjectSearch({ prefix: ["romn", "hhroot"] })).toEqual({
+      prefix: ["romn", "hhroot"],
+    });
+    expect(validateProjectSearch({ prefix: "romn" })).toEqual({ prefix: ["romn"] });
   });
 });

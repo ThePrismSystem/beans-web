@@ -89,6 +89,7 @@ describe("useBeans", () => {
           status: ["todo"],
           priority: ["high"],
           tags: ["urgent"],
+          prefix: ["romn"],
           search: "  login  ",
         }),
       { wrapper },
