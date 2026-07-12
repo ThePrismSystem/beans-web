@@ -209,7 +209,9 @@ describe("BeanDetailPage", () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
-    await user.selectOptions(await screen.findByLabelText("Status"), "completed");
+    await user.click(await screen.findByRole("button", { name: "Edit Status" }));
+    await user.selectOptions(screen.getByLabelText("Status editor"), "completed");
+    await user.click(screen.getByRole("button", { name: "Save Status" }));
 
     expect(updateBeanMutate).toHaveBeenCalledWith({
       id: "t1",
@@ -222,7 +224,9 @@ describe("BeanDetailPage", () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
-    await user.selectOptions(await screen.findByLabelText("Type"), "bug");
+    await user.click(await screen.findByRole("button", { name: "Edit Type" }));
+    await user.selectOptions(screen.getByLabelText("Type editor"), "bug");
+    await user.click(screen.getByRole("button", { name: "Save Type" }));
 
     expect(updateBeanMutate).toHaveBeenCalledWith({
       id: "t1",
@@ -235,7 +239,9 @@ describe("BeanDetailPage", () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
-    await user.selectOptions(await screen.findByLabelText("Priority"), "low");
+    await user.click(await screen.findByRole("button", { name: "Edit Priority" }));
+    await user.selectOptions(screen.getByLabelText("Priority editor"), "low");
+    await user.click(screen.getByRole("button", { name: "Save Priority" }));
 
     expect(updateBeanMutate).toHaveBeenCalledWith({
       id: "t1",
@@ -244,14 +250,15 @@ describe("BeanDetailPage", () => {
     });
   });
 
-  it("commits tags on blur", async () => {
+  it("saves tags through the inline edit row", async () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
-    const tagsInput = await screen.findByLabelText("Tags");
+    await user.click(await screen.findByRole("button", { name: "Edit Tags" }));
+    const tagsInput = screen.getByLabelText("Tags editor");
     await user.clear(tagsInput);
     await user.type(tagsInput, "a, b");
-    await user.tab();
+    await user.click(screen.getByRole("button", { name: "Save Tags" }));
 
     expect(updateBeanMutate).toHaveBeenCalledWith({
       id: "t1",
