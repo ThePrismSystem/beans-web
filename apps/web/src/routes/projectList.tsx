@@ -1,17 +1,18 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FilterBar } from "../components/FilterBar.js";
 import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
 
 import { DEFAULT_BEAN_FILTER, useBeans } from "../hooks/useBeans.js";
+import { withAncestors } from "../lib/hierarchy.js";
 import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
 import type { BeanFilterInput } from "../hooks/useBeans.js";
-import type { Bean, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
 
 export interface ProjectSearch {
   type?: BeanType[];
@@ -122,20 +123,27 @@ export function ProjectList() {
   // (mirrors the type-filter pattern above): a matched bean's milestone/epic
   // ancestors are kept even though they don't themselves match the prefix,
   // so buildTree still has somewhere to nest the matches.
-  function withAncestors(list: Bean[], all: Bean[]): Bean[] {
-    const byId = new Map(all.map((b) => [b.id, b]));
-    const keep = new Map(list.map((b) => [b.id, b]));
-    for (const bean of list) {
-      let parentId = bean.parentId;
-      while (parentId && byId.has(parentId) && !keep.has(parentId)) {
-        const parent = byId.get(parentId);
-        if (!parent) break;
-        keep.set(parentId, parent);
-        parentId = parent.parentId;
-      }
-    }
-    return [...keep.values()];
-  }
+  //
+  // Both memoized on `beans`/`filter.prefix` (not recomputed on every
+  // render) so HierarchyList's `beans` prop keeps a stable identity across
+  // re-renders that don't actually change the filtered data (e.g. an SSE
+  // "Updated" event elsewhere causing this component to re-render). A new
+  // array identity on every render would trip HierarchyList's collapse
+  // re-seed and wipe the user's expand/collapse state.
+  const prefixFiltered = useMemo(
+    () =>
+      beans && filter.prefix.length > 0
+        ? beans.filter((b) => filter.prefix.includes(beanPrefix(b.id)))
+        : beans,
+    [beans, filter.prefix],
+  );
+  const hierarchyBeans = useMemo(
+    () =>
+      beans && prefixFiltered && filter.prefix.length > 0
+        ? withAncestors(prefixFiltered, beans)
+        : beans,
+    [beans, prefixFiltered, filter.prefix.length],
+  );
 
   function renderList() {
     if (isPending) {
@@ -144,18 +152,22 @@ export function ProjectList() {
     if (isError) {
       return <p className="muted">Failed to load beans.</p>;
     }
-    const prefixFiltered =
-      filter.prefix.length > 0
-        ? beans.filter((b) => filter.prefix.includes(beanPrefix(b.id)))
-        : beans;
+    if (!prefixFiltered) {
+      return null;
+    }
     if (prefixFiltered.length === 0) {
       return <p className="muted">No beans match the current filters.</p>;
     }
     if (view === "flat") {
       return <FlatList project={project} beans={prefixFiltered} />;
     }
-    const hierarchyBeans = filter.prefix.length > 0 ? withAncestors(prefixFiltered, beans) : beans;
-    return <HierarchyList project={project} beans={hierarchyBeans} typeFilter={filter.type} />;
+    return (
+      <HierarchyList
+        project={project}
+        beans={hierarchyBeans ?? prefixFiltered}
+        typeFilter={filter.type}
+      />
+    );
   }
 
   return (

@@ -106,6 +106,26 @@ function pushSections(node: BeanNode, depth: number, sections: GroupedSection[])
 }
 
 /**
+ * Given a subset of `all` (e.g. beans matching a prefix filter), returns that
+ * subset plus every ancestor (milestone/epic/etc.) needed so the hierarchy
+ * still has somewhere to nest each match, deduplicated. Safe against parent
+ * cycles since a bean already added to `keep` stops the walk.
+ */
+export function withAncestors(list: Bean[], all: Bean[]): Bean[] {
+  const byId = new Map(all.map((b) => [b.id, b]));
+  const keep = new Map(list.map((b) => [b.id, b]));
+  for (const bean of list) {
+    let parentId = bean.parentId;
+    while (parentId && byId.has(parentId) && !keep.has(parentId)) {
+      const parent = byId.get(parentId)!;
+      keep.set(parentId, parent);
+      parentId = parent.parentId;
+    }
+  }
+  return [...keep.values()];
+}
+
+/**
  * Builds a shallow, mobile-friendly grouping from a full BeanNode tree
  * (as produced by `buildTree`, optionally pruned by `pruneTreeToMatches`):
  * milestones and epics become section headers, and every other descendant

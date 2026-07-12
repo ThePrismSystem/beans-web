@@ -5,6 +5,7 @@ import {
   buildTree,
   collectCollapsibleIds,
   pruneTreeToMatches,
+  withAncestors,
 } from "./hierarchy.js";
 
 import type { Bean } from "@beans-frontend/shared";
@@ -146,6 +147,45 @@ describe("buildGroupedSections", () => {
     expect(sections[0]?.bean.id).toBe("e1");
     expect(sections[0]?.depth).toBe(0);
     expect(sections[0]?.leaves.map((b) => b.id)).toEqual(["t1"]);
+  });
+});
+
+describe("withAncestors", () => {
+  it("preserves the full ancestor chain for a matched bean", () => {
+    const all = [
+      bean("m1", "milestone", null),
+      bean("e1", "epic", "m1"),
+      bean("t1", "task", "e1"),
+      bean("other", "task", null),
+    ];
+    const result = withAncestors([all[2]!], all);
+    expect(result.map((b) => b.id).sort()).toEqual(["e1", "m1", "t1"]);
+  });
+
+  it("dedupes a shared ancestor across multiple matches", () => {
+    const all = [
+      bean("m1", "milestone", null),
+      bean("e1", "epic", "m1"),
+      bean("t1", "task", "e1"),
+      bean("t2", "task", "e1"),
+    ];
+    const result = withAncestors([all[2]!, all[3]!], all);
+    expect(result.filter((b) => b.id === "e1")).toHaveLength(1);
+    expect(result.map((b) => b.id).sort()).toEqual(["e1", "m1", "t1", "t2"]);
+  });
+
+  it("does not infinite-loop on a parent/child cycle", () => {
+    const a = bean("a", "task", "b");
+    const b = bean("b", "task", "a");
+    const all = [a, b];
+    const result = withAncestors([a], all);
+    expect(result.map((x) => x.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("returns the list unchanged when no bean has a parent", () => {
+    const all = [bean("t1", "task", null), bean("t2", "task", null)];
+    const result = withAncestors(all, all);
+    expect(result).toEqual(all);
   });
 });
 
