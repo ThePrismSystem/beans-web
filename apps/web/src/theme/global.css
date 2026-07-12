@@ -762,6 +762,125 @@ a {
   border-color: var(--s-scrapped);
 }
 
+/* Bean picker */
+
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 40%);
+  z-index: 100;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(32rem, 92vw);
+  max-height: 80vh;
+  padding: 1.25rem;
+  border-radius: 6px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.picker-head h2 {
+  margin: 0;
+}
+
+.picker-head button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.picker-search {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+
+.picker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-y: auto;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker-row:hover {
+  background: var(--paper-raised);
+}
+
+.picker-row-title {
+  flex: 1;
+}
+
+.picker-none {
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker-none:hover {
+  background: var(--paper-raised);
+}
+
+.picker-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.picker-add {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* Create bean form */
 
 .create-bean-form {
@@ -937,6 +1056,16 @@ a {
   .filter-bar-advanced select,
   .filter-bar-advanced input {
     width: 100%;
+  }
+
+  .picker {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: 12px 12px 0 0;
+    overflow-y: auto;
   }
 }
 
