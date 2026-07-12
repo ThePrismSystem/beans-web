@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { BeanRow } from "./BeanRow.js";
+import { SectionHeaderRow } from "./SectionHeaderRow.js";
 
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import {
@@ -135,24 +136,15 @@ export function HierarchyList({
         data-depth={section.depth}
         style={{ paddingLeft: `calc(${section.depth} * var(--indent))` }}
       >
-        <h2 className="hierarchy-section-header">
-          {hasLeaves && (
-            <button
-              type="button"
-              className="hierarchy-caret"
-              aria-label={
-                isCollapsed ? `Expand ${section.bean.title}` : `Collapse ${section.bean.title}`
-              }
-              aria-expanded={!isCollapsed}
-              onClick={() => {
-                toggle(section.bean.id);
-              }}
-            >
-              {isCollapsed ? "▸" : "▾"}
-            </button>
-          )}
-          {section.bean.title}
-        </h2>
+        <SectionHeaderRow
+          project={project}
+          bean={section.bean}
+          collapsed={isCollapsed}
+          hasChildren={hasLeaves}
+          onToggle={() => {
+            toggle(section.bean.id);
+          }}
+        />
         {!isCollapsed && hasLeaves && (
           <ul className="hierarchy-children">
             {section.leaves.map((bean) => renderLeafRow(bean, section.depth + 1))}
@@ -181,26 +173,15 @@ export function HierarchyList({
         const isCollapsed = collapsed.has(milestone.bean.id);
         return (
           <section key={milestone.bean.id} className="hierarchy-section">
-            <h2 className="hierarchy-section-header">
-              {milestone.children.length > 0 && (
-                <button
-                  type="button"
-                  className="hierarchy-caret"
-                  aria-label={
-                    isCollapsed
-                      ? `Expand ${milestone.bean.title}`
-                      : `Collapse ${milestone.bean.title}`
-                  }
-                  aria-expanded={!isCollapsed}
-                  onClick={() => {
-                    toggle(milestone.bean.id);
-                  }}
-                >
-                  {isCollapsed ? "▸" : "▾"}
-                </button>
-              )}
-              {milestone.bean.title}
-            </h2>
+            <SectionHeaderRow
+              project={project}
+              bean={milestone.bean}
+              collapsed={isCollapsed}
+              hasChildren={milestone.children.length > 0}
+              onToggle={() => {
+                toggle(milestone.bean.id);
+              }}
+            />
             {!isCollapsed && milestone.children.length > 0 && (
               <ul className="hierarchy-children">
                 {milestone.children.map((child) => renderNode(child))}

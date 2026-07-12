@@ -94,7 +94,7 @@ describe("ProjectList", () => {
 
     renderProjectList();
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
   });
 
   it("switches to the flat view when the Flat toggle is clicked, and persists the choice", async () => {
@@ -102,11 +102,12 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
 
     await user.click(screen.getByRole("button", { name: "Flat" }));
 
-    expect(screen.queryByRole("heading", { name: /Milestone One/ })).not.toBeInTheDocument();
+    // The flat view has no section headers/carets, unlike hierarchy view.
+    expect(screen.queryByRole("button", { name: /Expand Milestone One/ })).not.toBeInTheDocument();
     expect(screen.getByText("Task One")).toBeInTheDocument();
     expect(window.localStorage.getItem("beans:view:testproj")).toBe("flat");
   });
@@ -118,7 +119,7 @@ describe("ProjectList", () => {
     renderProjectList();
 
     expect(await screen.findByText("Task One")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /Milestone One/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Expand Milestone One/ })).not.toBeInTheDocument();
   });
 
   it("shows a loading message while beans are pending", async () => {
@@ -147,7 +148,7 @@ describe("ProjectList", () => {
 
     await user.click(screen.getByRole("button", { name: "Hierarchy" }));
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
     expect(window.localStorage.getItem("beans:view:testproj")).toBe("hierarchy");
   });
 
@@ -156,7 +157,7 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
 
     await user.click(screen.getByRole("button", { name: "Flat" }));
     await user.click(screen.getByRole("button", { name: /^Type/ }));
@@ -178,7 +179,7 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
     await user.click(screen.getByRole("button", { name: "Flat" }));
 
     await user.click(screen.getByRole("button", { name: /^Type/ }));
@@ -194,7 +195,7 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
 
     await user.click(screen.getByRole("button", { name: /^Type/ }));
     await user.click(screen.getByRole("checkbox", { name: "task" }));
@@ -202,7 +203,7 @@ describe("ProjectList", () => {
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
     });
-    expect(screen.getByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(screen.getByText("Milestone One")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
     await user.click(screen.getByRole("button", { name: "Expand Epic One" }));

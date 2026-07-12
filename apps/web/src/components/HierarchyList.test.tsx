@@ -57,14 +57,14 @@ describe("HierarchyList", () => {
   it("renders a milestone as a section header", async () => {
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
   });
 
   it("starts collapsed, showing only top-level sections", async () => {
     const user = userEvent.setup();
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
     expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
     expect(screen.queryByText("Task One")).not.toBeInTheDocument();
 
@@ -137,7 +137,7 @@ describe("HierarchyList", () => {
       const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={beans} typeFilter={["task"]} />);
 
-      expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+      expect(await screen.findByText("Milestone One")).toBeInTheDocument();
       expect(screen.getByText("Orphan Task")).toBeInTheDocument();
       expect(screen.queryByText("Empty Milestone")).not.toBeInTheDocument();
 
@@ -166,7 +166,7 @@ describe("HierarchyList", () => {
       const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
 
-      const epicHeading = await screen.findByRole("heading", { name: /Epic One/ });
+      const epicHeading = await screen.findByText("Epic One");
       const epicRow = epicHeading.closest("[data-depth]");
       await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
       const taskRow = (await screen.findByText("Deep Task")).closest("[data-depth]");
@@ -175,8 +175,9 @@ describe("HierarchyList", () => {
       const epicDepth = Number(epicRow?.getAttribute("data-depth"));
       const taskDepth = Number(taskRow?.getAttribute("data-depth"));
       expect(taskDepth).toBe(epicDepth + 1);
-      // The intermediate feature is flattened away, not rendered as its own header.
-      expect(screen.queryByRole("heading", { name: "Feature One" })).not.toBeInTheDocument();
+      // The intermediate feature is flattened away, not rendered as its own header
+      // (no expand/collapse control for it, unlike a real section).
+      expect(screen.queryByRole("button", { name: /Feature One/ })).not.toBeInTheDocument();
     });
 
     it("still supports collapsing a section's caret", async () => {
