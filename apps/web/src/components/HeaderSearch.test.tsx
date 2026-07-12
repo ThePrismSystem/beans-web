@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -63,6 +63,39 @@ describe("HeaderSearch", () => {
     await screen.findByText("Ring bell");
 
     await user.keyboard("{Escape}");
+
+    expect(screen.queryByText("Ring bell")).not.toBeInTheDocument();
+  });
+
+  it("closes the dropdown on outside click", async () => {
+    useSearchMock.mockReturnValue({
+      data: { hits, failures: [] },
+      isPending: false,
+      isError: false,
+    });
+    const user = userEvent.setup();
+    renderWithRouter(<HeaderSearch />);
+    const search = await screen.findByRole("search", { name: "Global search" });
+    await user.type(search.querySelector("input")!, "bell");
+    await screen.findByText("Ring bell");
+
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByText("Ring bell")).not.toBeInTheDocument();
+  });
+
+  it("closes the dropdown when a hit is clicked", async () => {
+    useSearchMock.mockReturnValue({
+      data: { hits, failures: [] },
+      isPending: false,
+      isError: false,
+    });
+    const user = userEvent.setup();
+    renderWithRouter(<HeaderSearch />);
+    const search = await screen.findByRole("search", { name: "Global search" });
+    await user.type(search.querySelector("input")!, "bell");
+
+    await user.click(await screen.findByText("Ring bell"));
 
     expect(screen.queryByText("Ring bell")).not.toBeInTheDocument();
   });
