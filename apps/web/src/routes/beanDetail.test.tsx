@@ -267,11 +267,12 @@ describe("BeanDetailPage", () => {
     });
   });
 
-  it("saves body edits through the body editor", async () => {
+  it("edits and saves the body via the Edit toggle", async () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
-    const textarea = await screen.findByLabelText("Body");
+    await user.click(await screen.findByRole("button", { name: "Edit body" }));
+    const textarea = screen.getByLabelText("Body");
     await user.clear(textarea);
     await user.type(textarea, "New body content");
     await user.click(screen.getByRole("button", { name: "Save body" }));
@@ -281,6 +282,17 @@ describe("BeanDetailPage", () => {
       etag: "abc",
       input: { body: "New body content" },
     });
+  });
+
+  it("cancels body edits without saving", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Edit body" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Edit body" })).toBeInTheDocument();
   });
 
   it("prompts for a reason and scraps the bean", async () => {

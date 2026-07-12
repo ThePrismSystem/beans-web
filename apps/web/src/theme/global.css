@@ -634,6 +634,12 @@ a {
   text-transform: uppercase;
 }
 
+.bean-detail-body-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
 .bean-detail-actions {
   display: flex;
   gap: 0.6rem;
@@ -675,10 +681,6 @@ a {
 
 /* Body editor */
 
-.body-editor-toolbar {
-  margin-bottom: 0.5rem;
-}
-
 .body-editor-textarea {
   width: 100%;
   padding: 0.6rem;
@@ -689,12 +691,6 @@ a {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   resize: vertical;
-}
-
-.body-editor-preview {
-  padding: 0.6rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
 }
 
 /* Relation editor */

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
-import { BodyEditor } from "../components/BodyEditor.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
 import { CreateBeanForm } from "../components/CreateBeanForm.js";
 import { InlineEditRow } from "../components/InlineEditRow.js";
@@ -30,6 +29,8 @@ import { renderMarkdown } from "../lib/markdown.js";
 
 import type { Bean, BeanDetail } from "@beans-frontend/shared";
 import type { RelationChange } from "../components/RelationEditor.js";
+
+const BODY_TEXTAREA_ROWS = 14;
 
 function formatTimestamp(value: string): string {
   const date = new Date(value);
@@ -63,6 +64,7 @@ function BeanDetailContent({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState(bean.body);
+  const [editingBody, setEditingBody] = useState(false);
   const [syncedBodyForId, setSyncedBodyForId] = useState(bean.id);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -320,19 +322,60 @@ function BeanDetailContent({
         </div>
       )}
 
-      <div
-        className="bean-detail-body"
-        // Body is markdown -> HTML rendered through renderMarkdown(), which
-        // pipes the output through DOMPurify before it ever reaches the DOM.
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(bean.body) }}
-      />
-
       <section className="bean-detail-section">
-        <h2 className="bean-detail-section-title">Edit body</h2>
-        <BodyEditor value={bodyDraft} onChange={setBodyDraft} />
-        <button type="button" disabled={bodyDraft === bean.body} onClick={saveBody}>
-          Save body
-        </button>
+        {editingBody ? (
+          <>
+            <textarea
+              aria-label="Body"
+              className="body-editor-textarea"
+              value={bodyDraft}
+              onChange={(event) => setBodyDraft(event.target.value)}
+              rows={BODY_TEXTAREA_ROWS}
+            />
+            <div className="bean-detail-body-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingBody(false);
+                  if (bodyDraft !== bean.body) {
+                    saveBody();
+                  }
+                }}
+              >
+                Save body
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBodyDraft(bean.body);
+                  setEditingBody(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              className="bean-detail-body"
+              // Body is markdown -> HTML rendered through renderMarkdown(), which
+              // pipes the output through DOMPurify before it ever reaches the DOM.
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(bean.body) }}
+            />
+            <div className="bean-detail-body-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setBodyDraft(bean.body);
+                  setEditingBody(true);
+                }}
+              >
+                Edit body
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="bean-detail-section">
