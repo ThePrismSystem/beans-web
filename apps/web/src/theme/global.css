@@ -1069,6 +1069,51 @@ a {
   }
 }
 
+/* Same touch-target/zoom guarantees as the coarse-pointer block above, but
+   keyed on viewport width so narrow-but-precise-pointer devices (and the
+   controls added since that block was written) get them too. */
+@media (max-width: 768px) {
+  .side-item,
+  .bean-row,
+  .linked-bean-link,
+  .view-toggle button,
+  .checkbox-menu-trigger,
+  .inline-edit-pencil,
+  .inline-edit-save,
+  .inline-edit-cancel,
+  .picker-row,
+  .picker-add,
+  .picker-none,
+  .relation-editor-section > button,
+  .bean-detail-body-actions button {
+    min-height: 44px;
+  }
+
+  .hierarchy-caret,
+  .hierarchy-caret-spacer {
+    width: 2.25rem;
+  }
+
+  .hierarchy-caret {
+    min-height: 44px;
+  }
+
+  .filter-bar input,
+  .filter-bar select,
+  .filter-tags,
+  .header-search-input,
+  .picker-search,
+  .checkbox-menu-item,
+  .inline-edit-value select,
+  .inline-edit-value input,
+  .create-bean-field input,
+  .create-bean-field select,
+  .create-bean-field textarea,
+  .body-editor-textarea {
+    font-size: 16px;
+  }
+}
+
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
   .sidebar {
     transition: none;
