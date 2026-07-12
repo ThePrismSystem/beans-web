@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -94,7 +94,7 @@ describe("ProjectList", () => {
 
     renderProjectList();
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
   });
 
   it("switches to the flat view when the Flat toggle is clicked, and persists the choice", async () => {
@@ -102,11 +102,12 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
 
     await user.click(screen.getByRole("button", { name: "Flat" }));
 
-    expect(screen.queryByRole("heading", { name: /Milestone One/ })).not.toBeInTheDocument();
+    // The flat view has no section headers/carets, unlike hierarchy view.
+    expect(screen.queryByRole("button", { name: /Expand Milestone One/ })).not.toBeInTheDocument();
     expect(screen.getByText("Task One")).toBeInTheDocument();
     expect(window.localStorage.getItem("beans:view:testproj")).toBe("flat");
   });
@@ -118,7 +119,7 @@ describe("ProjectList", () => {
     renderProjectList();
 
     expect(await screen.findByText("Task One")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /Milestone One/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Expand Milestone One/ })).not.toBeInTheDocument();
   });
 
   it("shows a loading message while beans are pending", async () => {
@@ -147,7 +148,7 @@ describe("ProjectList", () => {
 
     await user.click(screen.getByRole("button", { name: "Hierarchy" }));
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
     expect(window.localStorage.getItem("beans:view:testproj")).toBe("hierarchy");
   });
 
@@ -156,16 +157,17 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
 
     await user.click(screen.getByRole("button", { name: "Flat" }));
-    await user.selectOptions(screen.getByLabelText("Type"), "task");
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
     });
 
-    await user.selectOptions(screen.getByLabelText("Type"), "");
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
@@ -177,10 +179,11 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
     await user.click(screen.getByRole("button", { name: "Flat" }));
 
-    await user.selectOptions(screen.getByLabelText("Type"), "task");
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
@@ -192,16 +195,85 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
 
     renderProjectList();
-    await screen.findByRole("heading", { name: /Milestone One/ });
+    await screen.findByText("Milestone One");
 
-    await user.selectOptions(screen.getByLabelText("Type"), "task");
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByRole("checkbox", { name: "task" }));
 
     await waitFor(() => {
       expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
     });
-    expect(screen.getByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(screen.getByText("Milestone One")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
+
     expect(screen.getByText("Task One")).toBeInTheDocument();
     expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
+  });
+
+  it("shows the sort control in both hierarchy and flat view", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+    expect(screen.getByLabelText("Sort by")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Flat" }));
+
+    expect(screen.getByLabelText("Sort by")).toBeInTheDocument();
+  });
+
+  it("sorts only the top-level hierarchy rows by title, leaving nested children alone", async () => {
+    const cherryRoot: Bean = { ...milestone, id: "cherry", title: "Cherry", type: "task" };
+    const appleRoot: Bean = { ...milestone, id: "apple", title: "Apple", type: "task" };
+    const topLevelBeans = [milestone, epic, task, bug, cherryRoot, appleRoot];
+    useBeansMock.mockReturnValue({ data: topLevelBeans, isPending: false, isError: false });
+
+    renderProjectList("/p/testproj?sort=title");
+    await screen.findByText("Milestone One");
+
+    const topLevelRows = document.querySelectorAll(".hierarchy-roots > .hierarchy-node");
+    const topLevelTitles = [...topLevelRows].map(
+      (row) => row.querySelector(".bean-row-title")?.textContent,
+    );
+    expect(topLevelTitles).toEqual(["Apple", "Cherry", "Milestone One"]);
+    expect(screen.getByLabelText("Sort by")).toHaveValue("title");
+  });
+
+  it("sorts the flat list by title when ?sort=title is present in the URL", async () => {
+    window.localStorage.setItem("beans:view:testproj", "flat");
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+
+    renderProjectList("/p/testproj?sort=title");
+    await screen.findByText("Task One");
+
+    const titles = screen
+      .getAllByRole("listitem")
+      .map((li) => within(li).getByText(/One$/).textContent);
+    expect(titles).toEqual(["Bug One", "Epic One", "Milestone One", "Task One"]);
+    expect(screen.getByLabelText("Sort by")).toHaveValue("title");
+  });
+
+  it("updates the URL when the sort key or direction changes", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+    await user.click(screen.getByRole("button", { name: "Flat" }));
+
+    await user.selectOptions(screen.getByLabelText("Sort by"), "type");
+    expect(screen.getByLabelText("Sort by")).toHaveValue("type");
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↑");
+
+    await user.click(screen.getByRole("button", { name: "Toggle sort direction" }));
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↓");
+
+    await user.selectOptions(screen.getByLabelText("Sort by"), "");
+    expect(screen.getByLabelText("Sort by")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toBeDisabled();
   });
 });
 
@@ -230,5 +302,26 @@ describe("validateProjectSearch", () => {
 
   it("ignores values that are neither strings nor arrays", () => {
     expect(validateProjectSearch({ type: 5, priority: null })).toEqual({});
+  });
+
+  it("validates prefix search param as a string array", () => {
+    expect(validateProjectSearch({ prefix: ["romn", "hhroot"] })).toEqual({
+      prefix: ["romn", "hhroot"],
+    });
+    expect(validateProjectSearch({ prefix: "romn" })).toEqual({ prefix: ["romn"] });
+  });
+
+  it("accepts valid sort and dir values", () => {
+    expect(validateProjectSearch({ sort: "title", dir: "desc" })).toEqual({
+      sort: "title",
+      dir: "desc",
+    });
+    expect(validateProjectSearch({ sort: "type" })).toEqual({ sort: "type" });
+    expect(validateProjectSearch({ sort: "status" })).toEqual({ sort: "status" });
+  });
+
+  it("drops invalid sort and dir values", () => {
+    expect(validateProjectSearch({ sort: "not-a-key", dir: "sideways" })).toEqual({});
+    expect(validateProjectSearch({ sort: 5, dir: null })).toEqual({});
   });
 });

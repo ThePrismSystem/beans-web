@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { EMPTY_BEAN_FILTER, useBeans } from "./useBeans.js";
+import { DEFAULT_BEAN_FILTER, EMPTY_BEAN_FILTER, useBeans } from "./useBeans.js";
 
 import type { Bean } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
@@ -89,6 +89,7 @@ describe("useBeans", () => {
           status: ["todo"],
           priority: ["high"],
           tags: ["urgent"],
+          prefix: ["romn"],
           search: "  login  ",
         }),
       { wrapper },
@@ -105,5 +106,10 @@ describe("useBeans", () => {
       tags: ["urgent"],
       search: "login",
     });
+  });
+
+  it("DEFAULT_BEAN_FILTER hides completed and scrapped by default", () => {
+    expect(DEFAULT_BEAN_FILTER.status).toEqual(["draft", "todo", "in-progress"]);
+    expect(DEFAULT_BEAN_FILTER.prefix).toEqual([]);
   });
 });

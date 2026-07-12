@@ -30,6 +30,7 @@ const projects: Project[] = [
         completed: 0,
         scrapped: 0,
       },
+      openByType: { milestone: 0, epic: 0, feature: 0, task: 0, bug: 0 },
       error: false,
     },
   },

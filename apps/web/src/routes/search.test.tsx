@@ -77,6 +77,21 @@ describe("SearchPage", () => {
     expect(await screen.findByText('No beans match "zzz".')).toBeInTheDocument();
   });
 
+  it("syncs the input when the ?q= route param changes while mounted", async () => {
+    useSearchMock.mockReturnValue({
+      data: { hits: [hit], failures: [] },
+      isPending: false,
+      isError: false,
+    });
+
+    const { router } = renderWithRouter(<SearchPage />);
+    expect(await screen.findByLabelText("Search beans")).toHaveValue("");
+
+    await router.navigate({ to: "/", search: { q: "bell" } });
+
+    expect(await screen.findByLabelText("Search beans")).toHaveValue("bell");
+  });
+
   it("warns when some projects failed to search", async () => {
     useSearchMock.mockReturnValue({
       data: { hits: [hit], failures: ["beans"] },

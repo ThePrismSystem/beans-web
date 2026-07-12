@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -19,6 +20,9 @@ const { useProjectsMock, useEventsMock } = vi.hoisted(() => ({
 
 vi.mock("../hooks/useProjects.js", () => ({ useProjects: useProjectsMock }));
 vi.mock("../hooks/useEvents.js", () => ({ useEvents: useEventsMock }));
+vi.mock("../hooks/useSearch.js", () => ({
+  useSearch: () => ({ data: undefined, isPending: false, isError: false }),
+}));
 
 const project: Project = {
   name: "handbellhub",
@@ -29,6 +33,7 @@ const project: Project = {
     open: 4,
     byType: { milestone: 0, epic: 0, feature: 0, task: 0, bug: 0 },
     byStatus: { draft: 0, todo: 0, "in-progress": 0, completed: 0, scrapped: 0 },
+    openByType: { milestone: 0, epic: 0, feature: 0, task: 0, bug: 0 },
     error: false,
   },
 };
@@ -70,6 +75,37 @@ describe("AppShell", () => {
 
     expect(await screen.findByText("Overview")).toBeInTheDocument();
     expect(screen.queryByText("handbellhub")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the project drawer from the header toggle", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderAppShell();
+
+    const toggle = await screen.findByRole("button", { name: "Toggle project menu" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Close menu" })).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(screen.getByRole("button", { name: "Close menu" }));
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("closes the drawer on Escape", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderAppShell();
+
+    const toggle = await screen.findByRole("button", { name: "Toggle project menu" });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await user.keyboard("{Escape}");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
   it("does not render the updated indicator when no live-sync event has arrived", async () => {

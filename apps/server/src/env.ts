@@ -9,7 +9,7 @@ export const env = createEnv({
       .string()
       .default(resolve(homedir(), "git"))
       .transform((p) => resolve(p)),
-    SCAN_DEPTH: z.coerce.number().int().min(1).max(8).default(4),
+    SCAN_DEPTH: z.coerce.number().int().min(1).max(8).default(1),
     PORT: z.coerce.number().int().default(4780),
     HOST: z.string().default("127.0.0.1"),
     BEANS_BIN: z.string().default("beans"),

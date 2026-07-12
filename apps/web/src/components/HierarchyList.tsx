@@ -2,14 +2,17 @@ import { useMemo, useState } from "react";
 
 import { BeanRow } from "./BeanRow.js";
 
-import { useMediaQuery } from "../hooks/useMediaQuery.js";
-import { buildGroupedSections, buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
+import { buildTree, collectCollapsibleIds, pruneTreeToMatches } from "../lib/hierarchy.js";
+import { beanComparator } from "../lib/sort.js";
 
-import type { BeanNode, GroupedSection } from "../lib/hierarchy.js";
+import type { BeanNode } from "../lib/hierarchy.js";
+import type { SortDir, SortKey } from "../lib/sort.js";
 import type { Bean, BeanType } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
-const MOBILE_QUERY = "(max-width: 640px)";
+// Milestones and epics act as visual "sections": when they contain children
+// they get a subtle tinted row so containers stand out from leaf beans.
+const SECTION_TYPES: readonly BeanType[] = ["milestone", "epic"];
 
 function toggleId(ids: Set<string>, id: string): Set<string> {
   const next = new Set(ids);
@@ -25,6 +28,8 @@ export function HierarchyList({
   project,
   beans,
   typeFilter,
+  sort,
+  dir,
 }: {
   project: string;
   beans: Bean[];
@@ -35,6 +40,14 @@ export function HierarchyList({
    * collapse the hierarchy into a flat list).
    */
   typeFilter?: BeanType[];
+  /**
+   * When set, reorders only the top-level rows (milestones + roots) by this
+   * key. Nested children always keep their existing tree order (see
+   * buildTree, which sorts children alphabetically by title) so that
+   * expanding a parent never surprises the user with a reshuffled subtree.
+   */
+  sort?: SortKey;
+  dir?: SortDir;
 }) {
   const tree = useMemo(() => buildTree(beans), [beans]);
   const { milestones, roots } = useMemo(() => {
@@ -47,30 +60,45 @@ export function HierarchyList({
       roots: pruneTreeToMatches(tree.roots, matches),
     };
   }, [tree, typeFilter]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  // CSS media queries can't restructure the DOM, so the shallower mobile
-  // grouping (milestones + epics as section headers, everything else
-  // flattened to one indent level beneath its nearest section) is driven by
-  // this hook instead of a breakpoint-only stylesheet change.
-  const isMobile = useMediaQuery(MOBILE_QUERY);
-  const grouped = useMemo(
-    () => buildGroupedSections([...milestones, ...roots]),
-    [milestones, roots],
-  );
+
+  const topNodes = useMemo(() => {
+    const nodes = [...milestones, ...roots];
+    if (!sort) return nodes;
+    const cmp = beanComparator(sort, dir ?? "asc");
+    return [...nodes].sort((a, b) => cmp(a.bean, b.bean));
+  }, [milestones, roots, sort, dir]);
+
+  // The hierarchy starts fully collapsed: only top-level beans are visible
+  // until a caret is expanded. Recomputed whenever the underlying tree
+  // changes, which also resets any user-driven expand/collapse state back to
+  // fully collapsed.
+  const initialCollapsed = useMemo(() => new Set(collectCollapsibleIds(topNodes)), [topNodes]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(initialCollapsed);
+  const [seededFor, setSeededFor] = useState(initialCollapsed);
+  if (seededFor !== initialCollapsed) {
+    setSeededFor(initialCollapsed);
+    setCollapsed(initialCollapsed);
+  }
 
   function toggle(id: string) {
     setCollapsed((current) => toggleId(current, id));
   }
 
+  // A single recursive renderer is used on every viewport so collapsing any
+  // parent hides its entire subtree, regardless of nesting depth. Rows with
+  // no children render no caret (and no reserved caret column), so top-level
+  // childless beans sit flush against the left edge; nesting indent comes
+  // only from paddingLeft.
   function renderNode(node: BeanNode): ReactNode {
     const hasChildren = node.children.length > 0;
     const isCollapsed = collapsed.has(node.bean.id);
+    const isSection = hasChildren && SECTION_TYPES.includes(node.bean.type);
+    const rowClass = isSection
+      ? `hierarchy-row hierarchy-row--section hierarchy-row--section-${node.bean.type}`
+      : "hierarchy-row";
     return (
       <li key={node.bean.id} className="hierarchy-node" data-depth={node.depth}>
-        <div
-          className="hierarchy-row"
-          style={{ paddingLeft: `calc(${node.depth} * var(--indent))` }}
-        >
+        <div className={rowClass} style={{ paddingLeft: `calc(${node.depth} * var(--indent))` }}>
           {hasChildren ? (
             <button
               type="button"
@@ -83,9 +111,7 @@ export function HierarchyList({
             >
               {isCollapsed ? "▸" : "▾"}
             </button>
-          ) : (
-            <span className="hierarchy-caret-spacer" aria-hidden="true" />
-          )}
+          ) : null}
           <BeanRow project={project} bean={node.bean} />
         </div>
         {hasChildren && !isCollapsed && (
@@ -95,106 +121,7 @@ export function HierarchyList({
     );
   }
 
-  function renderLeafRow(bean: Bean, depth: number): ReactNode {
-    return (
-      <li key={bean.id} className="hierarchy-node" data-depth={depth}>
-        <div className="hierarchy-row" style={{ paddingLeft: `calc(${depth} * var(--indent))` }}>
-          <span className="hierarchy-caret-spacer" aria-hidden="true" />
-          <BeanRow project={project} bean={bean} />
-        </div>
-      </li>
-    );
-  }
-
-  function renderGroupedSection(section: GroupedSection): ReactNode {
-    const hasLeaves = section.leaves.length > 0;
-    const isCollapsed = collapsed.has(section.bean.id);
-    return (
-      <section
-        key={section.bean.id}
-        className={`hierarchy-section hierarchy-grouped-section hierarchy-grouped-section--${section.bean.type}`}
-        data-depth={section.depth}
-        style={{ paddingLeft: `calc(${section.depth} * var(--indent))` }}
-      >
-        <h2 className="hierarchy-section-header">
-          {hasLeaves && (
-            <button
-              type="button"
-              className="hierarchy-caret"
-              aria-label={
-                isCollapsed ? `Expand ${section.bean.title}` : `Collapse ${section.bean.title}`
-              }
-              aria-expanded={!isCollapsed}
-              onClick={() => {
-                toggle(section.bean.id);
-              }}
-            >
-              {isCollapsed ? "▸" : "▾"}
-            </button>
-          )}
-          {section.bean.title}
-        </h2>
-        {!isCollapsed && hasLeaves && (
-          <ul className="hierarchy-children">
-            {section.leaves.map((bean) => renderLeafRow(bean, section.depth + 1))}
-          </ul>
-        )}
-      </section>
-    );
-  }
-
-  if (isMobile) {
-    return (
-      <div className="hierarchy-list hierarchy-list-grouped">
-        {grouped.sections.map((section) => renderGroupedSection(section))}
-        {grouped.rootLeaves.length > 0 && (
-          <ul className="hierarchy-children hierarchy-roots">
-            {grouped.rootLeaves.map((bean) => renderLeafRow(bean, 0))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="hierarchy-list">
-      {milestones.map((milestone) => {
-        const isCollapsed = collapsed.has(milestone.bean.id);
-        return (
-          <section key={milestone.bean.id} className="hierarchy-section">
-            <h2 className="hierarchy-section-header">
-              {milestone.children.length > 0 && (
-                <button
-                  type="button"
-                  className="hierarchy-caret"
-                  aria-label={
-                    isCollapsed
-                      ? `Expand ${milestone.bean.title}`
-                      : `Collapse ${milestone.bean.title}`
-                  }
-                  aria-expanded={!isCollapsed}
-                  onClick={() => {
-                    toggle(milestone.bean.id);
-                  }}
-                >
-                  {isCollapsed ? "▸" : "▾"}
-                </button>
-              )}
-              {milestone.bean.title}
-            </h2>
-            {!isCollapsed && milestone.children.length > 0 && (
-              <ul className="hierarchy-children">
-                {milestone.children.map((child) => renderNode(child))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
-      {roots.length > 0 && (
-        <ul className="hierarchy-children hierarchy-roots">
-          {roots.map((root) => renderNode(root))}
-        </ul>
-      )}
-    </div>
+    <ul className="hierarchy-list hierarchy-roots">{topNodes.map((node) => renderNode(node))}</ul>
   );
 }

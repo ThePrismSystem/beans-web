@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { RelationEditor } from "./RelationEditor.js";
+import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import type { Bean } from "@beans-frontend/shared";
 
@@ -25,82 +26,90 @@ const base: Bean = {
 };
 
 describe("RelationEditor", () => {
-  it("hides the parent control for milestones", () => {
-    render(<RelationEditor bean={base} candidates={[]} onChange={() => {}} />);
-    expect(screen.queryByLabelText(/parent/i)).not.toBeInTheDocument();
+  it("hides the parent control for milestones", async () => {
+    renderWithRouter(<RelationEditor bean={base} candidates={[]} onChange={() => {}} />);
+    expect(await screen.findByText("Blocks")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /set parent/i })).not.toBeInTheDocument();
   });
 
-  it("offers only valid parent types for an epic", () => {
-    const epic = { ...base, type: "epic" as const };
+  it("sets a parent through the picker", async () => {
+    const task = { ...base, id: "t1", type: "task" as const };
     const candidates: Bean[] = [
-      { ...base, id: "m1", type: "milestone", title: "M1" },
-      { ...base, id: "e2", type: "epic", title: "E2" },
+      { ...base, id: "f1", type: "feature", status: "todo", title: "Feature one" },
     ];
-    render(<RelationEditor bean={epic} candidates={candidates} onChange={() => {}} />);
-    const select = screen.getByLabelText(/parent/i);
-    expect(select).toHaveTextContent("M1");
-    expect(select).not.toHaveTextContent("E2"); // epics can't parent epics
-  });
-
-  it("dispatches a setParent change when a new parent is chosen", async () => {
-    const epic = { ...base, id: "e1", type: "epic" as const };
-    const candidates: Bean[] = [{ ...base, id: "m1", type: "milestone", title: "M1" }];
     const onChange = vi.fn();
     const user = userEvent.setup();
 
-    render(<RelationEditor bean={epic} candidates={candidates} onChange={onChange} />);
-    await user.selectOptions(screen.getByLabelText(/parent/i), "m1");
+    renderWithRouter(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
 
-    expect(onChange).toHaveBeenCalledWith({ kind: "setParent", parentId: "m1" });
+    await user.click(await screen.findByRole("button", { name: /set parent/i }));
+    await user.click(screen.getByText("Feature one"));
+
+    expect(onChange).toHaveBeenCalledWith({ kind: "setParent", parentId: "f1" });
   });
 
-  it("dispatches setParent with null when '(none)' is chosen", async () => {
-    const epic = { ...base, id: "e1", type: "epic" as const, parentId: "m1" };
-    const candidates: Bean[] = [{ ...base, id: "m1", type: "milestone", title: "M1" }];
+  it("clears the parent when '(none)' is chosen in the picker", async () => {
+    const task = { ...base, id: "t1", type: "task" as const, parentId: "f1" };
+    const candidates: Bean[] = [
+      { ...base, id: "f1", type: "feature", status: "todo", title: "Feature one" },
+    ];
     const onChange = vi.fn();
     const user = userEvent.setup();
 
-    render(<RelationEditor bean={epic} candidates={candidates} onChange={onChange} />);
-    await user.selectOptions(screen.getByLabelText(/parent/i), "");
+    renderWithRouter(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
+
+    await user.click(await screen.findByRole("button", { name: /set parent/i }));
+    await user.click(screen.getByText("— (none) —"));
 
     expect(onChange).toHaveBeenCalledWith({ kind: "setParent", parentId: null });
   });
 
-  it("adds and removes blocking links", async () => {
-    const task = { ...base, id: "t1", type: "task" as const, blockingIds: ["b1"] };
+  it("adds a blocking link through the multi-select picker", async () => {
+    const task = { ...base, id: "t1", type: "task" as const };
     const candidates: Bean[] = [
-      { ...base, id: "b1", type: "task", title: "Blocked one" },
-      { ...base, id: "b2", type: "task", title: "Blocked two" },
+      { ...base, id: "b1", type: "task", status: "todo", title: "Blocked one" },
     ];
     const onChange = vi.fn();
     const user = userEvent.setup();
 
-    render(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
+    renderWithRouter(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
 
-    expect(screen.getByRole("button", { name: /remove blocked one/i })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /add blocks/i }));
+    await user.click(screen.getByLabelText("Select Blocked one"));
+    await user.click(screen.getByRole("button", { name: "Add 1" }));
 
-    await user.selectOptions(screen.getByLabelText("Add to blocks"), "b2");
-    expect(onChange).toHaveBeenCalledWith({ kind: "addBlocking", targetId: "b2" });
+    expect(onChange).toHaveBeenCalledWith({ kind: "addBlocking", targetId: "b1" });
+  });
 
-    await user.click(screen.getByRole("button", { name: /remove blocked one/i }));
+  it("removes an existing blocking link", async () => {
+    const task = { ...base, id: "t1", type: "task" as const, blockingIds: ["b1"] };
+    const candidates: Bean[] = [
+      { ...base, id: "b1", type: "task", status: "todo", title: "Blocked one" },
+    ];
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithRouter(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
+
+    await user.click(await screen.findByRole("button", { name: "Remove Blocked one from blocks" }));
+
     expect(onChange).toHaveBeenCalledWith({ kind: "removeBlocking", targetId: "b1" });
   });
 
-  it("adds and removes blocked-by links", async () => {
+  it("removes an existing blocked-by link", async () => {
     const task = { ...base, id: "t1", type: "task" as const, blockedByIds: ["b1"] };
     const candidates: Bean[] = [
-      { ...base, id: "b1", type: "task", title: "Blocker one" },
-      { ...base, id: "b2", type: "task", title: "Blocker two" },
+      { ...base, id: "b1", type: "task", status: "todo", title: "Blocker one" },
     ];
     const onChange = vi.fn();
     const user = userEvent.setup();
 
-    render(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
+    renderWithRouter(<RelationEditor bean={task} candidates={candidates} onChange={onChange} />);
 
-    await user.selectOptions(screen.getByLabelText("Add to blocked by"), "b2");
-    expect(onChange).toHaveBeenCalledWith({ kind: "addBlockedBy", targetId: "b2" });
+    await user.click(
+      await screen.findByRole("button", { name: "Remove Blocker one from blocked by" }),
+    );
 
-    await user.click(screen.getByRole("button", { name: /remove blocker one/i }));
     expect(onChange).toHaveBeenCalledWith({ kind: "removeBlockedBy", targetId: "b1" });
   });
 });

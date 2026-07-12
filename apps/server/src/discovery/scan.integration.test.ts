@@ -30,6 +30,8 @@ describe("discoverProjects (real binary)", () => {
     expect(project?.prefix.length).toBeGreaterThan(0);
     expect(project?.counts.total).toBeGreaterThanOrEqual(1);
     expect(project?.counts.error).toBe(false);
+    // one seeded open task -> openByType.task >= 1, and open <= total
+    expect(project?.counts.openByType.task).toBeGreaterThanOrEqual(1);
   });
 
   it("zeroes counts and flags the error (does not crash) for a project whose beans query fails", async () => {

@@ -23,6 +23,8 @@ export interface ProjectCounts {
   open: number;
   byType: Record<BeanType, number>;
   byStatus: Record<BeanStatus, number>;
+  /** Open beans (status in OPEN_STATUSES) grouped by type — the remaining-work view. */
+  openByType: Record<BeanType, number>;
   /** True when the project's beans query failed during discovery; counts are then zeroed and unreliable. */
   error: boolean;
 }

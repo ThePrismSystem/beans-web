@@ -1,29 +1,12 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { HierarchyList } from "./HierarchyList.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import type { Bean } from "@beans-frontend/shared";
-
-class StaticMediaQueryList {
-  constructor(public readonly matches: boolean) {}
-  addEventListener(): void {
-    // no viewport changes are simulated in these tests
-  }
-  removeEventListener(): void {
-    // no viewport changes are simulated in these tests
-  }
-}
-
-function stubMobileViewport(matches: boolean) {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn(() => new StaticMediaQueryList(matches)),
-  );
-}
 
 function bean(id: string, type: Bean["type"], parentId: string | null, title: string): Bean {
   return {
@@ -54,14 +37,26 @@ const beans: Bean[] = [
 ];
 
 describe("HierarchyList", () => {
-  it("renders a milestone as a section header", async () => {
+  it("renders a milestone as a top-level row", async () => {
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
 
-    expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
+  });
+
+  it("starts collapsed, showing only top-level nodes", async () => {
+    renderWithRouter(<HierarchyList project="demo" beans={beans} />);
+
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
+    expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
+    expect(screen.queryByText("Task One")).not.toBeInTheDocument();
   });
 
   it("renders a nested task at a greater indent than its epic", async () => {
+    const user = userEvent.setup();
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
+
+    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
 
     const epicRow = (await screen.findByText("Epic One")).closest("[data-depth]");
     const taskRow = screen.getByText("Task One").closest("[data-depth]");
@@ -72,28 +67,11 @@ describe("HierarchyList", () => {
     expect(taskDepth).toBeGreaterThan(epicDepth);
   });
 
-  it("hides a node's subtree when its caret is clicked", async () => {
-    const user = userEvent.setup();
+  it("does not render a caret for a milestone with no children", async () => {
     renderWithRouter(<HierarchyList project="demo" beans={beans} />);
 
-    expect(await screen.findByText("Task One")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Collapse Epic One" }));
-
-    expect(screen.queryByText("Task One")).not.toBeInTheDocument();
-  });
-
-  it("reveals a node's subtree again when its caret is clicked a second time", async () => {
-    const user = userEvent.setup();
-    renderWithRouter(<HierarchyList project="demo" beans={beans} />);
-
-    await screen.findByText("Task One");
-    await user.click(screen.getByRole("button", { name: "Collapse Epic One" }));
-    expect(screen.queryByText("Task One")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
-
-    expect(screen.getByText("Task One")).toBeInTheDocument();
+    expect(await screen.findByText("Empty Milestone")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Empty Milestone/ })).not.toBeInTheDocument();
   });
 
   it("renders parent-less beans at the top level without a forced grouping header", async () => {
@@ -103,75 +81,139 @@ describe("HierarchyList", () => {
     expect(screen.queryByText("No milestone")).not.toBeInTheDocument();
   });
 
-  it("does not render a caret for a milestone with no children", async () => {
-    renderWithRouter(<HierarchyList project="demo" beans={beans} />);
-
-    expect(await screen.findByText("Empty Milestone")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Empty Milestone/ })).not.toBeInTheDocument();
-  });
-
   describe("with a type filter", () => {
     it("keeps ancestor milestones and epics as context while hiding non-matching beans", async () => {
+      const user = userEvent.setup();
       renderWithRouter(<HierarchyList project="demo" beans={beans} typeFilter={["task"]} />);
 
-      expect(await screen.findByRole("heading", { name: /Milestone One/ })).toBeInTheDocument();
-      expect(screen.getByText("Epic One")).toBeInTheDocument();
-      expect(screen.getByText("Task One")).toBeInTheDocument();
+      expect(await screen.findByText("Milestone One")).toBeInTheDocument();
       expect(screen.getByText("Orphan Task")).toBeInTheDocument();
       expect(screen.queryByText("Empty Milestone")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
+      expect(screen.getByText("Epic One")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
+      expect(screen.getByText("Task One")).toBeInTheDocument();
     });
   });
 
-  describe("in grouped mobile mode", () => {
-    const deepBeans: Bean[] = [
+  describe("subtree encapsulation (#2)", () => {
+    // A milestone -> epic -> task chain. Collapsing the milestone must hide
+    // its entire subtree, including the nested epic, not just the task.
+    const chain: Bean[] = [
       bean("m1", "milestone", null, "Milestone One"),
       bean("e1", "epic", "m1", "Epic One"),
-      bean("f1", "feature", "e1", "Feature One"),
-      bean("t1", "task", "f1", "Deep Task"),
+      bean("t1", "task", "e1", "Task One"),
     ];
 
-    afterEach(() => {
-      vi.unstubAllGlobals();
+    it("hides the nested epic and task while the milestone is collapsed", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={chain} />);
+
+      expect(await screen.findByText("Milestone One")).toBeInTheDocument();
+      expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
+      expect(screen.queryByText("Task One")).not.toBeInTheDocument();
     });
 
-    it("renders an epic as a section header with a deeply-nested task at a single indent beneath it", async () => {
-      stubMobileViewport(true);
-      renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
-
-      const epicHeading = await screen.findByRole("heading", { name: /Epic One/ });
-      const epicRow = epicHeading.closest("[data-depth]");
-      const taskRow = (await screen.findByText("Deep Task")).closest("[data-depth]");
-      expect(epicRow).not.toBeNull();
-      expect(taskRow).not.toBeNull();
-      const epicDepth = Number(epicRow?.getAttribute("data-depth"));
-      const taskDepth = Number(taskRow?.getAttribute("data-depth"));
-      expect(taskDepth).toBe(epicDepth + 1);
-      // The intermediate feature is flattened away, not rendered as its own header.
-      expect(screen.queryByRole("heading", { name: "Feature One" })).not.toBeInTheDocument();
-    });
-
-    it("still supports collapsing a section's caret", async () => {
-      stubMobileViewport(true);
+    it("reveals the nested epic (but not the task) when the milestone expands", async () => {
       const user = userEvent.setup();
-      renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
+      renderWithRouter(<HierarchyList project="demo" beans={chain} />);
 
-      await screen.findByText("Deep Task");
+      await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
 
-      await user.click(screen.getByRole("button", { name: "Collapse Epic One" }));
-      expect(screen.queryByText("Deep Task")).not.toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
-      expect(screen.getByText("Deep Task")).toBeInTheDocument();
+      expect(screen.getByText("Epic One")).toBeInTheDocument();
+      expect(screen.queryByText("Task One")).not.toBeInTheDocument();
     });
 
-    it("renders full nesting depth when the viewport does not match the mobile query", async () => {
-      stubMobileViewport(false);
-      renderWithRouter(<HierarchyList project="demo" beans={deepBeans} />);
+    it("hides the epic again (and its task) when the milestone is re-collapsed", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<HierarchyList project="demo" beans={chain} />);
 
-      const featureHeading = await screen.findByText("Feature One");
-      expect(featureHeading.closest("[data-depth]")?.getAttribute("data-depth")).toBe("2");
-      const taskRow = screen.getByText("Deep Task").closest("[data-depth]");
-      expect(taskRow?.getAttribute("data-depth")).toBe("3");
+      await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+      await user.click(await screen.findByRole("button", { name: "Expand Epic One" }));
+      expect(await screen.findByText("Task One")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Collapse Milestone One" }));
+
+      expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
+      expect(screen.queryByText("Task One")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("with sort", () => {
+    // Top-level beans deliberately out of alphabetical order, plus a parent
+    // whose children are also out of alphabetical order, so a title-sort
+    // that leaked into `renderNode`'s children would be caught here too.
+    const unsorted: Bean[] = [
+      bean("cherry", "task", null, "Cherry"),
+      bean("apple", "task", null, "Apple"),
+      bean("parent", "epic", null, "Parent"),
+      bean("child-z", "task", "parent", "Zebra Child"),
+      bean("child-a", "task", "parent", "Apple Child"),
+      bean("banana", "task", null, "Banana"),
+    ];
+
+    it("sorts top-level rows by the given key and direction", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={unsorted} sort="title" dir="asc" />);
+
+      await screen.findByText("Apple");
+      const rows = document.querySelectorAll(".hierarchy-roots > .hierarchy-node");
+      const topLevelTitles = [...rows].map(
+        (row) => row.querySelector(".bean-row-title")?.textContent,
+      );
+      expect(topLevelTitles).toEqual(["Apple", "Banana", "Cherry", "Parent"]);
+    });
+
+    it("leaves a parent's children in their original tree order when top-level is sorted", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<HierarchyList project="demo" beans={unsorted} sort="title" dir="desc" />);
+
+      await user.click(await screen.findByRole("button", { name: "Expand Parent" }));
+
+      const childRows = document.querySelectorAll(".hierarchy-children > .hierarchy-node");
+      const childTitles = [...childRows].map(
+        (row) => row.querySelector(".bean-row-title")?.textContent,
+      );
+      // buildTree always sorts children alphabetically by title regardless
+      // of the top-level sort, so this stays ascending even though the
+      // top-level sort direction above is "desc".
+      expect(childTitles).toEqual(["Apple Child", "Zebra Child"]);
+    });
+
+    it("renders top-level rows in tree order when no sort is given", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={unsorted} />);
+
+      await screen.findByText("Cherry");
+      const rows = document.querySelectorAll(".hierarchy-roots > .hierarchy-node");
+      const topLevelTitles = [...rows].map(
+        (row) => row.querySelector(".bean-row-title")?.textContent,
+      );
+      expect(topLevelTitles).toEqual(["Cherry", "Apple", "Parent", "Banana"]);
+    });
+  });
+
+  describe("flush top-level rows (#9)", () => {
+    it("renders no carets, and no reserved caret column, when every top-level bean is childless", async () => {
+      const onlyTasks: Bean[] = [
+        bean("t1", "task", null, "Task One"),
+        bean("b1", "bug", null, "Bug One"),
+      ];
+      const { container } = renderWithRouter(<HierarchyList project="demo" beans={onlyTasks} />);
+
+      expect(await screen.findByText("Task One")).toBeInTheDocument();
+      expect(screen.getByText("Bug One")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Expand|Collapse/ })).not.toBeInTheDocument();
+      expect(container.querySelector(".hierarchy-caret-spacer")).not.toBeInTheDocument();
+    });
+
+    it("renders a caret for a parent bean but not for its childless siblings", async () => {
+      renderWithRouter(<HierarchyList project="demo" beans={beans} />);
+
+      expect(
+        await screen.findByRole("button", { name: "Expand Milestone One" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Empty Milestone/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Orphan Task/ })).not.toBeInTheDocument();
     });
   });
 });

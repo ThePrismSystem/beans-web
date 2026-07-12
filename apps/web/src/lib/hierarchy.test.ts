@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGroupedSections, buildTree, pruneTreeToMatches } from "./hierarchy.js";
+import {
+  buildTree,
+  collectCollapsibleIds,
+  pruneTreeToMatches,
+  withAncestors,
+} from "./hierarchy.js";
 
 import type { Bean } from "@beans-frontend/shared";
 
@@ -92,54 +97,60 @@ describe("pruneTreeToMatches", () => {
   });
 });
 
-describe("buildGroupedSections", () => {
-  it("treats a milestone and a nested epic as their own sections, flattening deep descendants under the epic", () => {
-    const beans = [
+describe("withAncestors", () => {
+  it("preserves the full ancestor chain for a matched bean", () => {
+    const all = [
       bean("m1", "milestone", null),
       bean("e1", "epic", "m1"),
-      bean("f1", "feature", "e1"),
-      bean("t1", "task", "f1"),
+      bean("t1", "task", "e1"),
+      bean("other", "task", null),
     ];
-    const { milestones } = buildTree(beans);
-
-    const { sections } = buildGroupedSections(milestones);
-
-    expect(sections.map((s) => s.bean.id)).toEqual(["m1", "e1"]);
-    const epicSection = sections.find((s) => s.bean.id === "e1");
-    expect(epicSection?.leaves.map((b) => b.id)).toEqual(["f1", "t1"]);
-    expect(epicSection?.depth).toBe(1);
-    const milestoneSection = sections.find((s) => s.bean.id === "m1");
-    expect(milestoneSection?.leaves).toEqual([]);
+    const result = withAncestors([all[2]!], all);
+    expect(result.map((b) => b.id).sort()).toEqual(["e1", "m1", "t1"]);
   });
 
-  it("lists a task directly under a milestone as a leaf of that milestone's section", () => {
-    const beans = [bean("m1", "milestone", null), bean("t1", "task", "m1")];
-    const { milestones } = buildTree(beans);
-
-    const { sections } = buildGroupedSections(milestones);
-
-    expect(sections[0]?.leaves.map((b) => b.id)).toEqual(["t1"]);
+  it("dedupes a shared ancestor across multiple matches", () => {
+    const all = [
+      bean("m1", "milestone", null),
+      bean("e1", "epic", "m1"),
+      bean("t1", "task", "e1"),
+      bean("t2", "task", "e1"),
+    ];
+    const result = withAncestors([all[2]!, all[3]!], all);
+    expect(result.filter((b) => b.id === "e1")).toHaveLength(1);
+    expect(result.map((b) => b.id).sort()).toEqual(["e1", "m1", "t1", "t2"]);
   });
 
-  it("collects parent-less leaf beans as rootLeaves without a forced section header", () => {
-    const beans = [bean("orphan", "task", null)];
-    const { roots } = buildTree(beans);
-
-    const { sections, rootLeaves } = buildGroupedSections(roots);
-
-    expect(sections).toEqual([]);
-    expect(rootLeaves.map((b) => b.id)).toEqual(["orphan"]);
+  it("does not infinite-loop on a parent/child cycle", () => {
+    const a = bean("a", "task", "b");
+    const b = bean("b", "task", "a");
+    const all = [a, b];
+    const result = withAncestors([a], all);
+    expect(result.map((x) => x.id).sort()).toEqual(["a", "b"]);
   });
 
-  it("treats a root-level epic as its own top-level section", () => {
-    const beans = [bean("e1", "epic", null), bean("t1", "task", "e1")];
-    const { roots } = buildTree(beans);
+  it("returns the list unchanged when no bean has a parent", () => {
+    const all = [bean("t1", "task", null), bean("t2", "task", null)];
+    const result = withAncestors(all, all);
+    expect(result).toEqual(all);
+  });
+});
 
-    const { sections } = buildGroupedSections(roots);
-
-    expect(sections).toHaveLength(1);
-    expect(sections[0]?.bean.id).toBe("e1");
-    expect(sections[0]?.depth).toBe(0);
-    expect(sections[0]?.leaves.map((b) => b.id)).toEqual(["t1"]);
+describe("collectCollapsibleIds", () => {
+  it("collects ids of every node that has children", () => {
+    const nodes = [
+      {
+        bean: { id: "m1" } as never,
+        depth: 0,
+        children: [
+          {
+            bean: { id: "e1" } as never,
+            depth: 1,
+            children: [{ bean: { id: "t1" } as never, depth: 2, children: [] }],
+          },
+        ],
+      },
+    ];
+    expect(collectCollapsibleIds(nodes).sort()).toEqual(["e1", "m1"]);
   });
 });

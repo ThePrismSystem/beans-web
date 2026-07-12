@@ -17,25 +17,27 @@ const project: Project = {
   prefix: "hh-",
   counts: {
     total: 10,
-    open: 4,
-    byType: { milestone: 1, epic: 2, feature: 0, task: 1, bug: 0 },
+    open: 3,
+    byType: { milestone: 1, epic: 2, feature: 0, task: 4, bug: 3 },
     byStatus: { draft: 0, todo: 0, "in-progress": 0, completed: 0, scrapped: 0 },
+    openByType: { milestone: 0, epic: 0, feature: 0, task: 2, bug: 1 },
     error: false,
   },
 };
 
 describe("Overview", () => {
-  it("renders a project card with its open/total counts", async () => {
-    useProjectsMock.mockReturnValue({
-      data: [project],
-      isPending: false,
-      isError: false,
-    });
-
+  it("renders a ledger row with open-by-type and open/total", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
     renderWithRouter(<Overview />);
-
-    expect(await screen.findByText("handbellhub")).toBeInTheDocument();
-    expect(screen.getByText("4 open / 10 total")).toBeInTheDocument();
+    expect(await screen.findByText(project.name)).toBeInTheDocument();
+    // open · total summary present
+    expect(screen.getByText(/open/)).toBeInTheDocument();
+    expect(screen.getByText(/total/)).toBeInTheDocument();
+    // open-by-type entries with pipe separators, zero types omitted
+    expect(screen.getByText(/task/)).toBeInTheDocument();
+    expect(screen.getByText(/bug/)).toBeInTheDocument();
+    expect(screen.queryByText(/milestone/)).not.toBeInTheDocument();
+    expect(screen.getByText("|")).toBeInTheDocument();
   });
 
   it("shows a loading message while pending", async () => {

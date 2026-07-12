@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
-import { BodyEditor } from "../components/BodyEditor.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
 import { CreateBeanForm } from "../components/CreateBeanForm.js";
+import { InlineEditRow } from "../components/InlineEditRow.js";
 import { LinkedBeans } from "../components/LinkedBeans.js";
 import { RelationEditor } from "../components/RelationEditor.js";
 import { StatusDot } from "../components/StatusDot.js";
@@ -27,9 +27,10 @@ import {
 } from "../hooks/useMutations.js";
 import { renderMarkdown } from "../lib/markdown.js";
 
-import type { ChangeEvent } from "react";
 import type { Bean, BeanDetail } from "@beans-frontend/shared";
 import type { RelationChange } from "../components/RelationEditor.js";
+
+const BODY_TEXTAREA_ROWS = 14;
 
 function formatTimestamp(value: string): string {
   const date = new Date(value);
@@ -63,6 +64,7 @@ function BeanDetailContent({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState(bean.body);
+  const [editingBody, setEditingBody] = useState(false);
   const [syncedBodyForId, setSyncedBodyForId] = useState(bean.id);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -104,29 +106,29 @@ function BeanDetailContent({
     }
   }
 
-  function handleStatusChange(event: ChangeEvent<HTMLSelectElement>) {
-    const next = BEAN_STATUSES.find((option) => option === event.target.value);
+  function saveStatus(value: string) {
+    const next = BEAN_STATUSES.find((option) => option === value);
     if (next && next !== bean.status) {
       updateBean.mutate({ id: bean.id, etag: bean.etag, input: { status: next } });
     }
   }
 
-  function handleTypeChange(event: ChangeEvent<HTMLSelectElement>) {
-    const next = BEAN_TYPES.find((option) => option === event.target.value);
+  function saveType(value: string) {
+    const next = BEAN_TYPES.find((option) => option === value);
     if (next && next !== bean.type) {
       updateBean.mutate({ id: bean.id, etag: bean.etag, input: { type: next } });
     }
   }
 
-  function handlePriorityChange(event: ChangeEvent<HTMLSelectElement>) {
-    const next = BEAN_PRIORITIES.find((option) => option === event.target.value);
+  function savePriority(value: string) {
+    const next = BEAN_PRIORITIES.find((option) => option === value);
     if (next && next !== bean.priority) {
       updateBean.mutate({ id: bean.id, etag: bean.etag, input: { priority: next } });
     }
   }
 
-  function commitTags(event: ChangeEvent<HTMLInputElement>) {
-    const tagList = event.target.value
+  function saveTags(value: string) {
+    const tagList = value
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
@@ -202,75 +204,108 @@ function BeanDetailContent({
   return (
     <article className="bean-detail">
       <header className="bean-detail-header">
-        <div className="bean-detail-title-row">
-          <select
-            aria-label="Type"
-            className="bean-detail-type-select"
-            value={bean.type}
-            onChange={handleTypeChange}
+        {isEditingTitle ? (
+          <input
+            aria-label="Title"
+            className="bean-detail-title-input"
+            value={titleDraft}
+            autoFocus
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                commitTitle();
+              } else if (event.key === "Escape") {
+                setIsEditingTitle(false);
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="bean-detail-title"
+            onClick={startEditingTitle}
+            aria-label={`Edit title: ${bean.title}`}
           >
-            {BEAN_TYPES.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <BeanTypeTag type={bean.type} />
-          {isEditingTitle ? (
-            <input
-              aria-label="Title"
-              className="bean-detail-title-input"
-              value={titleDraft}
-              autoFocus
-              onChange={(event) => setTitleDraft(event.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  commitTitle();
-                } else if (event.key === "Escape") {
-                  setIsEditingTitle(false);
-                }
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              className="bean-detail-title"
-              onClick={startEditingTitle}
-              aria-label={`Edit title: ${bean.title}`}
-            >
-              {bean.title}
-            </button>
-          )}
-          <select aria-label="Status" value={bean.status} onChange={handleStatusChange}>
-            {BEAN_STATUSES.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <StatusDot status={bean.status} />
+            {bean.title}
+          </button>
+        )}
+
+        <div className="bean-detail-inline-rows">
+          <InlineEditRow
+            label="Type"
+            display={<BeanTypeTag type={bean.type} />}
+            initialValue={bean.type}
+            onSave={saveType}
+            editor={({ value, onValue }) => (
+              <select
+                aria-label="Type editor"
+                value={value}
+                onChange={(event) => onValue(event.target.value)}
+              >
+                {BEAN_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          <InlineEditRow
+            label="Status"
+            display={<StatusDot status={bean.status} />}
+            initialValue={bean.status}
+            onSave={saveStatus}
+            editor={({ value, onValue }) => (
+              <select
+                aria-label="Status editor"
+                value={value}
+                onChange={(event) => onValue(event.target.value)}
+              >
+                {BEAN_STATUSES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          <InlineEditRow
+            label="Priority"
+            display={bean.priority}
+            initialValue={bean.priority}
+            onSave={savePriority}
+            editor={({ value, onValue }) => (
+              <select
+                aria-label="Priority editor"
+                value={value}
+                onChange={(event) => onValue(event.target.value)}
+              >
+                {BEAN_PRIORITIES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          <InlineEditRow
+            label="Tags"
+            display={bean.tags.join(", ") || "—"}
+            initialValue={bean.tags.join(", ")}
+            onSave={saveTags}
+            editor={({ value, onValue }) => (
+              <input
+                aria-label="Tags editor"
+                value={value}
+                onChange={(event) => onValue(event.target.value)}
+              />
+            )}
+          />
         </div>
+
         <div className="bean-detail-meta">
           <span className="bean-id">{bean.id}</span>
-          <label className="bean-detail-priority-label">
-            Priority
-            <select value={bean.priority} onChange={handlePriorityChange}>
-              {BEAN_PRIORITIES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="bean-detail-tags-label">
-            Tags
-            <input
-              key={bean.tags.join(",")}
-              defaultValue={bean.tags.join(", ")}
-              onBlur={commitTags}
-            />
-          </label>
           <span className="bean-detail-timestamp">Created {formatTimestamp(bean.createdAt)}</span>
           <span className="bean-detail-timestamp">Updated {formatTimestamp(bean.updatedAt)}</span>
         </div>
@@ -287,19 +322,60 @@ function BeanDetailContent({
         </div>
       )}
 
-      <div
-        className="bean-detail-body"
-        // Body is markdown -> HTML rendered through renderMarkdown(), which
-        // pipes the output through DOMPurify before it ever reaches the DOM.
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(bean.body) }}
-      />
-
       <section className="bean-detail-section">
-        <h2 className="bean-detail-section-title">Edit body</h2>
-        <BodyEditor value={bodyDraft} onChange={setBodyDraft} />
-        <button type="button" disabled={bodyDraft === bean.body} onClick={saveBody}>
-          Save body
-        </button>
+        {editingBody ? (
+          <>
+            <textarea
+              aria-label="Body"
+              className="body-editor-textarea"
+              value={bodyDraft}
+              onChange={(event) => setBodyDraft(event.target.value)}
+              rows={BODY_TEXTAREA_ROWS}
+            />
+            <div className="bean-detail-body-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingBody(false);
+                  if (bodyDraft !== bean.body) {
+                    saveBody();
+                  }
+                }}
+              >
+                Save body
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBodyDraft(bean.body);
+                  setEditingBody(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              className="bean-detail-body"
+              // Body is markdown -> HTML rendered through renderMarkdown(), which
+              // pipes the output through DOMPurify before it ever reaches the DOM.
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(bean.body) }}
+            />
+            <div className="bean-detail-body-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setBodyDraft(bean.body);
+                  setEditingBody(true);
+                }}
+              >
+                Edit body
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="bean-detail-section">
