@@ -375,7 +375,10 @@ a {
 }
 
 .filter-tags {
-  flex: 0 1 150px;
+  /* Width, not flex-basis: on mobile the advanced group is a column flex, where
+     a flex-basis would set the input's height and balloon the tags box. */
+  flex: none;
+  width: 150px;
 }
 
 /* Desktop: all filters visible inline; the mobile disclosure toggle is hidden
