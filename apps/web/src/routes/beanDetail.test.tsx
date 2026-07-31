@@ -1,4 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -127,7 +128,14 @@ function renderBeanDetail(initialLocation = "/p/demo/t1") {
     routeTree: rootRoute.addChildren([beanRoute, projectRoute]),
     history: createMemoryHistory({ initialEntries: [initialLocation] }),
   });
-  return render(<RouterProvider router={router} />);
+  // useReopenAncestors is real (unlike the other mutation hooks, which are
+  // mocked above), so it needs an actual QueryClient in the tree.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -440,5 +448,130 @@ describe("BeanDetailPage", () => {
     await screen.findByText("Task One");
     expect(screen.queryByText("invalid parent for type task")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+interface RenderDetailOptions {
+  beanStatus: BeanDetail["status"];
+  parentStatus: BeanDetail["status"];
+  grandparentStatus?: BeanDetail["status"];
+}
+
+function renderDetail({
+  beanStatus,
+  parentStatus,
+  grandparentStatus = "todo",
+}: RenderDetailOptions) {
+  const orphanBean: BeanDetail = {
+    ...bean,
+    id: "t-1",
+    title: "Fix SSE reconnect",
+    status: beanStatus,
+    parentId: "e-1",
+    parent: null,
+    children: [],
+  };
+  const epic: Bean = {
+    ...otherMilestone,
+    id: "e-1",
+    title: "Docker setup",
+    type: "epic",
+    status: parentStatus,
+    parentId: "m-1",
+  };
+  const milestone: Bean = {
+    ...otherMilestone,
+    id: "m-1",
+    title: "Q3 launch",
+    status: grandparentStatus,
+    parentId: null,
+  };
+
+  useBeanMock.mockReturnValue({
+    data: orphanBean,
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
+  });
+  useBeansMock.mockReturnValue({ data: [epic, milestone], isPending: false, isError: false });
+
+  const fetchMock = vi.fn((_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)) as { variables?: { id?: string } };
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({ data: { updateBean: { id: body.variables?.id ?? "", etag: "e" } } }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  renderBeanDetail("/p/demo/t-1");
+
+  return { fetchMock };
+}
+
+describe("orphan warning", () => {
+  it("renders no warning when the parent is open", async () => {
+    renderDetail({ beanStatus: "todo", parentStatus: "todo" });
+    await screen.findByText("Fix SSE reconnect");
+    expect(screen.queryByRole("button", { name: /re-open/i })).not.toBeInTheDocument();
+  });
+
+  it("names the completed parent and offers a re-open button", async () => {
+    renderDetail({ beanStatus: "in-progress", parentStatus: "completed" });
+    expect(await screen.findByRole("button", { name: "Re-open parent" })).toBeInTheDocument();
+    // RelationEditor also names the parent, so scope to the warning banner.
+    expect(within(screen.getByRole("status")).getByText(/Docker setup/)).toBeInTheDocument();
+  });
+
+  it("labels the button with the ancestor count when the chain is longer", async () => {
+    renderDetail({
+      beanStatus: "in-progress",
+      parentStatus: "completed",
+      grandparentStatus: "scrapped",
+    });
+    expect(await screen.findByRole("button", { name: "Re-open 2 ancestors" })).toBeInTheDocument();
+  });
+
+  it("lists every ancestor and its target status in the confirm dialog", async () => {
+    const user = userEvent.setup();
+    renderDetail({
+      beanStatus: "in-progress",
+      parentStatus: "completed",
+      grandparentStatus: "scrapped",
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Re-open 2 ancestors" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/e-1/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/m-1/)).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/in-progress/).length).toBeGreaterThan(0);
+  });
+
+  it("re-opens the ancestors on confirm, nearest first", async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = renderDetail({
+      beanStatus: "in-progress",
+      parentStatus: "completed",
+      grandparentStatus: "scrapped",
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Re-open 2 ancestors" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByText("Re-open"));
+
+    await waitFor(() => {
+      const updates = fetchMock.mock.calls
+        .map(
+          (call) =>
+            JSON.parse(String((call[1] as RequestInit).body)) as {
+              variables?: { id?: string; input?: { status?: string } };
+            },
+        )
+        .filter((body) => body.variables?.input?.status !== undefined);
+      expect(updates.map((u) => u.variables?.id)).toEqual(["e-1", "m-1"]);
+      expect(updates[0]?.variables?.input?.status).toBe("in-progress");
+    });
   });
 });

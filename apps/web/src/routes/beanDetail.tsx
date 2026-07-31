@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
@@ -22,10 +22,12 @@ import {
   useDeleteBean,
   useRemoveBlockedBy,
   useRemoveBlocking,
+  useReopenAncestors,
   useSetParent,
   useUpdateBean,
 } from "../hooks/useMutations.js";
 import { renderMarkdown } from "../lib/markdown.js";
+import { closedAncestors, indexById, isOrphaned } from "../lib/orphan.js";
 
 import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";
 import type { RelationChange } from "../components/RelationEditor.js";
@@ -60,6 +62,7 @@ function BeanDetailContent({
   const removeBlockedBy = useRemoveBlockedBy(project);
   const deleteBean = useDeleteBean(project);
   const createBean = useCreateBean(project);
+  const reopenAncestors = useReopenAncestors(project);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -68,6 +71,16 @@ function BeanDetailContent({
   const [syncedBodyForId, setSyncedBodyForId] = useState(bean.id);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isConfirmingReopen, setIsConfirmingReopen] = useState(false);
+
+  // `candidates` is the full project dataset minus this bean, so it resolves
+  // the parent chain — and orphan status is computed against all of it, never
+  // a filtered subset.
+  const byId = useMemo(() => indexById(candidates), [candidates]);
+  const ancestorsToReopen = useMemo(
+    () => (isOrphaned(bean, byId) ? closedAncestors(bean, byId) : []),
+    [bean, byId],
+  );
 
   useEffect(() => {
     if (bean.id !== syncedBodyForId) {
@@ -87,6 +100,7 @@ function BeanDetailContent({
     removeBlockedBy,
     deleteBean,
     createBean,
+    reopenAncestors,
   ];
   const latestMutation = mutations.reduce((latest, m) =>
     m.submittedAt > latest.submittedAt ? m : latest,
@@ -190,6 +204,14 @@ function BeanDetailContent({
         },
       },
     );
+  }
+
+  function handleReopenConfirmed() {
+    setIsConfirmingReopen(false);
+    reopenAncestors.mutate({
+      ancestorIds: ancestorsToReopen.map((ancestor) => ancestor.id),
+      status: bean.status,
+    });
   }
 
   function handleCreateSubmit(input: Parameters<typeof createBean.mutate>[0]) {
@@ -322,6 +344,20 @@ function BeanDetailContent({
         </div>
       )}
 
+      {ancestorsToReopen.length > 0 && (
+        <div className="bean-detail-orphan" role="status">
+          <p>
+            Orphaned — parent <span className="bean-id">{ancestorsToReopen[0]!.id}</span> “
+            {ancestorsToReopen[0]!.title}” is {ancestorsToReopen[0]!.status}.
+          </p>
+          <button type="button" onClick={() => setIsConfirmingReopen(true)}>
+            {ancestorsToReopen.length > 1
+              ? `Re-open ${ancestorsToReopen.length} ancestors`
+              : "Re-open parent"}
+          </button>
+        </div>
+      )}
+
       <section className="bean-detail-section">
         {editingBody ? (
           <>
@@ -429,6 +465,28 @@ function BeanDetailContent({
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setIsConfirmingDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={isConfirmingReopen}
+        title={
+          ancestorsToReopen.length > 1
+            ? `Re-open ${ancestorsToReopen.length} ancestors?`
+            : "Re-open parent?"
+        }
+        message={
+          <ul className="confirm-dialog-list">
+            {ancestorsToReopen.map((ancestor) => (
+              <li key={ancestor.id}>
+                <span className="bean-id">{ancestor.id}</span> “{ancestor.title}” —{" "}
+                {ancestor.status} → {bean.status}
+              </li>
+            ))}
+          </ul>
+        }
+        confirmLabel="Re-open"
+        onConfirm={handleReopenConfirmed}
+        onCancel={() => setIsConfirmingReopen(false)}
       />
     </article>
   );

@@ -1310,3 +1310,26 @@ a {
   border-radius: 0.2rem;
   padding: 0 0.3rem;
 }
+
+.bean-detail-orphan {
+  align-items: center;
+  border: 1px solid var(--warn);
+  border-radius: 0.3rem;
+  color: var(--warn);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-block: 1rem;
+  padding: 0.6rem 0.8rem;
+}
+
+.confirm-dialog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.confirm-dialog-list li {
+  padding-block: 0.15rem;
+}

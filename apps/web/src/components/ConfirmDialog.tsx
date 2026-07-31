@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 
 export interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message?: string;
+  message?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void;
@@ -79,7 +79,7 @@ export function ConfirmDialog({
         onKeyDown={handleKeyDown}
       >
         <h2 id="confirm-dialog-title">{title}</h2>
-        {message && <p className="confirm-dialog-message">{message}</p>}
+        {message && <div className="confirm-dialog-message">{message}</div>}
         <div className="confirm-dialog-actions">
           <button type="button" onClick={onCancel}>
             {cancelLabel}
