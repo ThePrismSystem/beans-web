@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { assertWithinRoot, findProjectDirs } from "./scan.js";
 
 let root: string;
 beforeEach(() => {
@@ -48,23 +48,39 @@ describe("assertWithinRoot", () => {
 });
 
 describe("discoverProjects ordering", () => {
-  it("returns projects sorted by name regardless of walk order", async () => {
-    // Fixture: three project dirs whose filesystem walk order is not alphabetical.
-    // Create a fresh test root with non-alphabetical names.
-    const testRoot = mkdtempSync(join(tmpdir(), "scan-"));
+  it("returns projects sorted by name", async () => {
+    const { discoverProjects } = await import("./scan.js");
+
+    // Mock runBeansGraphql to avoid needing beans CLI
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi
+      .spyOn(executor, "runBeansGraphql")
+      .mockResolvedValue({ beans: [] } as any);
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-ordering-"));
     try {
       const mk = (rel: string) => {
         mkdirSync(join(testRoot, rel), { recursive: true });
         writeFileSync(join(testRoot, rel, ".beans.yml"), "beans:\n  prefix: x-\n");
       };
+      // Create in non-alphabetical creation order
       mk("zeta");
-      mk("alpha");
       mk("mid");
+      mk("alpha");
 
       const projects = await discoverProjects(testRoot, 2);
-      expect(projects.map((p) => p.name)).toEqual([...projects.map((p) => p.name)].sort());
+      const names = projects.map((p) => p.name);
+
+      // Verify each name is in sorted order relative to the next
+      for (let i = 0; i < names.length - 1; i++) {
+        expect(names[i]!.localeCompare(names[i + 1]!)).toBeLessThanOrEqual(0);
+      }
+
+      // Verify the exact sorted order
+      expect(names).toEqual(["alpha", "mid", "zeta"]);
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
     }
   });
 });
