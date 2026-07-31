@@ -5,7 +5,7 @@ import { AppShell } from "./components/AppShell.js";
 import { BeanDetailPage } from "./routes/beanDetail.js";
 import { Overview } from "./routes/overview.js";
 import { ProjectList, validateProjectSearch } from "./routes/projectList.js";
-import { SearchPage } from "./routes/search.js";
+import { SearchPage, validateSearchPageSearch } from "./routes/search.js";
 
 // Analytics pulls in the charting library; code-split it so it isn't in the
 // initial bundle. Rendered under the Suspense boundary in AppShell.
@@ -43,9 +43,7 @@ const analyticsRoute = createRoute({
 const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/search",
-  validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search.q === "string" ? search.q : "",
-  }),
+  validateSearch: validateSearchPageSearch,
   component: SearchPage,
 });
 

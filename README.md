@@ -1,5 +1,11 @@
 # beans-frontend
 
+[![CI](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-frontend)
+[![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](tsconfig.base.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](.nvmrc)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A web UI for [`beans`](https://github.com/hmans/beans) — the local-first, Markdown-backed issue
 tracker. `beans-frontend` discovers every `beans` project under a configured root directory,
 gives each one a browsable overview, hierarchy/flat bean lists, a detail view with inline editing
@@ -52,7 +58,7 @@ Copy `.env.example` to `.env` (or export the variables directly) and adjust as n
 | Variable     | Default     | Description                                                                   |
 | ------------ | ----------- | ----------------------------------------------------------------------------- |
 | `GIT_ROOT`   | `~/git`     | Root directory scanned for `beans` projects (any dir with a `.beans.yml`).    |
-| `SCAN_DEPTH` | `4`         | Max recursion depth (1–8) when scanning `GIT_ROOT` for projects.              |
+| `SCAN_DEPTH` | `1`         | Max recursion depth (1–8) when scanning `GIT_ROOT` for projects.              |
 | `PORT`       | `4780`      | Port the server listens on.                                                   |
 | `HOST`       | `127.0.0.1` | Bind address — keep this loopback unless you intend to expose it on a LAN.    |
 | `BEANS_BIN`  | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`. |
@@ -102,12 +108,13 @@ volume/ownership, Traefik, and security notes.
 ## Quality checks
 
 ```bash
-pnpm format      # prettier --check
-pnpm lint        # eslint, zero warnings
-pnpm typecheck   # tsc across all packages
-pnpm test        # unit + integration tests (needs `beans` on PATH)
-pnpm -r knip     # unused files/exports/dependencies
-pnpm spell       # cspell
+pnpm format                          # prettier --check
+pnpm lint                            # eslint, zero warnings
+pnpm audit --audit-level moderate    # blocks CI on moderate+ severity vulnerabilities
+pnpm typecheck                       # tsc across all packages
+pnpm test                            # unit + integration tests (needs `beans` on PATH)
+pnpm -r knip                         # unused files/exports/dependencies
+pnpm spell                           # cspell
 ```
 
 End-to-end tests (Playwright) live in `apps/web/e2e`:

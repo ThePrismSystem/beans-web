@@ -116,3 +116,38 @@ the server's `start` script runs `NODE_ENV=production tsx src/index.ts` — the 
 execution used in development (`tsx watch`), just without the watch/reload behavior. `tsx` is
 therefore a runtime dependency of `apps/server`, not a dev-only tool. `pnpm start` at the repo
 root builds the web app first, then runs this production server start script.
+
+## Codecov setup
+
+CI (`.github/workflows/ci.yml`) sends coverage and test-result data to codecov.io. Two tokens are
+involved, and they are not interchangeable:
+
+- **`CODECOV_TOKEN` (GitHub repo secret)** authenticates uploads. The `test` job passes it as the
+  `token:` input to six upload steps: three `codecov/codecov-action` steps (one per package —
+  `shared`, `server`, `web`) each uploading that package's `coverage/lcov.info`, and three
+  `codecov/test-results-action` steps each uploading that package's `test-report.junit.xml`. It's
+  a private, repo-scoped write credential — never commit or log it.
+- **`CODECOV_TOKEN` as a build-time env var (same secret)** gates bundle analysis in
+  `apps/web/vite.config.ts`: `codecovVitePlugin({ enableBundleAnalysis:
+  Boolean(process.env.CODECOV_TOKEN), uploadToken: process.env.CODECOV_TOKEN, ... })`. This is the
+  identical secret value, just read a second way — as a process env var during `vite build` rather
+  than as an action input. The CI `build` job declares `env: CODECOV_TOKEN: ${{
+  secrets.CODECOV_TOKEN }}` at the job level, so `pnpm -r build` runs with the secret exported and
+  bundle analysis runs on every push/PR to `main` where the secret is available. On fork PRs,
+  GitHub Actions sets the secret to an empty string rather than leaving it unset;
+  `Boolean(process.env.CODECOV_TOKEN)` treats `""` the same as unset and skips analysis, so those
+  builds still no-op cleanly instead of attempting an upload with a blank token. Bundle analysis
+  can also be triggered manually outside CI, e.g. `CODECOV_TOKEN=<token> pnpm --filter
+  @beans-frontend/web build`.
+- **`flags: shared` / `flags: server` / `flags: web`** — each upload step is scoped to exactly one
+  package's report and tagged with exactly one flag, so Codecov keeps the three packages' coverage
+  and test results separate instead of blending them into one repo-wide number. In the Codecov UI
+  these appear as three distinct entries under the repo's Flags tab (`shared` → `packages/shared`,
+  `server` → `apps/server`, `web` → `apps/web`), and can be turned into Components for per-package
+  status checks or badges. This mapping is configured entirely on the Codecov side (dashboard) and
+  via these `flags:` values — there is no `codecov.yml` in this repo.
+- **The README badge's token (`N7I7FNHSIO`)** is a different kind of token: a Codecov *graph
+  token*, scoped only to fetching a badge SVG
+  (`https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=...`), not to
+  uploading data. It's public by design and safe to embed directly in `README.md`. It is unrelated
+  to `CODECOV_TOKEN`; rotating one has no effect on the other.

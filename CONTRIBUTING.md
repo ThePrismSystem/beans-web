@@ -43,7 +43,7 @@ cause.
 pnpm -r test:coverage
 ```
 
-Each package (`apps/server`, `apps/web`, `packages/shared`) is expected to hold at least 80%
+Each package (`apps/server`, `apps/web`, `packages/shared`) is expected to hold at least 90%
 coverage; CI runs this as a gate on every PR.
 
 ## Commit messages
@@ -62,13 +62,14 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `style`, `perf`, `ci`
 Run these before pushing — they're exactly what CI runs:
 
 ```bash
-pnpm format      # prettier --check .
-pnpm lint        # eslint . --max-warnings 0
-pnpm typecheck   # tsc across every package
+pnpm format                          # prettier --check .
+pnpm lint                            # eslint . --max-warnings 0
+pnpm audit --audit-level moderate    # blocks CI on moderate+ severity vulnerabilities
+pnpm typecheck                       # tsc across every package
 pnpm -r test:coverage
 pnpm -r build
-pnpm -r knip     # unused files/exports/dependencies
-pnpm spell       # cspell
+pnpm -r knip                         # unused files/exports/dependencies
+pnpm spell                           # cspell
 ```
 
 ## TypeScript conventions

@@ -75,4 +75,19 @@ describe("POST /api/projects/:name/graphql", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ errors: [{ message: "bad parent" }] });
   });
+
+  it("re-throws (500) when runGraphql rejects with a plain Error", async () => {
+    const d = deps({
+      runGraphql: vi.fn(async () => {
+        throw new Error("unexpected failure");
+      }),
+    });
+    const app = createApp(d);
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+    expect(res.status).toBe(500);
+  });
 });

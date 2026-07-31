@@ -10,6 +10,8 @@ export default defineConfig({
     restoreMocks: true,
     testTimeout: 5000,
     hookTimeout: 10000,
+    reporters: ["default", "junit"],
+    outputFile: { junit: "./test-report.junit.xml" },
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
@@ -21,14 +23,15 @@ export default defineConfig({
         "src/main.tsx",
         "src/vite-env.d.ts",
         "src/test-setup.ts",
+        "src/router.tsx", // route tree + lazy-load wiring, exercised at runtime, not unit-testable
       ],
       reporter: ["text", "lcov", "html"],
       reportsDirectory: "./coverage",
       thresholds: {
-        lines: 80,
-        functions: 80,
-        branches: 80,
-        statements: 80,
+        lines: 90,
+        functions: 90,
+        branches: 90,
+        statements: 90,
       },
     },
   },

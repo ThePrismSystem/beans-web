@@ -291,4 +291,20 @@ describe("useReopenAncestors", () => {
     expect((error as ReopenPartialFailure).reopenedIds).toEqual(["e-1"]);
     expect(describeMutationError(error)).toContain("e-1");
   });
+
+  it("reports a generic failure with no reopened ids when the very first ancestor fails with a non-Error cause", async () => {
+    const fetchMock = vi.fn(() => Promise.reject("network exploded"));
+    vi.stubGlobal("fetch", fetchMock);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
+
+    result.current.mutate({ ancestorIds: ["e-1"], status: "todo" });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    const error = result.current.error;
+    expect(error).toBeInstanceOf(ReopenPartialFailure);
+    expect((error as ReopenPartialFailure).reopenedIds).toEqual([]);
+    expect(describeMutationError(error)).toBe("Re-open failed: network exploded");
+  });
 });

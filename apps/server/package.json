@@ -17,10 +17,10 @@
   },
   "dependencies": {
     "@beans-frontend/shared": "workspace:*",
-    "@hono/node-server": "^1.13.0",
-    "hono": "^4.6.0",
-    "chokidar": "^4.0.0",
+    "@hono/node-server": "^2.0.12",
     "@t3-oss/env-core": "^0.13.0",
+    "chokidar": "^4.0.0",
+    "hono": "^4.6.0",
     "tsx": "^4.19.0",
     "zod": "^3.24.0"
   },

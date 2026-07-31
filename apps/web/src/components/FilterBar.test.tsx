@@ -40,4 +40,17 @@ describe("FilterBar", () => {
     fireEvent.change(screen.getByLabelText("Tags"), { target: { value: "a, b" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_BEAN_FILTER, tags: ["a", "b"] });
   });
+
+  it("opens the advanced filters panel when the toggle is clicked", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<FilterBar {...props} />);
+
+    const toggle = screen.getByRole("button", { name: "Filters" });
+    expect(container.querySelector(".filter-bar")).not.toHaveClass("filter-bar--open");
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(container.querySelector(".filter-bar")).toHaveClass("filter-bar--open");
+  });
 });

@@ -26,7 +26,8 @@
     "recharts": "^3.9.2"
   },
   "devDependencies": {
-    "@graphql-codegen/cli": "^5.0.0",
+    "@codecov/vite-plugin": "^2.0.1",
+    "@graphql-codegen/cli": "^7.2.0",
     "@graphql-codegen/typescript": "^4.1.0",
     "@graphql-codegen/typescript-operations": "^4.4.0",
     "@playwright/test": "^1.61.1",
@@ -39,7 +40,7 @@
     "@vitest/coverage-v8": "^4.1.0",
     "jsdom": "^26.1.0",
     "knip": "^6.26.0",
-    "vite": "^6.3.0",
+    "vite": "^8.2.0",
     "vitest": "^4.1.0"
   }
 }

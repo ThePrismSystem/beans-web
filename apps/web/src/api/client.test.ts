@@ -1,8 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { projectGraphql } from "./client.js";
+import { fetchProjects, projectGraphql } from "./client.js";
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("fetchProjects", () => {
+  it("throws when the response is not ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 500 })),
+    );
+
+    await expect(fetchProjects()).rejects.toThrow("request failed: 500");
+  });
+});
 
 describe("projectGraphql", () => {
   it("unwraps data on success", async () => {

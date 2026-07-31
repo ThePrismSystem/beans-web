@@ -59,4 +59,38 @@ describe("ConfirmDialog", () => {
 
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  it("closes via onCancel when Escape is pressed", async () => {
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+    render(<ConfirmDialog open title="Delete?" onConfirm={vi.fn()} onCancel={onCancel} />);
+
+    await user.keyboard("{Escape}");
+
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("wraps focus from the last button to the first on Tab", async () => {
+    const user = userEvent.setup();
+    render(<ConfirmDialog open title="Delete?" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    const confirmButton = screen.getByRole("button", { name: "Confirm" });
+    confirmButton.focus();
+    expect(confirmButton).toHaveFocus();
+    await user.tab();
+
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  });
+
+  it("wraps focus from the first button to the last on Shift+Tab", async () => {
+    const user = userEvent.setup();
+    render(<ConfirmDialog open title="Delete?" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    const cancelButton = screen.getByRole("button", { name: "Cancel" });
+    cancelButton.focus();
+    expect(cancelButton).toHaveFocus();
+    await user.tab({ shift: true });
+
+    expect(screen.getByRole("button", { name: "Confirm" })).toHaveFocus();
+  });
 });

@@ -214,3 +214,30 @@ describe("discoverProjects ordering", () => {
     }
   });
 });
+
+describe("discoverProjects counts", () => {
+  it("counts closed-status beans in totals but excludes them from open counts", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({
+      beans: [
+        { type: "feature", status: "todo" },
+        { type: "bug", status: "completed" },
+      ],
+    });
+
+    try {
+      const projects = await discoverProjects(root, 4);
+      const projA = projects.find((p) => p.name === "proj-a");
+      if (!projA) throw new Error("expected proj-a to be discovered");
+
+      expect(projA.counts.total).toBe(2);
+      expect(projA.counts.byStatus.completed).toBe(1);
+      expect(projA.counts.byStatus.todo).toBe(1);
+      expect(projA.counts.open).toBe(1);
+      expect(projA.counts.openByType.feature).toBe(1);
+      expect(projA.counts.openByType.bug).toBe(0);
+    } finally {
+      graphqlMock.mockRestore();
+    }
+  });
+});
