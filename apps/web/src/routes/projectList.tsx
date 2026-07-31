@@ -8,6 +8,7 @@ import { HierarchyList } from "../components/HierarchyList.js";
 import { DEFAULT_BEAN_FILTER, useBeans } from "../hooks/useBeans.js";
 import { withAncestors } from "../lib/hierarchy.js";
 import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
+import { readString, writeString } from "../lib/storage.js";
 import { sortBeans } from "../lib/sort.js";
 
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
@@ -82,7 +83,7 @@ function viewStorageKey(project: string): string {
 }
 
 function loadViewMode(project: string): ViewMode {
-  return window.localStorage.getItem(viewStorageKey(project)) === "flat" ? "flat" : "hierarchy";
+  return readString(viewStorageKey(project)) === "flat" ? "flat" : "hierarchy";
 }
 
 export function ProjectList() {
@@ -96,7 +97,7 @@ export function ProjectList() {
   }, [project]);
 
   useEffect(() => {
-    window.localStorage.setItem(viewStorageKey(project), view);
+    writeString(viewStorageKey(project), view);
   }, [project, view]);
 
   const filter: BeanFilterInput = {
