@@ -17,9 +17,21 @@ describe("readString / writeString", () => {
     expect(readString("absent")).toBeNull();
   });
 
-  it("falls back to memory when localStorage.setItem throws", () => {
+  it("survives asymmetric failure: setItem throws, getItem returns null", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("QuotaExceededError");
+    });
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      return null;
+    });
+
+    writeString("k", "v");
+    expect(readString("k")).toBe("v");
+  });
+
+  it("falls back to memory when localStorage throws on both getItem and setItem", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("SecurityError");
     });
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("SecurityError");

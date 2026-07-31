@@ -4,10 +4,12 @@
 const memory = new Map<string, string>();
 
 function safeGet(key: string): string | null {
+  const cached = memory.get(key);
+  if (cached !== undefined) return cached;
   try {
     return window.localStorage.getItem(key);
   } catch {
-    return memory.get(key) ?? null;
+    return null;
   }
 }
 
