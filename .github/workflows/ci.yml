@@ -101,7 +101,7 @@ jobs:
 
       # codecov-action's `flags` applies to every file in a single upload as one
       # group, not positionally per file, so each package gets its own step to
-      # keep coverage flags scoped correctly for Task 9's per-package badges.
+      # keep coverage flags scoped correctly per package.
       - name: Upload coverage to Codecov (shared)
         if: always()
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7

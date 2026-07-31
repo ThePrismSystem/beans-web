@@ -128,13 +128,17 @@ involved, and they are not interchangeable:
   `codecov/test-results-action` steps each uploading that package's `test-report.junit.xml`. It's
   a private, repo-scoped write credential — never commit or log it.
 - **`CODECOV_TOKEN` as a build-time env var (same secret)** gates bundle analysis in
-  `apps/web/vite.config.ts`: `codecovVitePlugin({ enableBundleAnalysis: process.env.CODECOV_TOKEN
-  !== undefined, uploadToken: process.env.CODECOV_TOKEN, ... })`. This is the identical secret
-  value, just read a second way — as a process env var during `vite build` rather than as an
-  action input. As currently wired, the CI `build` job (`pnpm -r build`) does not export
-  `CODECOV_TOKEN` into its own environment, so bundle analysis does not run on that job; it only
-  activates when the web app is built with `CODECOV_TOKEN` exported in the shell, e.g.
-  `CODECOV_TOKEN=<token> pnpm --filter @beans-frontend/web build`.
+  `apps/web/vite.config.ts`: `codecovVitePlugin({ enableBundleAnalysis:
+  Boolean(process.env.CODECOV_TOKEN), uploadToken: process.env.CODECOV_TOKEN, ... })`. This is the
+  identical secret value, just read a second way — as a process env var during `vite build` rather
+  than as an action input. The CI `build` job declares `env: CODECOV_TOKEN: ${{
+  secrets.CODECOV_TOKEN }}` at the job level, so `pnpm -r build` runs with the secret exported and
+  bundle analysis runs on every push/PR to `main` where the secret is available. On fork PRs,
+  GitHub Actions sets the secret to an empty string rather than leaving it unset;
+  `Boolean(process.env.CODECOV_TOKEN)` treats `""` the same as unset and skips analysis, so those
+  builds still no-op cleanly instead of attempting an upload with a blank token. Bundle analysis
+  can also be triggered manually outside CI, e.g. `CODECOV_TOKEN=<token> pnpm --filter
+  @beans-frontend/web build`.
 - **`flags: shared` / `flags: server` / `flags: web`** — each upload step is scoped to exactly one
   package's report and tagged with exactly one flag, so Codecov keeps the three packages' coverage
   and test results separate instead of blending them into one repo-wide number. In the Codecov UI
