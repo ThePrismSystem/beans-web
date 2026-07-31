@@ -55,7 +55,7 @@ const {
 }));
 
 vi.mock("../hooks/useBean.js", () => ({ useBean: useBeanMock }));
-vi.mock("../hooks/useBeans.js", () => ({ useBeans: useBeansMock }));
+vi.mock("../hooks/useBeans.js", () => ({ useProjectBeans: useBeansMock }));
 vi.mock("../hooks/useMutations.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../hooks/useMutations.js")>();
   return {

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -11,17 +11,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectList, validateProjectSearch } from "./projectList.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
 const { useBeansMock } = vi.hoisted(() => ({ useBeansMock: vi.fn() }));
 
 vi.mock("../hooks/useBeans.js", async () => {
   const actual =
     await vi.importActual<typeof import("../hooks/useBeans.js")>("../hooks/useBeans.js");
-  return { ...actual, useBeans: useBeansMock };
+  return { ...actual, useProjectBeans: useBeansMock };
 });
 
-const milestone: Bean = {
+const milestone: BeanListItem = {
   id: "m1",
   slug: null,
   path: "",
@@ -32,14 +32,13 @@ const milestone: Bean = {
   tags: [],
   createdAt: "",
   updatedAt: "",
-  body: "",
   etag: "",
   parentId: null,
   blockingIds: [],
   blockedByIds: [],
 };
 
-const epic: Bean = {
+const epic: BeanListItem = {
   ...milestone,
   id: "e1",
   title: "Epic One",
@@ -47,7 +46,7 @@ const epic: Bean = {
   parentId: "m1",
 };
 
-const task: Bean = {
+const task: BeanListItem = {
   ...milestone,
   id: "t1",
   title: "Task One",
@@ -55,7 +54,7 @@ const task: Bean = {
   parentId: "e1",
 };
 
-const bug: Bean = {
+const bug: BeanListItem = {
   ...milestone,
   id: "b1",
   title: "Bug One",
@@ -152,7 +151,7 @@ describe("ProjectList", () => {
     expect(window.localStorage.getItem("beans:view:testproj")).toBe("hierarchy");
   });
 
-  it("updates the URL search params when a filter changes", async () => {
+  it("filters the rendered list in the browser when a type filter is toggled", async () => {
     useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
     const user = userEvent.setup();
 
@@ -163,34 +162,15 @@ describe("ProjectList", () => {
     await user.click(screen.getByRole("button", { name: /^Type/ }));
     await user.click(screen.getByRole("checkbox", { name: "task" }));
 
-    await waitFor(() => {
-      expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
-    });
+    expect(await screen.findByText("Task One")).toBeInTheDocument();
+    expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("checkbox", { name: "task" }));
 
-    await waitFor(() => {
-      expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
-    });
+    expect(await screen.findByText("Bug One")).toBeInTheDocument();
   });
 
-  it("sends the type filter to the server in flat view", async () => {
-    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
-    const user = userEvent.setup();
-
-    renderProjectList();
-    await screen.findByText("Milestone One");
-    await user.click(screen.getByRole("button", { name: "Flat" }));
-
-    await user.click(screen.getByRole("button", { name: /^Type/ }));
-    await user.click(screen.getByRole("checkbox", { name: "task" }));
-
-    await waitFor(() => {
-      expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: ["task"] });
-    });
-  });
-
-  it("keeps ancestor sections visible and does not forward the type filter to the server in hierarchy view", async () => {
+  it("keeps ancestor sections visible when filtering by type in hierarchy view", async () => {
     useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
     const user = userEvent.setup();
 
@@ -200,16 +180,30 @@ describe("ProjectList", () => {
     await user.click(screen.getByRole("button", { name: /^Type/ }));
     await user.click(screen.getByRole("checkbox", { name: "task" }));
 
-    await waitFor(() => {
-      expect(useBeansMock.mock.calls.at(-1)?.[1]).toMatchObject({ type: [] });
-    });
-    expect(screen.getByText("Milestone One")).toBeInTheDocument();
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
     await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
 
     expect(screen.getByText("Task One")).toBeInTheDocument();
     expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
+  });
+
+  it("filters by status in the browser without refetching", async () => {
+    // Server returns every bean; the open-status default hides the completed one.
+    useBeansMock.mockReturnValue({
+      data: [
+        { ...milestone, id: "t-1", title: "Open One", status: "todo" },
+        { ...milestone, id: "t-2", title: "Done Two", status: "completed" },
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderProjectList();
+
+    expect(await screen.findByText("Open One")).toBeInTheDocument();
+    expect(screen.queryByText("Done Two")).not.toBeInTheDocument();
   });
 
   it("shows the sort control in both hierarchy and flat view", async () => {
@@ -226,8 +220,8 @@ describe("ProjectList", () => {
   });
 
   it("sorts only the top-level hierarchy rows by title, leaving nested children alone", async () => {
-    const cherryRoot: Bean = { ...milestone, id: "cherry", title: "Cherry", type: "task" };
-    const appleRoot: Bean = { ...milestone, id: "apple", title: "Apple", type: "task" };
+    const cherryRoot: BeanListItem = { ...milestone, id: "cherry", title: "Cherry", type: "task" };
+    const appleRoot: BeanListItem = { ...milestone, id: "apple", title: "Apple", type: "task" };
     const topLevelBeans = [milestone, epic, task, bug, cherryRoot, appleRoot];
     useBeansMock.mockReturnValue({ data: topLevelBeans, isPending: false, isError: false });
 

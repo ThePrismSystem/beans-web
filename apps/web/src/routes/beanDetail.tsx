@@ -12,7 +12,7 @@ import { RelationEditor } from "../components/RelationEditor.js";
 import { StatusDot } from "../components/StatusDot.js";
 
 import { useBean } from "../hooks/useBean.js";
-import { useBeans } from "../hooks/useBeans.js";
+import { useProjectBeans } from "../hooks/useBeans.js";
 import {
   describeMutationError,
   isEtagConflict,
@@ -25,7 +25,6 @@ import {
   useSetParent,
   useUpdateBean,
 } from "../hooks/useMutations.js";
-import { EMPTY_BEAN_FILTER } from "../lib/filter.js";
 import { renderMarkdown } from "../lib/markdown.js";
 
 import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";
@@ -439,7 +438,7 @@ export function BeanDetailPage() {
   const { project, beanId } = useParams({ from: "/p/$project/$beanId" });
   const navigate = useNavigate({ from: "/p/$project/$beanId" });
   const { data: bean, isPending, isError, refetch } = useBean(project, beanId);
-  const { data: allBeans } = useBeans(project, EMPTY_BEAN_FILTER);
+  const { data: allBeans } = useProjectBeans(project, "");
 
   if (isPending) {
     return <p className="muted">Loading bean…</p>;

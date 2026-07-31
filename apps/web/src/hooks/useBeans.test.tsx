@@ -2,16 +2,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useBeans } from "./useBeans.js";
-import { DEFAULT_BEAN_FILTER, EMPTY_BEAN_FILTER } from "../lib/filter.js";
+import { useProjectBeans } from "./useBeans.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());
 
-const bean: Bean = {
-  id: "t1",
+const bean: BeanListItem = {
+  id: "t-1",
   slug: null,
   path: "",
   title: "Task One",
@@ -21,7 +20,6 @@ const bean: Bean = {
   tags: [],
   createdAt: "",
   updatedAt: "",
-  body: "",
   etag: "",
   parentId: null,
   blockingIds: [],
@@ -33,84 +31,52 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
-function sentFilter(
-  fetchMock: ReturnType<typeof vi.fn<(url: string, init: RequestInit) => Promise<Response>>>,
-): unknown {
-  const call = fetchMock.mock.calls[0];
-  if (!call) {
-    throw new Error("fetch was not called");
-  }
-  const [, init] = call;
-  if (typeof init.body !== "string") {
-    throw new Error("request body was not a JSON string");
-  }
-  const parsed: unknown = JSON.parse(init.body);
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("variables" in parsed) ||
-    typeof parsed.variables !== "object" ||
-    parsed.variables === null ||
-    !("filter" in parsed.variables)
-  ) {
-    throw new Error("request body did not contain variables.filter");
-  }
-  return parsed.variables.filter;
+function mockFetch() {
+  return vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ data: { beans: [bean] } }), {
+      headers: { "content-type": "application/json" },
+    }),
+  );
 }
 
-describe("useBeans", () => {
-  it("fetches beans for a project with an empty filter", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
-        new Response(JSON.stringify({ data: { beans: [bean] } }), { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+function sentBody(fetchMock: ReturnType<typeof mockFetch>): { query: string; variables: unknown } {
+  const call = fetchMock.mock.calls[0];
+  if (!call) throw new Error("fetch was not called");
+  const init = call[1];
+  if (!init || typeof init.body !== "string") throw new Error("request body was not a JSON string");
+  return JSON.parse(init.body) as { query: string; variables: unknown };
+}
 
-    const { result } = renderHook(() => useBeans("demo", EMPTY_BEAN_FILTER), { wrapper });
+describe("useProjectBeans", () => {
+  it("sends an empty filter when there is no search text", async () => {
+    const fetchMock = mockFetch();
+    const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
+    expect(sentBody(fetchMock).variables).toEqual({ filter: {} });
+  });
+
+  it("sends only the trimmed search term when there is one", async () => {
+    const fetchMock = mockFetch();
+    const { result } = renderHook(() => useProjectBeans("demo", "  login~2  "), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(sentBody(fetchMock).variables).toEqual({ filter: { search: "login~2" } });
+  });
+
+  it("does not request the bean body", async () => {
+    const fetchMock = mockFetch();
+    const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(sentBody(fetchMock).query).not.toMatch(/\bbody\b/);
+  });
+
+  it("returns the beans from the response", async () => {
+    mockFetch();
+    const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data).toEqual([bean]);
-    expect(sentFilter(fetchMock)).toEqual({});
-  });
-
-  it("sends type, status, priority, tags, and search filters to the server", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
-        new Response(JSON.stringify({ data: { beans: [] } }), { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { result } = renderHook(
-      () =>
-        useBeans("demo", {
-          type: ["task"],
-          status: ["todo"],
-          priority: ["high"],
-          tags: ["urgent"],
-          prefix: ["romn"],
-          search: "  login  ",
-        }),
-      { wrapper },
-    );
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
-
-    expect(sentFilter(fetchMock)).toEqual({
-      type: ["task"],
-      status: ["todo"],
-      priority: ["high"],
-      tags: ["urgent"],
-      search: "login",
-    });
-  });
-
-  it("DEFAULT_BEAN_FILTER hides completed and scrapped by default", () => {
-    expect(DEFAULT_BEAN_FILTER.status).toEqual(["draft", "todo", "in-progress"]);
-    expect(DEFAULT_BEAN_FILTER.prefix).toEqual([]);
   });
 });

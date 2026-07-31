@@ -5,9 +5,10 @@ import { FilterBar } from "../components/FilterBar.js";
 import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
 
-import { useBeans } from "../hooks/useBeans.js";
-import { DEFAULT_BEAN_FILTER } from "../lib/filter.js";
+import { useProjectBeans } from "../hooks/useBeans.js";
+import { applyFilter, DEFAULT_BEAN_FILTER } from "../lib/filter.js";
 import { withAncestors } from "../lib/hierarchy.js";
+import { orphanedIds } from "../lib/orphan.js";
 import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 import { readString, writeString } from "../lib/storage.js";
 import { sortBeans } from "../lib/sort.js";
@@ -101,31 +102,47 @@ export function ProjectList() {
     writeString(viewStorageKey(project), view);
   }, [project, view]);
 
-  const filter: BeanFilterInput = {
-    type: search.type ?? [],
-    // With no status param present, default to the open statuses so
-    // completed/scrapped beans are hidden until explicitly requested.
-    status: search.status ?? [...DEFAULT_BEAN_FILTER.status],
-    priority: search.priority ?? [],
-    tags: search.tags ?? [],
-    prefix: search.prefix ?? [],
-    search: search.search ?? "",
-  };
+  // `search` is structurally memoized by TanStack Router, so this identity is
+  // stable while the URL params are — which keeps every derived memo below
+  // from recomputing on unrelated re-renders.
+  const filter: BeanFilterInput = useMemo(
+    () => ({
+      type: search.type ?? [],
+      // With no status param present, default to the open statuses so
+      // completed/scrapped beans are hidden until explicitly requested.
+      status: search.status ?? [...DEFAULT_BEAN_FILTER.status],
+      priority: search.priority ?? [],
+      tags: search.tags ?? [],
+      prefix: search.prefix ?? [],
+      search: search.search ?? "",
+    }),
+    [search],
+  );
 
-  // In hierarchy view the type filter is applied client-side (see
-  // HierarchyList's `typeFilter` prop) so that ancestor milestones/epics
-  // stay visible as section context even when they don't themselves match
-  // the filtered type. Sending the type filter to the server would strip
-  // those ancestors from the response and buildTree would have nothing to
-  // nest the matches under, collapsing the tree into a flat list. Status,
-  // priority, tags, and search stay server-side for both views. Prefix is
-  // always applied client-side (see below), so it is never sent to the
-  // server either.
-  const serverFilter: BeanFilterInput =
-    view === "hierarchy" ? { ...filter, type: [], prefix: [] } : { ...filter, prefix: [] };
+  const { data: allBeans, isPending, isError } = useProjectBeans(project, filter.search);
 
-  const { data: beans, isPending, isError } = useBeans(project, serverFilter);
-  const prefixOptions = beans ? distinctPrefixes(beans) : [];
+  const prefixOptions = allBeans ? distinctPrefixes(allBeans) : [];
+
+  // Orphan status is computed from the FULL project dataset, never a filtered
+  // subset — a parent missing because of a filter is not an orphaning parent.
+  const orphaned = useMemo(() => orphanedIds(allBeans ?? []), [allBeans]);
+
+  const flatBeans = useMemo(
+    () => (allBeans ? applyFilter(allBeans, filter) : []),
+    [allBeans, filter],
+  );
+
+  // In hierarchy view the type filter is applied by HierarchyList's prune so
+  // ancestor milestones/epics stay visible as section context, and the prefix
+  // filter keeps ancestors via withAncestors for the same reason. Both are
+  // therefore excluded here and reapplied inside the tree.
+  const hierarchyBeans = useMemo(() => {
+    if (!allBeans) return [];
+    const base = applyFilter(allBeans, { ...filter, type: [], prefix: [] });
+    if (filter.prefix.length === 0) return base;
+    const matched = base.filter((bean) => filter.prefix.includes(beanPrefix(bean.id)));
+    return withAncestors(matched, base);
+  }, [allBeans, filter]);
 
   function handleFilterChange(next: BeanFilterInput) {
     void navigate({
@@ -170,32 +187,6 @@ export function ProjectList() {
     handleSortChange(search.sort, nextDir);
   }
 
-  // Keep ancestor sections visible when pruning by prefix in hierarchy view
-  // (mirrors the type-filter pattern above): a matched bean's milestone/epic
-  // ancestors are kept even though they don't themselves match the prefix,
-  // so buildTree still has somewhere to nest the matches.
-  //
-  // Both memoized on `beans`/`filter.prefix` (not recomputed on every
-  // render) so HierarchyList's `beans` prop keeps a stable identity across
-  // re-renders that don't actually change the filtered data (e.g. an SSE
-  // "Updated" event elsewhere causing this component to re-render). A new
-  // array identity on every render would trip HierarchyList's collapse
-  // re-seed and wipe the user's expand/collapse state.
-  const prefixFiltered = useMemo(
-    () =>
-      beans && filter.prefix.length > 0
-        ? beans.filter((b) => filter.prefix.includes(beanPrefix(b.id)))
-        : beans,
-    [beans, filter.prefix],
-  );
-  const hierarchyBeans = useMemo(
-    () =>
-      beans && prefixFiltered && filter.prefix.length > 0
-        ? withAncestors(prefixFiltered, beans)
-        : beans,
-    [beans, prefixFiltered, filter.prefix.length],
-  );
-
   function renderList() {
     if (isPending) {
       return <p className="muted">Loading beans…</p>;
@@ -203,22 +194,25 @@ export function ProjectList() {
     if (isError) {
       return <p className="muted">Failed to load beans.</p>;
     }
-    if (!prefixFiltered) {
-      return null;
-    }
-    if (prefixFiltered.length === 0) {
-      return <p className="muted">No beans match the current filters.</p>;
-    }
     if (view === "flat") {
-      const sortedBeans = search.sort
-        ? sortBeans(prefixFiltered, search.sort, search.dir ?? "asc")
-        : prefixFiltered;
-      return <FlatList project={project} beans={sortedBeans} />;
+      if (flatBeans.length === 0) {
+        return <p className="muted">No beans match the current filters.</p>;
+      }
+      return (
+        <FlatList
+          project={project}
+          beans={sortBeans(flatBeans, search.sort, search.dir ?? "asc")}
+          orphaned={orphaned}
+        />
+      );
+    }
+    if (hierarchyBeans.length === 0) {
+      return <p className="muted">No beans match the current filters.</p>;
     }
     return (
       <HierarchyList
         project={project}
-        beans={hierarchyBeans ?? prefixFiltered}
+        beans={hierarchyBeans}
         typeFilter={filter.type}
         sort={search.sort}
         dir={search.dir}
