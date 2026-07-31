@@ -24,10 +24,13 @@ Concrete findings from sampling the largest files
   matching enum value, compare to current, mutate if changed), relation/
   scrap/delete/reopen handlers, and a large JSX return including two
   `ConfirmDialog` instances with nontrivial dynamic content.
-- **Enum-select JSX duplication**: the `<select>` + `.map()` over
+- **Enum-select JSX duplication**: the `<select>` + `.map()` over one of
   `BEAN_TYPES`/`BEAN_STATUSES`/`BEAN_PRIORITIES` to render `<option>` tags is
-  copy-pasted across `overview.tsx`, `Charts.tsx`, `CreateBeanForm.tsx`, and
-  `beanDetail.tsx`.
+  copy-pasted 3 times each in `CreateBeanForm.tsx` (type/status/priority) and
+  `beanDetail.tsx` (type/status/priority editors), 6 instances across the 2
+  files. (`overview.tsx` and `Charts.tsx` also call `.map()` over these enum
+  arrays, but to derive chart/summary data, not `<select>` options — not part
+  of this duplication and out of scope for the `EnumSelect` extraction.)
 - **Enum-parse duplication**: `array.find((option) => option === value)`
   against one of the three enum arrays repeats 6 times across
   `CreateBeanForm.tsx` (3x) and `beanDetail.tsx` (3x).
@@ -104,7 +107,8 @@ changes; existing `beanDetail` tests must pass unmodified.
   generic `<select>` component taking `options: readonly T[]`,
   `value: T`, `onChange: (value: T) => void`, and the existing per-call-site
   `aria-label`/`id`, rendering the `.map()` over options as `<option>` tags.
-  Replaces the 4 duplicated inline instances.
+  Replaces the 6 duplicated inline instances (3 in `CreateBeanForm.tsx`, 3 in
+  `beanDetail.tsx`).
 - **`parseEnumValue<T>(value: string, options: readonly T[]): T | undefined`**
   (`apps/web/src/lib/enum.ts`) — replaces the 6 `array.find(option => option
   === value)` call sites.
