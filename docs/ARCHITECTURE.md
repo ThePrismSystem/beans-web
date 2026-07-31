@@ -116,3 +116,34 @@ the server's `start` script runs `NODE_ENV=production tsx src/index.ts` — the 
 execution used in development (`tsx watch`), just without the watch/reload behavior. `tsx` is
 therefore a runtime dependency of `apps/server`, not a dev-only tool. `pnpm start` at the repo
 root builds the web app first, then runs this production server start script.
+
+## Codecov setup
+
+CI (`.github/workflows/ci.yml`) sends coverage and test-result data to codecov.io. Two tokens are
+involved, and they are not interchangeable:
+
+- **`CODECOV_TOKEN` (GitHub repo secret)** authenticates uploads. The `test` job passes it as the
+  `token:` input to six upload steps: three `codecov/codecov-action` steps (one per package —
+  `shared`, `server`, `web`) each uploading that package's `coverage/lcov.info`, and three
+  `codecov/test-results-action` steps each uploading that package's `test-report.junit.xml`. It's
+  a private, repo-scoped write credential — never commit or log it.
+- **`CODECOV_TOKEN` as a build-time env var (same secret)** gates bundle analysis in
+  `apps/web/vite.config.ts`: `codecovVitePlugin({ enableBundleAnalysis: process.env.CODECOV_TOKEN
+  !== undefined, uploadToken: process.env.CODECOV_TOKEN, ... })`. This is the identical secret
+  value, just read a second way — as a process env var during `vite build` rather than as an
+  action input. As currently wired, the CI `build` job (`pnpm -r build`) does not export
+  `CODECOV_TOKEN` into its own environment, so bundle analysis does not run on that job; it only
+  activates when the web app is built with `CODECOV_TOKEN` exported in the shell, e.g.
+  `CODECOV_TOKEN=<token> pnpm --filter @beans-frontend/web build`.
+- **`flags: shared` / `flags: server` / `flags: web`** — each upload step is scoped to exactly one
+  package's report and tagged with exactly one flag, so Codecov keeps the three packages' coverage
+  and test results separate instead of blending them into one repo-wide number. In the Codecov UI
+  these appear as three distinct entries under the repo's Flags tab (`shared` → `packages/shared`,
+  `server` → `apps/server`, `web` → `apps/web`), and can be turned into Components for per-package
+  status checks or badges. This mapping is configured entirely on the Codecov side (dashboard) and
+  via these `flags:` values — there is no `codecov.yml` in this repo.
+- **The README badge's token (`N7I7FNHSIO`)** is a different kind of token: a Codecov *graph
+  token*, scoped only to fetching a badge SVG
+  (`https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=...`), not to
+  uploading data. It's public by design and safe to embed directly in `README.md`. It is unrelated
+  to `CODECOV_TOKEN`; rotating one has no effect on the other.
