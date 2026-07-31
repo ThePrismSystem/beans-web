@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_BEAN_FILTER, EMPTY_BEAN_FILTER, useBeans } from "./useBeans.js";
+import { useBeans } from "./useBeans.js";
+import { DEFAULT_BEAN_FILTER, EMPTY_BEAN_FILTER } from "../lib/filter.js";
 
 import type { Bean } from "@beans-frontend/shared";
 import type { ReactNode } from "react";

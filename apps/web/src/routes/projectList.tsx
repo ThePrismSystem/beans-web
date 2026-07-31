@@ -5,7 +5,8 @@ import { FilterBar } from "../components/FilterBar.js";
 import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
 
-import { DEFAULT_BEAN_FILTER, useBeans } from "../hooks/useBeans.js";
+import { useBeans } from "../hooks/useBeans.js";
+import { DEFAULT_BEAN_FILTER } from "../lib/filter.js";
 import { withAncestors } from "../lib/hierarchy.js";
 import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 import { readString, writeString } from "../lib/storage.js";
@@ -13,7 +14,7 @@ import { sortBeans } from "../lib/sort.js";
 
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
-import type { BeanFilterInput } from "../hooks/useBeans.js";
+import type { BeanFilterInput } from "../lib/filter.js";
 import type { SortDir, SortKey } from "../lib/sort.js";
 import type { ChangeEvent } from "react";
 import type { BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";

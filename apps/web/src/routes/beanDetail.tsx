@@ -12,7 +12,7 @@ import { RelationEditor } from "../components/RelationEditor.js";
 import { StatusDot } from "../components/StatusDot.js";
 
 import { useBean } from "../hooks/useBean.js";
-import { EMPTY_BEAN_FILTER, useBeans } from "../hooks/useBeans.js";
+import { useBeans } from "../hooks/useBeans.js";
 import {
   describeMutationError,
   isEtagConflict,
@@ -25,6 +25,7 @@ import {
   useSetParent,
   useUpdateBean,
 } from "../hooks/useMutations.js";
+import { EMPTY_BEAN_FILTER } from "../lib/filter.js";
 import { renderMarkdown } from "../lib/markdown.js";
 
 import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";

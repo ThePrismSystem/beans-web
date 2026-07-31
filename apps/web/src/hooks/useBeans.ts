@@ -2,34 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import { OPEN_STATUSES } from "@beans-frontend/shared";
-
+import type { BeanFilterInput } from "../lib/filter.js";
 import type { BeanFilter } from "../api/generated.js";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { Bean, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
-
-export interface BeanFilterInput {
-  type: BeanType[];
-  status: BeanStatus[];
-  priority: BeanPriority[];
-  tags: string[];
-  prefix: string[];
-  search: string;
-}
-
-export const EMPTY_BEAN_FILTER: BeanFilterInput = {
-  type: [],
-  status: [],
-  priority: [],
-  tags: [],
-  prefix: [],
-  search: "",
-};
-
-export const DEFAULT_BEAN_FILTER: BeanFilterInput = {
-  ...EMPTY_BEAN_FILTER,
-  status: [...OPEN_STATUSES],
-};
+import type { Bean } from "@beans-frontend/shared";
 
 const BEANS_QUERY = `
   query Beans($filter: BeanFilter) {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FilterBar } from "./FilterBar.js";
 
-import { EMPTY_BEAN_FILTER } from "../hooks/useBeans.js";
+import { EMPTY_BEAN_FILTER } from "../lib/filter.js";
 
 const props = { filter: EMPTY_BEAN_FILTER, prefixOptions: ["hhroot", "romn"], onChange: vi.fn() };
 
