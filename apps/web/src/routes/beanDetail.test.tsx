@@ -343,6 +343,65 @@ describe("BeanDetailPage", () => {
     expect(deleteBeanMutate).toHaveBeenCalledWith({ id: "t1" }, expect.anything());
   });
 
+  it("closes the delete dialog without deleting when cancelled", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(deleteBeanMutate).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("navigates to the project list after a successful delete", async () => {
+    deleteBeanMutate.mockImplementationOnce(
+      (_vars: unknown, options: { onSuccess?: () => void }) => {
+        options.onSuccess?.();
+      },
+    );
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText("project list")).toBeInTheDocument();
+  });
+
+  it("closes the new bean form without submitting when cancelled", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await screen.findByRole("heading", { name: "New bean" });
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(createBeanMutate).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "New bean" })).not.toBeInTheDocument();
+  });
+
+  it("closes the create form and navigates to the new bean on successful create", async () => {
+    createBeanMutate.mockImplementationOnce(
+      (_input: unknown, options: { onSuccess?: (created: { id: string }) => void }) => {
+        options.onSuccess?.({ id: "new-bean-1" });
+      },
+    );
+    const user = userEvent.setup();
+    const { router } = renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.type(screen.getByLabelText("Title"), "Sibling task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/p/demo/new-bean-1");
+    });
+    expect(screen.queryByRole("heading", { name: "New bean" })).not.toBeInTheDocument();
+  });
+
   it("dispatches relation changes to the mutation hooks", async () => {
     const user = userEvent.setup();
     renderBeanDetail();
@@ -654,6 +713,18 @@ describe("orphan warning", () => {
     expect(await screen.findByRole("button", { name: "Re-open parent" })).toBeInTheDocument();
     // RelationEditor also names the parent, so scope to the warning banner.
     expect(within(screen.getByRole("status")).getByText(/Docker setup/)).toBeInTheDocument();
+  });
+
+  it("closes the reopen dialog without reopening when cancelled", async () => {
+    const user = userEvent.setup();
+    renderDetail({ beanStatus: "in-progress", parentStatus: "completed" });
+
+    await user.click(await screen.findByRole("button", { name: "Re-open parent" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Re-open parent" })).toBeInTheDocument();
   });
 
   it("labels the button with the ancestor count when the chain is longer", async () => {
