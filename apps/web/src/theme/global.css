@@ -1295,3 +1295,18 @@ a {
 .checkbox-menu-item:hover {
   background: var(--paper-raised);
 }
+
+.bean-row-orphan,
+.hierarchy-orphan-count {
+  color: var(--warn);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.bean-row-orphan {
+  border: 1px solid var(--warn);
+  border-radius: 0.2rem;
+  padding: 0 0.3rem;
+}

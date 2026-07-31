@@ -41,4 +41,12 @@ describe("FlatList", () => {
 
     expect(await screen.findByText("No beans match the current filters.")).toBeInTheDocument();
   });
+
+  it("badges only the beans in the orphaned set", async () => {
+    const beans = [bean("t-1", "Orphan One"), bean("t-2", "Normal Two")];
+    renderWithRouter(<FlatList project="demo" beans={beans} orphaned={new Set(["t-1"])} />);
+
+    await screen.findByText("Orphan One");
+    expect(screen.getAllByText("orphaned")).toHaveLength(1);
+  });
 });

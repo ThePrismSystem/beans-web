@@ -23,6 +23,10 @@
   --s-completed: light-dark(#4c8a4c, #6fae6f);
   --s-scrapped: light-dark(#8f6b63, #b08a80);
 
+  /* Orphaned-bean warning. Light #9a3f12 on --paper ≈ 5.92:1; dark #e0906a on
+     --paper ≈ 6.40:1 — both meet WCAG AA. */
+  --warn: light-dark(#9a3f12, #e0906a);
+
   --font-serif: Georgia, "Times New Roman", serif;
   --font-sans: system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
