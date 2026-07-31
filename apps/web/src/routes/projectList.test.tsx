@@ -310,6 +310,43 @@ describe("ProjectList", () => {
     expect(screen.getByLabelText("Sort by")).toHaveValue("");
     expect(screen.getByRole("button", { name: "Toggle sort direction" })).toBeDisabled();
   });
+
+  it("keeps orphan badges and prefix options from the full dataset while a search is active", async () => {
+    const closedParent: BeanListItem = {
+      ...milestone,
+      id: "p1",
+      title: "Closed Parent",
+      type: "epic",
+      status: "completed",
+      parentId: null,
+    };
+    const orphanChild: BeanListItem = {
+      ...milestone,
+      id: "c1",
+      title: "Zzz No Match",
+      type: "task",
+      status: "todo",
+      parentId: "p1",
+    };
+    const fullDataset = [closedParent, orphanChild];
+    // Search hits only match `orphanChild` — `closedParent` drops out of the
+    // server-filtered result, the way a real Bleve search would if the search
+    // text only matched the child's title.
+    const searchHits = [orphanChild];
+
+    useBeansMock.mockImplementation((_project: string, search: string) =>
+      search === ""
+        ? { data: fullDataset, isPending: false, isError: false }
+        : { data: searchHits, isPending: false, isError: false },
+    );
+
+    renderProjectList("/p/testproj?search=zzz");
+
+    expect(await screen.findByText("Zzz No Match")).toBeInTheDocument();
+    // Orphan badge must still render even though the closed parent isn't in
+    // the search-hit set.
+    expect(screen.getByText("orphaned")).toBeInTheDocument();
+  });
 });
 
 describe("validateProjectSearch", () => {

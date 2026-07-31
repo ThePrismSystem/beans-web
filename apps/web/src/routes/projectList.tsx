@@ -120,14 +120,17 @@ export function ProjectList() {
   );
 
   const { data: allBeans, isPending, isError } = useProjectBeans(project, filter.search);
+  const { data: fullBeans } = useProjectBeans(project, "");
 
-  const prefixOptions = allBeans ? distinctPrefixes(allBeans) : [];
+  const prefixOptions = fullBeans ? distinctPrefixes(fullBeans) : [];
 
-  // Orphan status is computed from the FULL project dataset, never a filtered
-  // subset — a parent missing because of a filter is not an orphaning parent.
-  const orphaned = useMemo(() => orphanedIds(allBeans ?? []), [allBeans]);
+  // Orphan status is computed from the FULL project dataset, never the
+  // search-narrowed one — a parent missing because it didn't match the search
+  // text is not an orphaning parent, and the badge must agree with the
+  // bean-detail page's own (always-unfiltered) orphan check.
+  const orphaned = useMemo(() => orphanedIds(fullBeans ?? []), [fullBeans]);
 
-  const knownIds = useMemo(() => new Set((allBeans ?? []).map((bean) => bean.id)), [allBeans]);
+  const knownIds = useMemo(() => new Set((fullBeans ?? []).map((bean) => bean.id)), [fullBeans]);
 
   const flatBeans = useMemo(
     () => (allBeans ? applyFilter(allBeans, filter) : []),
