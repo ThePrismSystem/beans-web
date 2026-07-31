@@ -81,6 +81,10 @@ export function validateProjectSearch(search: Record<string, unknown>): ProjectS
 
 type ViewMode = "flat" | "hierarchy";
 
+function readViewMode(key: string): ViewMode {
+  return readString(key) === "flat" ? "flat" : "hierarchy";
+}
+
 export function ProjectList() {
   const { project } = useParams({ from: "/p/$project" });
   const search = useSearch({ from: "/p/$project" });
@@ -88,7 +92,7 @@ export function ProjectList() {
   const [view, setView] = usePersistedProjectState<ViewMode>(
     project,
     "view",
-    (key) => (readString(key) === "flat" ? "flat" : "hierarchy"),
+    readViewMode,
     writeString,
   );
 
