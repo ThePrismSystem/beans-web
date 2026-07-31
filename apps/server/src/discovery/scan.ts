@@ -57,7 +57,7 @@ function emptyCounts(): ProjectCounts {
 
 export async function discoverProjects(root: string, maxDepth: number): Promise<Project[]> {
   const dirs = await findProjectDirs(root, maxDepth);
-  return mapWithConcurrency(dirs, BEANS_CONCURRENCY, async (dir) => {
+  const projects = await mapWithConcurrency(dirs, BEANS_CONCURRENCY, async (dir) => {
     const yml = await readFile(join(dir, ".beans.yml"), "utf8");
     const counts = emptyCounts();
     try {
@@ -82,4 +82,7 @@ export async function discoverProjects(root: string, maxDepth: number): Promise<
     }
     return { name: basename(dir), path: dir, prefix: parsePrefix(yml), counts };
   });
+  // Stable, name-ordered output: the Overview ledger renders this list directly
+  // and is invalidated on every file change, so walk order would reshuffle it.
+  return projects.sort((a, b) => a.name.localeCompare(b.name));
 }

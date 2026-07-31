@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { assertWithinRoot, findProjectDirs } from "./scan.js";
+import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
 
 let root: string;
 beforeEach(() => {
@@ -44,5 +44,27 @@ describe("assertWithinRoot", () => {
   });
   it("throws on traversal outside root", () => {
     expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(/outside/i);
+  });
+});
+
+describe("discoverProjects ordering", () => {
+  it("returns projects sorted by name regardless of walk order", async () => {
+    // Fixture: three project dirs whose filesystem walk order is not alphabetical.
+    // Create a fresh test root with non-alphabetical names.
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-"));
+    try {
+      const mk = (rel: string) => {
+        mkdirSync(join(testRoot, rel), { recursive: true });
+        writeFileSync(join(testRoot, rel, ".beans.yml"), "beans:\n  prefix: x-\n");
+      };
+      mk("zeta");
+      mk("alpha");
+      mk("mid");
+
+      const projects = await discoverProjects(testRoot, 2);
+      expect(projects.map((p) => p.name)).toEqual([...projects.map((p) => p.name)].sort());
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+    }
   });
 });
