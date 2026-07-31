@@ -189,7 +189,7 @@ describe("ProjectList", () => {
     expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
   });
 
-  it("filters by status in the browser without refetching", async () => {
+  it("filters by status in the browser", async () => {
     // Server returns every bean; the open-status default hides the completed one.
     useBeansMock.mockReturnValue({
       data: [
@@ -234,6 +234,47 @@ describe("ProjectList", () => {
     );
     expect(topLevelTitles).toEqual(["Apple", "Cherry", "Milestone One"]);
     expect(screen.getByLabelText("Sort by")).toHaveValue("title");
+  });
+
+  it("applies the default priority ordering to the flat view when no sort param is set", async () => {
+    const lowPriority: BeanListItem = {
+      ...milestone,
+      id: "low-1",
+      title: "Low Priority Task",
+      type: "task",
+      priority: "low",
+    };
+    const criticalPriority: BeanListItem = {
+      ...milestone,
+      id: "critical-1",
+      title: "Critical Priority Task",
+      type: "task",
+      priority: "critical",
+    };
+    const normalPriority: BeanListItem = {
+      ...milestone,
+      id: "normal-1",
+      title: "Normal Priority Task",
+      type: "task",
+      priority: "normal",
+    };
+    // Fetch order deliberately does not match priority order, so a passthrough
+    // of raw fetch order (the old behavior) would fail this assertion.
+    useBeansMock.mockReturnValue({
+      data: [lowPriority, criticalPriority, normalPriority],
+      isPending: false,
+      isError: false,
+    });
+    window.localStorage.setItem("beans:view:testproj", "flat");
+
+    renderProjectList();
+    await screen.findByText("Critical Priority Task");
+
+    const titles = screen
+      .getAllByRole("listitem")
+      .map((li) => within(li).getByText(/Priority Task$/).textContent);
+    expect(titles).toEqual(["Critical Priority Task", "Normal Priority Task", "Low Priority Task"]);
+    expect(screen.getByLabelText("Sort by")).toHaveValue("");
   });
 
   it("sorts the flat list by title when ?sort=title is present in the URL", async () => {
