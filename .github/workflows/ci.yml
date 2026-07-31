@@ -99,6 +99,60 @@ jobs:
       - name: Run full test suite with coverage (unit + integration)
         run: pnpm -r test:coverage
 
+      # codecov-action's `flags` applies to every file in a single upload as one
+      # group, not positionally per file, so each package gets its own step to
+      # keep coverage flags scoped correctly for Task 9's per-package badges.
+      - name: Upload coverage to Codecov (shared)
+        if: always()
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./packages/shared/coverage/lcov.info
+          flags: shared
+          fail_ci_if_error: false
+
+      - name: Upload coverage to Codecov (server)
+        if: always()
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./apps/server/coverage/lcov.info
+          flags: server
+          fail_ci_if_error: false
+
+      - name: Upload coverage to Codecov (web)
+        if: always()
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./apps/web/coverage/lcov.info
+          flags: web
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov (shared)
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./packages/shared/test-report.junit.xml
+          flags: shared
+
+      - name: Upload test results to Codecov (server)
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./apps/server/test-report.junit.xml
+          flags: server
+
+      - name: Upload test results to Codecov (web)
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./apps/web/test-report.junit.xml
+          flags: web
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

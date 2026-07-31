@@ -10,6 +10,8 @@ export default defineConfig({
     restoreMocks: true,
     testTimeout: 5000,
     hookTimeout: 10000,
+    reporters: ["default", "junit"],
+    outputFile: { junit: "./test-report.junit.xml" },
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

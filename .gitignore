@@ -6,6 +6,7 @@ build/
 .claude/
 CLAUDE.md
 coverage/
+test-report.junit.xml
 # Dependencies
 dist/
 .DS_Store
