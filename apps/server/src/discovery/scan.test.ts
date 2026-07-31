@@ -4,12 +4,21 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
 
+interface FakeDirEntry {
+  name: string;
+  isDirectory: () => boolean;
+  isFile: () => boolean;
+}
+
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
 
   return {
     ...actual,
-    readdir: vi.fn(async (dir: string, options?: any) => {
+    readdir: vi.fn(async (dir: string, options?: { withFileTypes?: boolean } | string | null) => {
+      // Normalize options for checking
+      const opts = typeof options === "object" ? options : undefined;
+
       // For the ordering test root, return mocked directory entries in non-alphabetical order
       // Check if this is the root directory by seeing if it ends with the temp dir prefix
       if (
@@ -18,63 +27,45 @@ vi.mock("node:fs/promises", async (importOriginal) => {
         !dir.endsWith("/zeta") &&
         !dir.endsWith("/mid") &&
         !dir.endsWith("/alpha") &&
-        options?.withFileTypes
+        opts?.withFileTypes
       ) {
-        return [
+        const entries: FakeDirEntry[] = [
           {
             name: "zeta",
             isDirectory: () => true,
             isFile: () => false,
-            isSymbolicLink: () => false,
-            isBlockDevice: () => false,
-            isCharacterDevice: () => false,
-            isFIFO: () => false,
-            isSocket: () => false,
           },
           {
             name: "mid",
             isDirectory: () => true,
             isFile: () => false,
-            isSymbolicLink: () => false,
-            isBlockDevice: () => false,
-            isCharacterDevice: () => false,
-            isFIFO: () => false,
-            isSocket: () => false,
           },
           {
             name: "alpha",
             isDirectory: () => true,
             isFile: () => false,
-            isSymbolicLink: () => false,
-            isBlockDevice: () => false,
-            isCharacterDevice: () => false,
-            isFIFO: () => false,
-            isSocket: () => false,
           },
-        ] as any;
+        ];
+        return entries;
       }
       // For subdirectories in the ordering test (zeta/, mid/, alpha/), return .beans.yml
       if (
         typeof dir === "string" &&
         dir.includes("scan-ordering-") &&
         (dir.endsWith("/zeta") || dir.endsWith("/mid") || dir.endsWith("/alpha")) &&
-        options?.withFileTypes
+        opts?.withFileTypes
       ) {
-        return [
+        const entries: FakeDirEntry[] = [
           {
             name: ".beans.yml",
             isDirectory: () => false,
             isFile: () => true,
-            isSymbolicLink: () => false,
-            isBlockDevice: () => false,
-            isCharacterDevice: () => false,
-            isFIFO: () => false,
-            isSocket: () => false,
           },
-        ] as any;
+        ];
+        return entries;
       }
       // For all other calls, use the real readdir
-      return actual.readdir(dir, options);
+      return actual.readdir(dir, options as Parameters<typeof actual.readdir>[1]);
     }),
   };
 });
