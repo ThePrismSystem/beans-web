@@ -6,6 +6,7 @@ import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shar
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
 import { CreateBeanForm } from "../components/CreateBeanForm.js";
+import { EnumSelect } from "../components/EnumSelect.js";
 import { InlineEditRow } from "../components/InlineEditRow.js";
 import { LinkedBeans } from "../components/LinkedBeans.js";
 import { RelationEditor } from "../components/RelationEditor.js";
@@ -26,6 +27,7 @@ import {
   useSetParent,
   useUpdateBean,
 } from "../hooks/useMutations.js";
+import { parseEnumValue } from "../lib/enum.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import { closedAncestors, indexById, isOrphaned } from "../lib/orphan.js";
 
@@ -37,6 +39,18 @@ const BODY_TEXTAREA_ROWS = 14;
 function formatTimestamp(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function saveField<T extends string>(
+  options: readonly T[],
+  current: T,
+  value: string,
+  apply: (next: T) => void,
+): void {
+  const next = parseEnumValue(value, options);
+  if (next && next !== current) {
+    apply(next);
+  }
 }
 
 interface BeanDetailContentProps {
@@ -121,24 +135,21 @@ function BeanDetailContent({
   }
 
   function saveStatus(value: string) {
-    const next = BEAN_STATUSES.find((option) => option === value);
-    if (next && next !== bean.status) {
-      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { status: next } });
-    }
+    saveField(BEAN_STATUSES, bean.status, value, (status) =>
+      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { status } }),
+    );
   }
 
   function saveType(value: string) {
-    const next = BEAN_TYPES.find((option) => option === value);
-    if (next && next !== bean.type) {
-      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { type: next } });
-    }
+    saveField(BEAN_TYPES, bean.type, value, (type) =>
+      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { type } }),
+    );
   }
 
   function savePriority(value: string) {
-    const next = BEAN_PRIORITIES.find((option) => option === value);
-    if (next && next !== bean.priority) {
-      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { priority: next } });
-    }
+    saveField(BEAN_PRIORITIES, bean.priority, value, (priority) =>
+      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { priority } }),
+    );
   }
 
   function saveTags(value: string) {
@@ -260,17 +271,12 @@ function BeanDetailContent({
             initialValue={bean.type}
             onSave={saveType}
             editor={({ value, onValue }) => (
-              <select
-                aria-label="Type editor"
+              <EnumSelect
+                ariaLabel="Type editor"
+                options={BEAN_TYPES}
                 value={value}
-                onChange={(event) => onValue(event.target.value)}
-              >
-                {BEAN_TYPES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                onChange={onValue}
+              />
             )}
           />
           <InlineEditRow
@@ -279,17 +285,12 @@ function BeanDetailContent({
             initialValue={bean.status}
             onSave={saveStatus}
             editor={({ value, onValue }) => (
-              <select
-                aria-label="Status editor"
+              <EnumSelect
+                ariaLabel="Status editor"
+                options={BEAN_STATUSES}
                 value={value}
-                onChange={(event) => onValue(event.target.value)}
-              >
-                {BEAN_STATUSES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                onChange={onValue}
+              />
             )}
           />
           <InlineEditRow
@@ -298,17 +299,12 @@ function BeanDetailContent({
             initialValue={bean.priority}
             onSave={savePriority}
             editor={({ value, onValue }) => (
-              <select
-                aria-label="Priority editor"
+              <EnumSelect
+                ariaLabel="Priority editor"
+                options={BEAN_PRIORITIES}
                 value={value}
-                onChange={(event) => onValue(event.target.value)}
-              >
-                {BEAN_PRIORITIES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                onChange={onValue}
+              />
             )}
           />
           <InlineEditRow
