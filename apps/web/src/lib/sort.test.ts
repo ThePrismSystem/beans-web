@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { beanComparator, sortBeans } from "./sort.js";
+import { beanComparator, compareIds, defaultComparator, sortBeans } from "./sort.js";
 
 import type { BeanListItem } from "@beans-frontend/shared";
 
-const bean = (
-  overrides: Partial<BeanListItem> & Pick<BeanListItem, "id" | "title">,
-): BeanListItem => ({
+const bean = (overrides: Partial<BeanListItem> & Pick<BeanListItem, "id">): BeanListItem => ({
   slug: null,
   path: "",
+  title: overrides.id,
   status: "todo",
   type: "task",
   priority: "normal",
@@ -120,10 +119,95 @@ describe("beanComparator", () => {
     expect(beanComparator("title", "desc")(a, b)).toBeGreaterThan(0);
   });
 
-  it("returns zero for equal beans", () => {
+  it("falls through to the default tiebreak instead of returning zero when the sort key ties", () => {
     const a = bean({ id: "1", title: "Apple" });
     const b = bean({ id: "2", title: "Apple" });
 
-    expect(beanComparator("title", "asc")(a, b)).toBe(0);
+    expect(beanComparator("title", "asc")(a, b)).toBeLessThan(0);
+  });
+});
+
+describe("compareIds", () => {
+  it("orders numeric suffixes numerically, not lexically", () => {
+    expect(compareIds("romn-2", "romn-10")).toBeLessThan(0);
+  });
+
+  it("orders by prefix first", () => {
+    expect(compareIds("aaa-99", "bbb-1")).toBeLessThan(0);
+  });
+
+  it("falls back to a whole-string compare for non-numeric suffixes", () => {
+    expect(compareIds("romn-alpha", "romn-beta")).toBeLessThan(0);
+  });
+});
+
+describe("defaultComparator", () => {
+  it("orders by priority before type", () => {
+    const low = bean({ id: "a-1", priority: "low", type: "milestone" });
+    const critical = bean({ id: "a-2", priority: "critical", type: "bug" });
+    expect([low, critical].sort(defaultComparator).map((b) => b.id)).toEqual(["a-2", "a-1"]);
+  });
+
+  it("orders by type when priority ties", () => {
+    const bug = bean({ id: "a-1", type: "bug" });
+    const epic = bean({ id: "a-2", type: "epic" });
+    expect([bug, epic].sort(defaultComparator).map((b) => b.id)).toEqual(["a-2", "a-1"]);
+  });
+
+  it("orders by natural id when priority and type tie", () => {
+    const ten = bean({ id: "a-10" });
+    const two = bean({ id: "a-2" });
+    expect([ten, two].sort(defaultComparator).map((b) => b.id)).toEqual(["a-2", "a-10"]);
+  });
+});
+
+describe("sortBeans determinism", () => {
+  const beans: BeanListItem[] = [
+    bean({ id: "a-1", type: "task", status: "todo", priority: "normal" }),
+    bean({ id: "a-2", type: "task", status: "todo", priority: "normal" }),
+    bean({ id: "a-3", type: "task", status: "todo", priority: "high" }),
+    bean({ id: "a-10", type: "bug", status: "draft", priority: "normal" }),
+    bean({ id: "b-1", type: "epic", status: "todo", priority: "normal" }),
+  ];
+
+  // Every rotation is a different input order for the same set. Sorting each
+  // must produce identical output — this is the regression: today the tied
+  // rows keep their input order and so shift on every refetch.
+  function rotations(input: BeanListItem[]): BeanListItem[][] {
+    return input.map((_, i) => [...input.slice(i), ...input.slice(0, i)]);
+  }
+
+  it("produces one stable order regardless of input order, with no sort key", () => {
+    const expected = sortBeans(beans).map((b) => b.id);
+    for (const rotated of rotations(beans)) {
+      expect(sortBeans(rotated).map((b) => b.id)).toEqual(expected);
+    }
+  });
+
+  it.each(["type", "title", "status"] as const)(
+    "produces one stable order regardless of input order, sorted by %s",
+    (key) => {
+      for (const dir of ["asc", "desc"] as const) {
+        const expected = sortBeans(beans, key, dir).map((b) => b.id);
+        for (const rotated of rotations(beans)) {
+          expect(sortBeans(rotated, key, dir).map((b) => b.id)).toEqual(expected);
+        }
+      }
+    },
+  );
+
+  it("inverts only the primary key, leaving ties in ascending default order", () => {
+    const asc = sortBeans(beans, "status", "asc");
+    const desc = sortBeans(beans, "status", "desc");
+    const tiedAsc = asc.filter((b) => b.status === "todo").map((b) => b.id);
+    const tiedDesc = desc.filter((b) => b.status === "todo").map((b) => b.id);
+    expect(tiedDesc).toEqual(tiedAsc);
+  });
+
+  it("never mutates its input", () => {
+    const input = [...beans];
+    const before = input.map((b) => b.id);
+    sortBeans(input, "title", "asc");
+    expect(input.map((b) => b.id)).toEqual(before);
   });
 });
