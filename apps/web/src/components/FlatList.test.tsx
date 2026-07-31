@@ -5,9 +5,9 @@ import { FlatList } from "./FlatList.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
-function bean(id: string, title: string): Bean {
+function bean(id: string, title: string): BeanListItem {
   return {
     id,
     slug: null,
@@ -19,7 +19,6 @@ function bean(id: string, title: string): Bean {
     tags: [],
     createdAt: "",
     updatedAt: "",
-    body: "",
     etag: "",
     parentId: null,
     blockingIds: [],

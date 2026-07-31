@@ -1,6 +1,7 @@
 import type { BeanStatus, BeanType, BeanPriority } from "./enums.js";
 
-export interface Bean {
+/** A bean as it appears in list views — every field except the markdown body. */
+export interface BeanListItem {
   id: string;
   slug: string | null;
   path: string;
@@ -11,11 +12,19 @@ export interface Bean {
   tags: string[];
   createdAt: string;
   updatedAt: string;
-  body: string;
   etag: string;
   parentId: string | null;
   blockingIds: string[];
   blockedByIds: string[];
+}
+
+/**
+ * A bean including its markdown body. Only the detail view needs `body`;
+ * list queries fetch `BeanListItem` so an entire project can be held client
+ * side cheaply.
+ */
+export interface Bean extends BeanListItem {
+  body: string;
 }
 
 export interface ProjectCounts {
@@ -66,7 +75,7 @@ export interface SearchResult {
 }
 
 /** A related bean shown in link lists — the minimal shape needed to render a row. */
-export type LinkedBean = Pick<Bean, "id" | "title" | "type" | "status">;
+export type LinkedBean = Pick<BeanListItem, "id" | "title" | "type" | "status">;
 
 /** A bean plus its resolved relationships, as returned by the bean-detail query. */
 export interface BeanDetail extends Bean {

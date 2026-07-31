@@ -3,9 +3,9 @@ import { Link } from "@tanstack/react-router";
 import { BeanTypeTag } from "./BeanTypeTag.js";
 import { StatusDot } from "./StatusDot.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
-export function BeanRow({ project, bean }: { project: string; bean: Bean }) {
+export function BeanRow({ project, bean }: { project: string; bean: BeanListItem }) {
   return (
     <Link to="/p/$project/$beanId" params={{ project, beanId: bean.id }} className="bean-row">
       <BeanTypeTag type={bean.type} />

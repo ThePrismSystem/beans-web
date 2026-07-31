@@ -6,9 +6,14 @@ import { HierarchyList } from "./HierarchyList.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
-function bean(id: string, type: Bean["type"], parentId: string | null, title: string): Bean {
+function bean(
+  id: string,
+  type: BeanListItem["type"],
+  parentId: string | null,
+  title: string,
+): BeanListItem {
   return {
     id,
     slug: null,
@@ -20,7 +25,6 @@ function bean(id: string, type: Bean["type"], parentId: string | null, title: st
     tags: [],
     createdAt: "",
     updatedAt: "",
-    body: "",
     etag: "",
     parentId,
     blockingIds: [],
@@ -28,7 +32,7 @@ function bean(id: string, type: Bean["type"], parentId: string | null, title: st
   };
 }
 
-const beans: Bean[] = [
+const beans: BeanListItem[] = [
   bean("m1", "milestone", null, "Milestone One"),
   bean("m2", "milestone", null, "Empty Milestone"),
   bean("e1", "epic", "m1", "Epic One"),
@@ -101,7 +105,7 @@ describe("HierarchyList", () => {
   describe("subtree encapsulation (#2)", () => {
     // A milestone -> epic -> task chain. Collapsing the milestone must hide
     // its entire subtree, including the nested epic, not just the task.
-    const chain: Bean[] = [
+    const chain: BeanListItem[] = [
       bean("m1", "milestone", null, "Milestone One"),
       bean("e1", "epic", "m1", "Epic One"),
       bean("t1", "task", "e1", "Task One"),
@@ -144,7 +148,7 @@ describe("HierarchyList", () => {
     // Top-level beans deliberately out of alphabetical order, plus a parent
     // whose children are also out of alphabetical order, so a title-sort
     // that leaked into `renderNode`'s children would be caught here too.
-    const unsorted: Bean[] = [
+    const unsorted: BeanListItem[] = [
       bean("cherry", "task", null, "Cherry"),
       bean("apple", "task", null, "Apple"),
       bean("parent", "epic", null, "Parent"),
@@ -194,7 +198,7 @@ describe("HierarchyList", () => {
 
   describe("flush top-level rows (#9)", () => {
     it("renders no carets, and no reserved caret column, when every top-level bean is childless", async () => {
-      const onlyTasks: Bean[] = [
+      const onlyTasks: BeanListItem[] = [
         bean("t1", "task", null, "Task One"),
         bean("b1", "bug", null, "Bug One"),
       ];

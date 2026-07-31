@@ -1,14 +1,14 @@
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
 export interface BeanNode {
-  bean: Bean;
+  bean: BeanListItem;
   children: BeanNode[];
   depth: number;
 }
 
-export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanNode[] } {
+export function buildTree(beans: BeanListItem[]): { milestones: BeanNode[]; roots: BeanNode[] } {
   const byId = new Map(beans.map((b) => [b.id, b]));
-  const childrenOf = new Map<string, Bean[]>();
+  const childrenOf = new Map<string, BeanListItem[]>();
   for (const b of beans) {
     if (b.parentId && byId.has(b.parentId)) {
       const list = childrenOf.get(b.parentId) ?? [];
@@ -16,7 +16,7 @@ export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanN
       childrenOf.set(b.parentId, list);
     }
   }
-  const build = (b: Bean, depth: number): BeanNode => ({
+  const build = (b: BeanListItem, depth: number): BeanNode => ({
     bean: b,
     depth,
     children: (childrenOf.get(b.id) ?? [])
@@ -38,7 +38,7 @@ export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanN
  */
 export function pruneTreeToMatches(
   nodes: BeanNode[],
-  predicate: (bean: Bean) => boolean,
+  predicate: (bean: BeanListItem) => boolean,
 ): BeanNode[] {
   const result: BeanNode[] = [];
   for (const node of nodes) {
@@ -75,7 +75,7 @@ export function collectCollapsibleIds(nodes: BeanNode[]): string[] {
  * still has somewhere to nest each match, deduplicated. Safe against parent
  * cycles since a bean already added to `keep` stops the walk.
  */
-export function withAncestors(list: Bean[], all: Bean[]): Bean[] {
+export function withAncestors(list: BeanListItem[], all: BeanListItem[]): BeanListItem[] {
   const byId = new Map(all.map((b) => [b.id, b]));
   const keep = new Map(list.map((b) => [b.id, b]));
   for (const bean of list) {

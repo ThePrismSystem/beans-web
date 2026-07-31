@@ -7,9 +7,9 @@ import {
   withAncestors,
 } from "./hierarchy.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
-const bean = (id: string, type: Bean["type"], parentId: string | null): Bean => ({
+const bean = (id: string, type: BeanListItem["type"], parentId: string | null): BeanListItem => ({
   id,
   slug: null,
   path: "",
@@ -20,7 +20,6 @@ const bean = (id: string, type: Bean["type"], parentId: string | null): Bean => 
   tags: [],
   createdAt: "",
   updatedAt: "",
-  body: "",
   etag: "",
   parentId,
   blockingIds: [],

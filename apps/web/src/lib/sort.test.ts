@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { beanComparator, sortBeans } from "./sort.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
-const bean = (overrides: Partial<Bean> & Pick<Bean, "id" | "title">): Bean => ({
+const bean = (
+  overrides: Partial<BeanListItem> & Pick<BeanListItem, "id" | "title">,
+): BeanListItem => ({
   slug: null,
   path: "",
   status: "todo",
@@ -13,7 +15,6 @@ const bean = (overrides: Partial<Bean> & Pick<Bean, "id" | "title">): Bean => ({
   tags: [],
   createdAt: "",
   updatedAt: "",
-  body: "",
   etag: "",
   parentId: null,
   blockingIds: [],

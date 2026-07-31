@@ -7,12 +7,12 @@ import { CheckboxMenu } from "./CheckboxMenu.js";
 import { StatusDot } from "./StatusDot.js";
 import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 
-import type { Bean, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus, BeanType } from "@beans-frontend/shared";
 
 export interface BeanPickerProps {
   open: boolean;
   title: string;
-  candidates: Bean[];
+  candidates: BeanListItem[];
   mode: "single" | "multi";
   allowNone?: boolean;
   onPick: (ids: string[]) => void;

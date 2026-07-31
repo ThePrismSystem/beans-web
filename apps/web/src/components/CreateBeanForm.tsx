@@ -10,10 +10,10 @@ import {
 
 import type { CreateBeanInput } from "../api/generated.js";
 import type { ChangeEvent, FormEvent } from "react";
-import type { Bean, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
 
 export interface CreateBeanFormProps {
-  candidates: Bean[];
+  candidates: BeanListItem[];
   defaultParentId?: string | null;
   onSubmit: (input: Partial<CreateBeanInput>) => void;
   onCancel?: () => void;
@@ -27,7 +27,7 @@ export interface CreateBeanFormProps {
  * cleared and the form opens blank with the default "task" type.
  */
 function resolveInitialTypeAndParent(
-  candidates: Bean[],
+  candidates: BeanListItem[],
   defaultParentId: string | null,
 ): { type: BeanType; parentId: string } {
   if (defaultParentId) {

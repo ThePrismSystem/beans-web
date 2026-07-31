@@ -7,7 +7,7 @@ import { beanComparator } from "../lib/sort.js";
 
 import type { BeanNode } from "../lib/hierarchy.js";
 import type { SortDir, SortKey } from "../lib/sort.js";
-import type { Bean, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanType } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
 // Milestones and epics act as visual "sections": when they contain children
@@ -32,7 +32,7 @@ export function HierarchyList({
   dir,
 }: {
   project: string;
-  beans: Bean[];
+  beans: BeanListItem[];
   /**
    * When set, the tree is pruned client-side to beans matching one of these
    * types plus their ancestor chain, instead of relying on the server-side
@@ -54,7 +54,7 @@ export function HierarchyList({
     if (!typeFilter || typeFilter.length === 0) {
       return tree;
     }
-    const matches = (bean: Bean) => typeFilter.includes(bean.type);
+    const matches = (bean: BeanListItem) => typeFilter.includes(bean.type);
     return {
       milestones: pruneTreeToMatches(tree.milestones, matches),
       roots: pruneTreeToMatches(tree.roots, matches),

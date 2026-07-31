@@ -27,7 +27,7 @@ import {
 } from "../hooks/useMutations.js";
 import { renderMarkdown } from "../lib/markdown.js";
 
-import type { Bean, BeanDetail } from "@beans-frontend/shared";
+import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";
 import type { RelationChange } from "../components/RelationEditor.js";
 
 const BODY_TEXTAREA_ROWS = 14;
@@ -40,7 +40,7 @@ function formatTimestamp(value: string): string {
 interface BeanDetailContentProps {
   project: string;
   bean: BeanDetail;
-  candidates: Bean[];
+  candidates: BeanListItem[];
   navigate: ReturnType<typeof useNavigate>;
   refetch: () => void;
 }

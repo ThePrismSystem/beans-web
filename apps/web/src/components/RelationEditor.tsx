@@ -4,7 +4,7 @@ import { canParent, validParentTypes } from "@beans-frontend/shared";
 
 import { BeanPicker } from "./BeanPicker.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { Bean, BeanListItem } from "@beans-frontend/shared";
 
 export type RelationChange =
   | { kind: "setParent"; parentId: string | null }
@@ -15,11 +15,11 @@ export type RelationChange =
 
 export interface RelationEditorProps {
   bean: Bean;
-  candidates: Bean[];
+  candidates: BeanListItem[];
   onChange: (change: RelationChange) => void;
 }
 
-function titleFor(candidates: Bean[], id: string): string {
+function titleFor(candidates: BeanListItem[], id: string): string {
   return candidates.find((candidate) => candidate.id === id)?.title ?? id;
 }
 
