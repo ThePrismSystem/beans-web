@@ -127,6 +127,8 @@ export function ProjectList() {
   // subset — a parent missing because of a filter is not an orphaning parent.
   const orphaned = useMemo(() => orphanedIds(allBeans ?? []), [allBeans]);
 
+  const knownIds = useMemo(() => new Set((allBeans ?? []).map((bean) => bean.id)), [allBeans]);
+
   const flatBeans = useMemo(
     () => (allBeans ? applyFilter(allBeans, filter) : []),
     [allBeans, filter],
@@ -213,6 +215,8 @@ export function ProjectList() {
       <HierarchyList
         project={project}
         beans={hierarchyBeans}
+        orphaned={orphaned}
+        knownIds={knownIds}
         typeFilter={filter.type}
         sort={search.sort}
         dir={search.dir}
