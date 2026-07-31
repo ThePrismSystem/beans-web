@@ -1,11 +1,12 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { FilterBar } from "../components/FilterBar.js";
 import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
 
 import { useProjectBeans } from "../hooks/useBeans.js";
+import { usePersistedProjectState } from "../hooks/usePersistedState.js";
 import { applyFilter, DEFAULT_BEAN_FILTER } from "../lib/filter.js";
 import { withAncestors } from "../lib/hierarchy.js";
 import { orphanedIds } from "../lib/orphan.js";
@@ -80,27 +81,16 @@ export function validateProjectSearch(search: Record<string, unknown>): ProjectS
 
 type ViewMode = "flat" | "hierarchy";
 
-function viewStorageKey(project: string): string {
-  return `beans:view:${project}`;
-}
-
-function loadViewMode(project: string): ViewMode {
-  return readString(viewStorageKey(project)) === "flat" ? "flat" : "hierarchy";
-}
-
 export function ProjectList() {
   const { project } = useParams({ from: "/p/$project" });
   const search = useSearch({ from: "/p/$project" });
   const navigate = useNavigate({ from: "/p/$project" });
-  const [view, setView] = useState<ViewMode>(() => loadViewMode(project));
-
-  useEffect(() => {
-    setView(loadViewMode(project));
-  }, [project]);
-
-  useEffect(() => {
-    writeString(viewStorageKey(project), view);
-  }, [project, view]);
+  const [view, setView] = usePersistedProjectState<ViewMode>(
+    project,
+    "view",
+    (key) => (readString(key) === "flat" ? "flat" : "hierarchy"),
+    writeString,
+  );
 
   // `search` is structurally memoized by TanStack Router, so this identity is
   // stable while the URL params are — which keeps every derived memo below
