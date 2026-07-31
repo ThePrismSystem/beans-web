@@ -1,14 +1,31 @@
-import type { Bean } from "@beans-frontend/shared";
+import { defaultComparator } from "./sort.js";
+
+import type { BeanListItem } from "@beans-frontend/shared";
 
 export interface BeanNode {
-  bean: Bean;
+  bean: BeanListItem;
   children: BeanNode[];
   depth: number;
+  /**
+   * Orphaned beans anywhere beneath this node, not counting the node itself.
+   * Lets a collapsed row advertise stranded work nested under it.
+   */
+  orphanedDescendants: number;
 }
 
-export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanNode[] } {
+function countOrphans(children: BeanNode[], orphaned: ReadonlySet<string>): number {
+  return children.reduce(
+    (sum, child) => sum + child.orphanedDescendants + (orphaned.has(child.bean.id) ? 1 : 0),
+    0,
+  );
+}
+
+export function buildTree(
+  beans: BeanListItem[],
+  orphaned: ReadonlySet<string> = new Set(),
+): { milestones: BeanNode[]; roots: BeanNode[] } {
   const byId = new Map(beans.map((b) => [b.id, b]));
-  const childrenOf = new Map<string, Bean[]>();
+  const childrenOf = new Map<string, BeanListItem[]>();
   for (const b of beans) {
     if (b.parentId && byId.has(b.parentId)) {
       const list = childrenOf.get(b.parentId) ?? [];
@@ -16,13 +33,14 @@ export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanN
       childrenOf.set(b.parentId, list);
     }
   }
-  const build = (b: Bean, depth: number): BeanNode => ({
-    bean: b,
-    depth,
-    children: (childrenOf.get(b.id) ?? [])
-      .sort((x, y) => x.title.localeCompare(y.title))
-      .map((child) => build(child, depth + 1)),
-  });
+  const build = (b: BeanListItem, depth: number): BeanNode => {
+    // Copy before sorting: `childrenOf` holds the live arrays, and sorting in
+    // place would reorder them for every later reader.
+    const children = [...(childrenOf.get(b.id) ?? [])]
+      .sort(defaultComparator)
+      .map((child) => build(child, depth + 1));
+    return { bean: b, depth, children, orphanedDescendants: countOrphans(children, orphaned) };
+  };
   const milestones = beans.filter((b) => b.type === "milestone").map((b) => build(b, 0));
   const roots = beans
     .filter((b) => b.type !== "milestone" && (!b.parentId || !byId.has(b.parentId)))
@@ -35,38 +53,23 @@ export function buildTree(beans: Bean[]): { milestones: BeanNode[]; roots: BeanN
  * ancestor (milestone/epic/etc.) that has at least one matching descendant so
  * it still renders as context/section header. Nodes with no match anywhere
  * in their subtree, and no match themselves, are dropped entirely.
+ *
+ * Orphan counts are recomputed from the surviving children so a count always
+ * describes what is actually nested beneath the node in the rendered tree.
  */
 export function pruneTreeToMatches(
   nodes: BeanNode[],
-  predicate: (bean: Bean) => boolean,
+  predicate: (bean: BeanListItem) => boolean,
+  orphaned: ReadonlySet<string> = new Set(),
 ): BeanNode[] {
   const result: BeanNode[] = [];
   for (const node of nodes) {
-    const children = pruneTreeToMatches(node.children, predicate);
+    const children = pruneTreeToMatches(node.children, predicate, orphaned);
     if (predicate(node.bean) || children.length > 0) {
-      result.push({ ...node, children });
+      result.push({ ...node, children, orphanedDescendants: countOrphans(children, orphaned) });
     }
   }
   return result;
-}
-
-/**
- * Recursively collects the id of every node that has at least one child,
- * used to seed the collapsed set so a hierarchy starts fully collapsed
- * (only leaf-less top-level nodes visible).
- */
-export function collectCollapsibleIds(nodes: BeanNode[]): string[] {
-  const ids: string[] = [];
-  const walk = (list: BeanNode[]) => {
-    for (const node of list) {
-      if (node.children.length > 0) {
-        ids.push(node.bean.id);
-        walk(node.children);
-      }
-    }
-  };
-  walk(nodes);
-  return ids;
 }
 
 /**
@@ -75,7 +78,7 @@ export function collectCollapsibleIds(nodes: BeanNode[]): string[] {
  * still has somewhere to nest each match, deduplicated. Safe against parent
  * cycles since a bean already added to `keep` stops the walk.
  */
-export function withAncestors(list: Bean[], all: Bean[]): Bean[] {
+export function withAncestors<T extends BeanListItem>(list: T[], all: T[]): T[] {
   const byId = new Map(all.map((b) => [b.id, b]));
   const keep = new Map(list.map((b) => [b.id, b]));
   for (const bean of list) {

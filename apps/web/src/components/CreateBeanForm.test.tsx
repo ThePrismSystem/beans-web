@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CreateBeanForm } from "./CreateBeanForm.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-frontend/shared";
 
-const base: Bean = {
+const base: BeanListItem = {
   id: "x1",
   slug: null,
   path: "",
@@ -17,14 +17,13 @@ const base: Bean = {
   tags: [],
   createdAt: "",
   updatedAt: "",
-  body: "",
   etag: "e",
   parentId: null,
   blockingIds: [],
   blockedByIds: [],
 };
 
-const candidates: Bean[] = [
+const candidates: BeanListItem[] = [
   { ...base, id: "m1", type: "milestone", title: "M1" },
   { ...base, id: "e2", type: "epic", title: "E2" },
 ];
@@ -92,7 +91,9 @@ describe("CreateBeanForm", () => {
   });
 
   it("clears a pre-filled parent whose type admits no children (task/bug)", async () => {
-    const taskCandidates: Bean[] = [{ ...base, id: "tk1", type: "task", title: "Task One" }];
+    const taskCandidates: BeanListItem[] = [
+      { ...base, id: "tk1", type: "task", title: "Task One" },
+    ];
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(

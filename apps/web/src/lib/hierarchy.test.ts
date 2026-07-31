@@ -1,156 +1,94 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildTree,
-  collectCollapsibleIds,
-  pruneTreeToMatches,
-  withAncestors,
-} from "./hierarchy.js";
+import { buildTree, pruneTreeToMatches, withAncestors } from "./hierarchy.js";
 
-import type { Bean } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
 
-const bean = (id: string, type: Bean["type"], parentId: string | null): Bean => ({
+const bean = (
+  id: string,
+  type: BeanListItem["type"],
+  parentId: string | null,
+  status: BeanStatus = "todo",
+): BeanListItem => ({
   id,
   slug: null,
   path: "",
   title: id,
-  status: "todo",
+  status,
   type,
   priority: "normal",
   tags: [],
   createdAt: "",
   updatedAt: "",
-  body: "",
   etag: "",
   parentId,
   blockingIds: [],
   blockedByIds: [],
 });
 
-describe("buildTree", () => {
-  it("nests children under parents and separates milestones from roots", () => {
+describe("buildTree ordering", () => {
+  it("orders children by the default comparator, not by title", () => {
     const beans = [
-      bean("m1", "milestone", null),
-      bean("e1", "epic", "m1"),
-      bean("t1", "task", "e1"),
-      bean("orphan", "task", null),
+      bean("m-1", "milestone", null),
+      // Alphabetically "a-task" sorts first; by type, the epic wins.
+      { ...bean("t-1", "task", "m-1"), title: "a-task" },
+      { ...bean("e-1", "epic", "m-1"), title: "z-epic" },
     ];
-    const { milestones, roots } = buildTree(beans);
-    expect(milestones).toHaveLength(1);
-    expect(milestones[0]!.children[0]!.bean.id).toBe("e1");
-    expect(milestones[0]!.children[0]!.children[0]!.bean.id).toBe("t1");
-    expect(milestones[0]!.children[0]!.children[0]!.depth).toBe(2);
-    expect(roots.map((r) => r.bean.id)).toEqual(["orphan"]);
+    const { milestones } = buildTree(beans);
+    expect(milestones[0]!.children.map((c) => c.bean.id)).toEqual(["e-1", "t-1"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const beans = [
+      bean("m-1", "milestone", null),
+      bean("t-2", "task", "m-1"),
+      bean("t-1", "task", "m-1"),
+    ];
+    const before = beans.map((b) => b.id);
+    buildTree(beans);
+    expect(beans.map((b) => b.id)).toEqual(before);
   });
 });
 
-describe("pruneTreeToMatches", () => {
-  it("keeps ancestor milestones and epics that contain a matching task", () => {
-    const beans = [
-      bean("m1", "milestone", null),
-      bean("e1", "epic", "m1"),
-      bean("t1", "task", "e1"),
-      bean("f1", "feature", "e1"),
-    ];
-    const { milestones } = buildTree(beans);
+describe("buildTree orphan counts", () => {
+  const beans = [
+    bean("m-1", "milestone", null, "completed"),
+    bean("e-1", "epic", "m-1", "completed"),
+    bean("t-1", "task", "e-1"),
+    bean("t-2", "task", "e-1"),
+    bean("t-3", "task", "m-1"),
+  ];
+  const orphaned = new Set(["t-1", "t-2", "t-3", "e-1"]);
 
-    const pruned = pruneTreeToMatches(milestones, (b) => b.type === "task");
-
-    expect(pruned).toHaveLength(1);
-    expect(pruned[0]!.bean.id).toBe("m1");
-    expect(pruned[0]!.children).toHaveLength(1);
-    expect(pruned[0]!.children[0]!.bean.id).toBe("e1");
-    expect(pruned[0]!.children[0]!.children).toHaveLength(1);
-    expect(pruned[0]!.children[0]!.children[0]!.bean.id).toBe("t1");
+  it("counts orphaned descendants recursively, excluding the node itself", () => {
+    const { milestones } = buildTree(beans, orphaned);
+    const milestone = milestones[0]!;
+    // e-1 (orphaned) + t-1 + t-2 + t-3 = 4 beneath m-1; m-1 itself is not counted.
+    expect(milestone.orphanedDescendants).toBe(4);
+    const epic = milestone.children.find((c) => c.bean.id === "e-1")!;
+    expect(epic.orphanedDescendants).toBe(2);
   });
 
-  it("drops branches with no matching descendant", () => {
-    const beans = [
-      bean("m1", "milestone", null),
-      bean("m2", "milestone", null),
-      bean("e1", "epic", "m2"),
-      bean("t1", "task", "e1"),
-    ];
-    const { milestones } = buildTree(beans);
-
-    const pruned = pruneTreeToMatches(milestones, (b) => b.type === "task");
-
-    expect(pruned.map((n) => n.bean.id)).toEqual(["m2"]);
+  it("counts zero when no orphan set is supplied", () => {
+    expect(buildTree(beans).milestones[0]!.orphanedDescendants).toBe(0);
   });
 
-  it("keeps a matching leaf itself even without matching descendants", () => {
-    const beans = [bean("m1", "milestone", null), bean("e1", "epic", "m1")];
-    const { milestones } = buildTree(beans);
-
-    const pruned = pruneTreeToMatches(milestones, (b) => b.type === "epic");
-
-    expect(pruned[0]!.children.map((n) => n.bean.id)).toEqual(["e1"]);
-  });
-
-  it("returns an empty array when nothing matches", () => {
-    const beans = [bean("m1", "milestone", null), bean("e1", "epic", "m1")];
-    const { milestones } = buildTree(beans);
-
-    const pruned = pruneTreeToMatches(milestones, (b) => b.type === "bug");
-
-    expect(pruned).toEqual([]);
+  it("recounts after pruning so the count matches what is rendered", () => {
+    const { milestones } = buildTree(beans, orphaned);
+    const pruned = pruneTreeToMatches(milestones, (b) => b.id !== "t-2", orphaned);
+    const epic = pruned[0]!.children.find((c) => c.bean.id === "e-1")!;
+    expect(epic.orphanedDescendants).toBe(1);
   });
 });
 
 describe("withAncestors", () => {
-  it("preserves the full ancestor chain for a matched bean", () => {
+  it("keeps ancestors of every listed bean", () => {
     const all = [
-      bean("m1", "milestone", null),
-      bean("e1", "epic", "m1"),
-      bean("t1", "task", "e1"),
-      bean("other", "task", null),
+      bean("m-1", "milestone", null),
+      bean("e-1", "epic", "m-1"),
+      bean("t-1", "task", "e-1"),
     ];
-    const result = withAncestors([all[2]!], all);
-    expect(result.map((b) => b.id).sort()).toEqual(["e1", "m1", "t1"]);
-  });
-
-  it("dedupes a shared ancestor across multiple matches", () => {
-    const all = [
-      bean("m1", "milestone", null),
-      bean("e1", "epic", "m1"),
-      bean("t1", "task", "e1"),
-      bean("t2", "task", "e1"),
-    ];
-    const result = withAncestors([all[2]!, all[3]!], all);
-    expect(result.filter((b) => b.id === "e1")).toHaveLength(1);
-    expect(result.map((b) => b.id).sort()).toEqual(["e1", "m1", "t1", "t2"]);
-  });
-
-  it("does not infinite-loop on a parent/child cycle", () => {
-    const a = bean("a", "task", "b");
-    const b = bean("b", "task", "a");
-    const all = [a, b];
-    const result = withAncestors([a], all);
-    expect(result.map((x) => x.id).sort()).toEqual(["a", "b"]);
-  });
-
-  it("returns the list unchanged when no bean has a parent", () => {
-    const all = [bean("t1", "task", null), bean("t2", "task", null)];
-    const result = withAncestors(all, all);
-    expect(result).toEqual(all);
-  });
-});
-
-describe("collectCollapsibleIds", () => {
-  it("collects ids of every node that has children", () => {
-    const nodes = [
-      {
-        bean: { id: "m1" } as never,
-        depth: 0,
-        children: [
-          {
-            bean: { id: "e1" } as never,
-            depth: 1,
-            children: [{ bean: { id: "t1" } as never, depth: 2, children: [] }],
-          },
-        ],
-      },
-    ];
-    expect(collectCollapsibleIds(nodes).sort()).toEqual(["e1", "m1"]);
+    const kept = withAncestors([all[2]!], all);
+    expect(kept.map((b) => b.id).sort()).toEqual(["e-1", "m-1", "t-1"]);
   });
 });

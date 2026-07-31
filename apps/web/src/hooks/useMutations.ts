@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { projectGraphql } from "../api/client.js";
 
 import type { CreateBeanInput, UpdateBeanInput } from "../api/generated.js";
+import type { BeanStatus } from "@beans-frontend/shared";
 import type { QueryClient, UseMutationResult } from "@tanstack/react-query";
 
 const ETAG_CONFLICT_PATTERN = /etag mismatch/i;
@@ -196,4 +197,63 @@ export function useRemoveBlockedBy(
   project: string,
 ): UseMutationResult<MutatedBean, Error, LinkVariables> {
   return useLinkMutation(project, REMOVE_BLOCKED_BY_MUTATION, "removeBlockedBy");
+}
+
+/**
+ * Thrown when a multi-ancestor re-open fails partway. There is no transaction
+ * to roll back with, so the ancestors already written stay written and are
+ * named in the message.
+ */
+export class ReopenPartialFailure extends Error {
+  constructor(
+    readonly reopenedIds: string[],
+    cause: unknown,
+  ) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(
+      reopenedIds.length > 0
+        ? `Re-opened ${reopenedIds.join(", ")}, then failed: ${detail}`
+        : `Re-open failed: ${detail}`,
+    );
+    this.name = "ReopenPartialFailure";
+  }
+}
+
+export interface ReopenAncestorsVariables {
+  /** Ancestor ids, nearest first — the order `closedAncestors` returns. */
+  ancestorIds: string[];
+  status: BeanStatus;
+}
+
+/**
+ * Re-opens each ancestor to `status`, one at a time. Every call spawns a
+ * `beans` process writing into the same project directory, so serializing the
+ * writes avoids racing them. Invalidates once, after the chain settles.
+ */
+export function useReopenAncestors(
+  project: string,
+): UseMutationResult<{ reopenedIds: string[] }, Error, ReopenAncestorsVariables> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: ReopenAncestorsVariables) => {
+      const reopenedIds: string[] = [];
+      for (const id of v.ancestorIds) {
+        try {
+          await projectGraphql<{ updateBean: MutatedBean }>(project, UPDATE_BEAN_MUTATION, {
+            id,
+            input: { status: v.status },
+          });
+        } catch (err) {
+          throw new ReopenPartialFailure(reopenedIds, err);
+        }
+        reopenedIds.push(id);
+      }
+      return { reopenedIds };
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["beans", project] });
+      void qc.invalidateQueries({ queryKey: ["bean", project] });
+      void qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
 }

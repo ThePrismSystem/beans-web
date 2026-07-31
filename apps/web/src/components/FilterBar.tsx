@@ -4,7 +4,7 @@ import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shar
 
 import { CheckboxMenu } from "./CheckboxMenu.js";
 
-import type { BeanFilterInput } from "../hooks/useBeans.js";
+import type { BeanFilterInput } from "../lib/filter.js";
 import type { ChangeEvent } from "react";
 
 export interface FilterBarProps {

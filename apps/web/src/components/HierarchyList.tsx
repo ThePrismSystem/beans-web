@@ -1,20 +1,25 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { BeanRow } from "./BeanRow.js";
 
-import { buildTree, collectCollapsibleIds, pruneTreeToMatches } from "../lib/hierarchy.js";
+import { buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
 import { beanComparator } from "../lib/sort.js";
+import { readStringSet, writeStringSet } from "../lib/storage.js";
 
 import type { BeanNode } from "../lib/hierarchy.js";
 import type { SortDir, SortKey } from "../lib/sort.js";
-import type { Bean, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanType } from "@beans-frontend/shared";
 import type { ReactNode } from "react";
 
 // Milestones and epics act as visual "sections": when they contain children
 // they get a subtle tinted row so containers stand out from leaf beans.
 const SECTION_TYPES: readonly BeanType[] = ["milestone", "epic"];
 
-function toggleId(ids: Set<string>, id: string): Set<string> {
+function expandedStorageKey(project: string): string {
+  return `beans:expanded:${project}`;
+}
+
+function toggleId(ids: ReadonlySet<string>, id: string): Set<string> {
   const next = new Set(ids);
   if (next.has(id)) {
     next.delete(id);
@@ -27,12 +32,23 @@ function toggleId(ids: Set<string>, id: string): Set<string> {
 export function HierarchyList({
   project,
   beans,
+  orphaned,
+  knownIds,
   typeFilter,
   sort,
   dir,
 }: {
   project: string;
-  beans: Bean[];
+  beans: BeanListItem[];
+  /** Ids of open beans whose parent is completed or scrapped. */
+  orphaned: ReadonlySet<string>;
+  /**
+   * Ids present in the full (unfiltered) project dataset. Persisted expand
+   * state is pruned against this on write so it stays bounded by project size
+   * and deleted beans do not accumulate. Pruning on write rather than read
+   * means an id temporarily hidden by a filter keeps its expansion.
+   */
+  knownIds: ReadonlySet<string>;
   /**
    * When set, the tree is pruned client-side to beans matching one of these
    * types plus their ancestor chain, instead of relying on the server-side
@@ -43,23 +59,23 @@ export function HierarchyList({
   /**
    * When set, reorders only the top-level rows (milestones + roots) by this
    * key. Nested children always keep their existing tree order (see
-   * buildTree, which sorts children alphabetically by title) so that
+   * buildTree, which sorts children by the default comparator) so that
    * expanding a parent never surprises the user with a reshuffled subtree.
    */
   sort?: SortKey;
   dir?: SortDir;
 }) {
-  const tree = useMemo(() => buildTree(beans), [beans]);
+  const tree = useMemo(() => buildTree(beans, orphaned), [beans, orphaned]);
   const { milestones, roots } = useMemo(() => {
     if (!typeFilter || typeFilter.length === 0) {
       return tree;
     }
-    const matches = (bean: Bean) => typeFilter.includes(bean.type);
+    const matches = (bean: BeanListItem) => typeFilter.includes(bean.type);
     return {
-      milestones: pruneTreeToMatches(tree.milestones, matches),
-      roots: pruneTreeToMatches(tree.roots, matches),
+      milestones: pruneTreeToMatches(tree.milestones, matches, orphaned),
+      roots: pruneTreeToMatches(tree.roots, matches, orphaned),
     };
-  }, [tree, typeFilter]);
+  }, [tree, typeFilter, orphaned]);
 
   const topNodes = useMemo(() => {
     const nodes = [...milestones, ...roots];
@@ -68,20 +84,24 @@ export function HierarchyList({
     return [...nodes].sort((a, b) => cmp(a.bean, b.bean));
   }, [milestones, roots, sort, dir]);
 
-  // The hierarchy starts fully collapsed: only top-level beans are visible
-  // until a caret is expanded. Recomputed whenever the underlying tree
-  // changes, which also resets any user-driven expand/collapse state back to
-  // fully collapsed.
-  const initialCollapsed = useMemo(() => new Set(collectCollapsibleIds(topNodes)), [topNodes]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(initialCollapsed);
-  const [seededFor, setSeededFor] = useState(initialCollapsed);
-  if (seededFor !== initialCollapsed) {
-    setSeededFor(initialCollapsed);
-    setCollapsed(initialCollapsed);
-  }
+  // Expanded ids, not collapsed ones: absence means collapsed, which is the
+  // default we want, so a node appearing for the first time needs no seeding —
+  // and there is no seeding step left to re-fire when the data refetches.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
+    readStringSet(expandedStorageKey(project)),
+  );
+
+  useEffect(() => {
+    setExpanded(readStringSet(expandedStorageKey(project)));
+  }, [project]);
 
   function toggle(id: string) {
-    setCollapsed((current) => toggleId(current, id));
+    setExpanded((current) => {
+      const next = toggleId(current, id);
+      const pruned = new Set([...next].filter((value) => knownIds.has(value)));
+      writeStringSet(expandedStorageKey(project), pruned);
+      return pruned;
+    });
   }
 
   // A single recursive renderer is used on every viewport so collapsing any
@@ -91,7 +111,7 @@ export function HierarchyList({
   // only from paddingLeft.
   function renderNode(node: BeanNode): ReactNode {
     const hasChildren = node.children.length > 0;
-    const isCollapsed = collapsed.has(node.bean.id);
+    const isExpanded = expanded.has(node.bean.id);
     const isSection = hasChildren && SECTION_TYPES.includes(node.bean.type);
     const rowClass = isSection
       ? `hierarchy-row hierarchy-row--section hierarchy-row--section-${node.bean.type}`
@@ -103,18 +123,21 @@ export function HierarchyList({
             <button
               type="button"
               className="hierarchy-caret"
-              aria-label={isCollapsed ? `Expand ${node.bean.title}` : `Collapse ${node.bean.title}`}
-              aria-expanded={!isCollapsed}
+              aria-label={isExpanded ? `Collapse ${node.bean.title}` : `Expand ${node.bean.title}`}
+              aria-expanded={isExpanded}
               onClick={() => {
                 toggle(node.bean.id);
               }}
             >
-              {isCollapsed ? "▸" : "▾"}
+              {isExpanded ? "▾" : "▸"}
             </button>
           ) : null}
-          <BeanRow project={project} bean={node.bean} />
+          <BeanRow project={project} bean={node.bean} orphaned={orphaned.has(node.bean.id)} />
+          {node.orphanedDescendants > 0 && (
+            <span className="hierarchy-orphan-count">⚠ {node.orphanedDescendants} orphaned</span>
+          )}
         </div>
-        {hasChildren && !isCollapsed && (
+        {hasChildren && isExpanded && (
           <ul className="hierarchy-children">{node.children.map((child) => renderNode(child))}</ul>
         )}
       </li>

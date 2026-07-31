@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -6,18 +6,19 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
+import { useState } from "react";
 
 import type { RenderResult } from "@testing-library/react";
-import type { ReactElement } from "react";
+import type { Dispatch, ReactElement, SetStateAction } from "react";
 
 const Placeholder = () => <div>placeholder</div>;
 
-function buildTestRouter(ui: ReactElement, initialLocation: string) {
+function buildTestRouter(IndexComponent: () => ReactElement, initialLocation: string) {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: () => ui,
+    component: IndexComponent,
   });
   const projectRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -59,11 +60,34 @@ type TestRouter = ReturnType<typeof buildTestRouter>;
  * components using `<Link>`/`useRouter` render without a full app router.
  * Registers the same paths the real router exposes so `<Link to="...">`
  * targets resolve.
+ *
+ * The returned `rerender` swaps the content held inside the mounted route
+ * rather than replacing the render root, so the router context stays intact
+ * across a rerender (RTL's default `rerender` would otherwise unmount
+ * `RouterProvider` itself, since it was never part of `ui`).
  */
 export function renderWithRouter(
   ui: ReactElement,
   initialLocation = "/",
-): RenderResult & { router: TestRouter } {
-  const router = buildTestRouter(ui, initialLocation);
-  return { ...render(<RouterProvider router={router} />), router };
+): Omit<RenderResult, "rerender"> & {
+  router: TestRouter;
+  rerender: (next: ReactElement) => void;
+} {
+  let setCurrent: Dispatch<SetStateAction<ReactElement>> | undefined;
+  function Slot() {
+    const [current, setter] = useState(ui);
+    setCurrent = setter;
+    return current;
+  }
+  const router = buildTestRouter(Slot, initialLocation);
+  const result = render(<RouterProvider router={router} />);
+  return {
+    ...result,
+    router,
+    rerender: (next: ReactElement) => {
+      act(() => {
+        setCurrent?.(next);
+      });
+    },
+  };
 }
