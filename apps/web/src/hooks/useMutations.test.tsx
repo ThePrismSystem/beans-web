@@ -5,12 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   describeMutationError,
   isEtagConflict,
+  ReopenPartialFailure,
   useAddBlockedBy,
   useAddBlocking,
   useCreateBean,
   useDeleteBean,
   useRemoveBlockedBy,
   useRemoveBlocking,
+  useReopenAncestors,
   useSetParent,
   useUpdateBean,
 } from "./useMutations.js";
@@ -227,4 +229,66 @@ describe("link mutations", () => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["projects"] });
     });
   }
+});
+
+describe("useReopenAncestors", () => {
+  function mockGraphql(failOnId?: string) {
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as {
+        variables: { id: string };
+      };
+      if (body.variables.id === failOnId) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ errors: [{ message: "write failed" }] }), {
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ data: { updateBean: { id: body.variables.id, etag: "e" } } }),
+          { headers: { "content-type": "application/json" } },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("updates every ancestor to the given status, in order", async () => {
+    const fetchMock = mockGraphql();
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
+
+    result.current.mutate({ ancestorIds: ["e-1", "m-1"], status: "in-progress" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const sent = fetchMock.mock.calls.map((call) => {
+      const parsed = JSON.parse(String(call[1].body)) as {
+        variables: { id: string; input: { status: string } };
+      };
+      return parsed.variables;
+    });
+    expect(sent).toEqual([
+      { id: "e-1", input: { status: "in-progress" } },
+      { id: "m-1", input: { status: "in-progress" } },
+    ]);
+    expect(result.current.data?.reopenedIds).toEqual(["e-1", "m-1"]);
+  });
+
+  it("stops on failure and reports which ancestors were re-opened", async () => {
+    const fetchMock = mockGraphql("m-1");
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
+
+    result.current.mutate({ ancestorIds: ["e-1", "m-1", "m-0"], status: "todo" });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    // Third ancestor never attempted.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const error = result.current.error;
+    expect(error).toBeInstanceOf(ReopenPartialFailure);
+    expect((error as ReopenPartialFailure).reopenedIds).toEqual(["e-1"]);
+    expect(describeMutationError(error)).toContain("e-1");
+  });
 });
