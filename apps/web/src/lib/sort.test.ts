@@ -165,8 +165,8 @@ describe("sortBeans determinism", () => {
   const beans: BeanListItem[] = [
     bean({ id: "a-1", type: "task", status: "todo", priority: "normal" }),
     bean({ id: "a-2", type: "task", status: "todo", priority: "normal" }),
-    bean({ id: "a-3", type: "task", status: "todo", priority: "high" }),
-    bean({ id: "a-10", type: "bug", status: "draft", priority: "normal" }),
+    bean({ id: "a-3", type: "task", status: "todo", priority: "high", title: "Tied Title" }),
+    bean({ id: "a-10", type: "bug", status: "draft", priority: "normal", title: "Tied Title" }),
     bean({ id: "b-1", type: "epic", status: "todo", priority: "normal" }),
   ];
 
@@ -198,7 +198,7 @@ describe("sortBeans determinism", () => {
 
   it("inverts only the primary key, leaving ties in ascending default order", () => {
     const asc = sortBeans(beans, "status", "asc");
-    const desc = sortBeans(beans, "status", "desc");
+    const desc = sortBeans(rotations(beans)[1]!, "status", "desc");
     const tiedAsc = asc.filter((b) => b.status === "todo").map((b) => b.id);
     const tiedDesc = desc.filter((b) => b.status === "todo").map((b) => b.id);
     expect(tiedDesc).toEqual(tiedAsc);
