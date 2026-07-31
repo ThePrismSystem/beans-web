@@ -1,5 +1,11 @@
 # beans-frontend
 
+[![CI](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-frontend)
+[![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](tsconfig.base.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](.nvmrc)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A web UI for [`beans`](https://github.com/hmans/beans) — the local-first, Markdown-backed issue
 tracker. `beans-frontend` discovers every `beans` project under a configured root directory,
 gives each one a browsable overview, hierarchy/flat bean lists, a detail view with inline editing
