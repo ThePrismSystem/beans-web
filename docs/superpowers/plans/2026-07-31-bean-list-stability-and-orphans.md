@@ -49,6 +49,7 @@
 | File | Change |
 | --- | --- |
 | `packages/shared/src/types.ts` | Split `Bean` into `BeanListItem` + `Bean` |
+| list-facing signatures across `apps/web` | Widened from `Bean` to `BeanListItem` (Task 1) |
 | `apps/web/src/lib/sort.ts` | `defaultComparator`, natural id compare, tiebreak chaining |
 | `apps/web/src/lib/hierarchy.ts` | Child ordering, orphan descendant counts, drop `collectCollapsibleIds` |
 | `apps/web/src/hooks/useBeans.ts` | Replace `useBeans` with `useProjectBeans` |
@@ -68,12 +69,13 @@
 
 ## Task 1: Split `Bean` into `BeanListItem` and `Bean`
 
-List payloads stop carrying `body`. This task only changes types — `Bean` keeps every field it has today, so all existing code still compiles.
+List payloads stop carrying `body`. This task changes types only — `Bean` keeps every field it has today, so behavior is unchanged and every consumer still compiles. It also widens the list-facing signatures to `BeanListItem` up front, so no later task has to do it as a side errand.
 
 **Files:**
 
 - Modify: `packages/shared/src/types.ts:3-19` and the `LinkedBean` alias near the end of the file
 - Create: `packages/shared/src/types.test.ts`
+- Modify (widening only): `apps/web/src/lib/hierarchy.ts`, `apps/web/src/lib/sort.ts`, `apps/web/src/components/BeanRow.tsx`, `FlatList.tsx`, `HierarchyList.tsx`, `RelationEditor.tsx`, `BeanPicker.tsx`, `CreateBeanForm.tsx`, `apps/web/src/routes/projectList.tsx`, `apps/web/src/routes/beanDetail.tsx`
 
 **Interfaces:**
 
@@ -83,6 +85,7 @@ List payloads stop carrying `body`. This task only changes types — `Bean` keep
   - `Bean extends BeanListItem { body: string }`.
   - `LinkedBean = Pick<BeanListItem, "id" | "title" | "type" | "status">` (unchanged shape).
   - `BeanDetail extends Bean` (unchanged).
+  - Every list-facing signature in `apps/web` takes `BeanListItem` / `BeanListItem[]`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -167,20 +170,36 @@ Run: `pnpm --filter @beans-frontend/shared exec vitest run src/types.test.ts`
 
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Verify nothing else broke**
+- [ ] **Step 5: Widen the list-facing signatures**
 
-Run: `pnpm typecheck && pnpm test`
+Purely mechanical: every place in `apps/web` that names `Bean` **only to read list fields** becomes `BeanListItem`. Since `Bean extends BeanListItem`, every existing caller still type-checks — this is a widening, not a break.
 
-Expected: both green. `Bean` still has every field it had, so no consumer changes.
+Change the `Bean` type import and annotation to `BeanListItem` in:
 
-- [ ] **Step 6: Commit**
+- `apps/web/src/lib/hierarchy.ts` — `BeanNode.bean`, and the parameters of `buildTree`, `pruneTreeToMatches`, `collectCollapsibleIds`, `withAncestors`
+- `apps/web/src/lib/sort.ts` — `beanComparator` and `sortBeans` parameters
+- `apps/web/src/components/BeanRow.tsx` — the `bean` prop
+- `apps/web/src/components/FlatList.tsx` — the `beans` prop
+- `apps/web/src/components/HierarchyList.tsx` — the `beans` prop and the `matches` predicate
+- `apps/web/src/components/RelationEditor.tsx`, `BeanPicker.tsx`, `CreateBeanForm.tsx` — the `candidates` prop
+- `apps/web/src/routes/beanDetail.tsx` — `BeanDetailContentProps.candidates`
+
+Do **not** change `apps/web/src/routes/beanDetail.tsx`'s `bean: BeanDetail` — the detail view genuinely needs `body`.
+
+Update the corresponding test fixtures to drop `body` wherever the fixture now types as `BeanListItem`. Leave fixtures typed as `Bean` alone.
+
+- [ ] **Step 6: Verify nothing else broke**
+
+Run: `pnpm lint && pnpm typecheck && pnpm test`
+
+Expected: all green. `Bean` still has every field it had, so no consumer changes behavior.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add packages/shared/src/types.ts packages/shared/src/types.test.ts
+git add packages/shared/src/types.ts packages/shared/src/types.test.ts apps/web/src
 git commit -m "refactor(shared): split Bean into BeanListItem and Bean"
 ```
-
----
 
 ## Task 2: Safe localStorage helpers
 
@@ -605,7 +624,7 @@ git commit -m "fix(web): give bean sorting a total order"
 
 ## Task 4: Client-side filter predicates
 
-Moves the status/type/priority/tags facets off the wire. **Write and verify this module before Task 9 deletes the server filter path** — silently changing filter semantics during the port is the main risk in this whole plan, and this ordering is the mitigation.
+Moves the status/type/priority/tags facets off the wire. **Write and verify this module before Task 7 deletes the server filter path** — silently changing filter semantics during the port is the main risk in this whole plan, and this ordering is the mitigation.
 
 **Files:**
 
@@ -820,7 +839,7 @@ import { EMPTY_BEAN_FILTER } from "../lib/filter.js";
 import type { BeanFilterInput } from "../lib/filter.js";
 ```
 
-Keep `EMPTY_BEAN_FILTER` referenced only if the file still uses it; if not, import the type alone. `toGraphqlFilter` and `useBeans` stay as they are for now — Task 9 removes them.
+Keep `EMPTY_BEAN_FILTER` referenced only if the file still uses it; if not, import the type alone. `toGraphqlFilter` and `useBeans` stay as they are for now — Task 7 removes them.
 
 In `apps/web/src/components/FilterBar.tsx`, change:
 
@@ -1067,268 +1086,7 @@ git commit -m "feat(web): detect orphaned beans and closed ancestor chains"
 
 ---
 
-## Task 6: Hierarchy child ordering and orphan counts
-
-`buildTree` sorts children by title and mutates the array it sorts. It gains the default ordering, a recursive orphan count per node, and loses `collectCollapsibleIds` (Task 8 removes the only caller).
-
-**Files:**
-
-- Modify: `apps/web/src/lib/hierarchy.ts` (whole file)
-- Modify: `apps/web/src/lib/hierarchy.test.ts`
-
-**Interfaces:**
-
-- Consumes: `defaultComparator` (Task 3), `BeanListItem` (Task 1).
-- Produces:
-  - `BeanNode { bean: BeanListItem; children: BeanNode[]; depth: number; orphanedDescendants: number }`
-  - `buildTree(beans: BeanListItem[], orphaned?: ReadonlySet<string>): { milestones: BeanNode[]; roots: BeanNode[] }`
-  - `pruneTreeToMatches(nodes: BeanNode[], predicate: (bean: BeanListItem) => boolean, orphaned?: ReadonlySet<string>): BeanNode[]`
-  - `withAncestors<T extends BeanListItem>(list: T[], all: T[]): T[]` (behavior unchanged, generic added)
-  - `collectCollapsibleIds` is **removed**.
-
-- [ ] **Step 1: Write the failing test**
-
-Add to `apps/web/src/lib/hierarchy.test.ts`. Replace the file's existing `bean` fixture helper with one that accepts status and priority, and update existing call sites (`bean("m1", "milestone", null)` keeps working since the extra params are optional):
-
-```ts
-import { describe, expect, it } from "vitest";
-
-import { buildTree, pruneTreeToMatches, withAncestors } from "./hierarchy.js";
-
-import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
-
-const bean = (
-  id: string,
-  type: BeanListItem["type"],
-  parentId: string | null,
-  status: BeanStatus = "todo",
-): BeanListItem => ({
-  id,
-  slug: null,
-  path: "",
-  title: id,
-  status,
-  type,
-  priority: "normal",
-  tags: [],
-  createdAt: "",
-  updatedAt: "",
-  etag: "",
-  parentId,
-  blockingIds: [],
-  blockedByIds: [],
-});
-
-describe("buildTree ordering", () => {
-  it("orders children by the default comparator, not by title", () => {
-    const beans = [
-      bean("m-1", "milestone", null),
-      // Alphabetically "a-task" sorts first; by type, the epic wins.
-      { ...bean("t-1", "task", "m-1"), title: "a-task" },
-      { ...bean("e-1", "epic", "m-1"), title: "z-epic" },
-    ];
-    const { milestones } = buildTree(beans);
-    expect(milestones[0]!.children.map((c) => c.bean.id)).toEqual(["e-1", "t-1"]);
-  });
-
-  it("does not mutate the input array", () => {
-    const beans = [bean("m-1", "milestone", null), bean("t-2", "task", "m-1"), bean("t-1", "task", "m-1")];
-    const before = beans.map((b) => b.id);
-    buildTree(beans);
-    expect(beans.map((b) => b.id)).toEqual(before);
-  });
-});
-
-describe("buildTree orphan counts", () => {
-  const beans = [
-    bean("m-1", "milestone", null, "completed"),
-    bean("e-1", "epic", "m-1", "completed"),
-    bean("t-1", "task", "e-1"),
-    bean("t-2", "task", "e-1"),
-    bean("t-3", "task", "m-1"),
-  ];
-  const orphaned = new Set(["t-1", "t-2", "t-3", "e-1"]);
-
-  it("counts orphaned descendants recursively, excluding the node itself", () => {
-    const { milestones } = buildTree(beans, orphaned);
-    const milestone = milestones[0]!;
-    // e-1 (orphaned) + t-1 + t-2 + t-3 = 4 beneath m-1; m-1 itself is not counted.
-    expect(milestone.orphanedDescendants).toBe(4);
-    const epic = milestone.children.find((c) => c.bean.id === "e-1")!;
-    expect(epic.orphanedDescendants).toBe(2);
-  });
-
-  it("counts zero when no orphan set is supplied", () => {
-    expect(buildTree(beans).milestones[0]!.orphanedDescendants).toBe(0);
-  });
-
-  it("recounts after pruning so the count matches what is rendered", () => {
-    const { milestones } = buildTree(beans, orphaned);
-    const pruned = pruneTreeToMatches(milestones, (b) => b.id !== "t-2", orphaned);
-    const epic = pruned[0]!.children.find((c) => c.bean.id === "e-1")!;
-    expect(epic.orphanedDescendants).toBe(1);
-  });
-});
-
-describe("withAncestors", () => {
-  it("keeps ancestors of every listed bean", () => {
-    const all = [bean("m-1", "milestone", null), bean("e-1", "epic", "m-1"), bean("t-1", "task", "e-1")];
-    const kept = withAncestors([all[2]!], all);
-    expect(kept.map((b) => b.id).sort()).toEqual(["e-1", "m-1", "t-1"]);
-  });
-});
-```
-
-Delete any existing `collectCollapsibleIds` tests and its import.
-
-- [ ] **Step 2: Run the tests to verify they fail**
-
-Run: `pnpm --filter @beans-frontend/web exec vitest run src/lib/hierarchy.test.ts`
-
-Expected: FAIL — `orphanedDescendants` does not exist and `buildTree` takes one argument.
-
-- [ ] **Step 3: Rewrite `hierarchy.ts`**
-
-Replace the contents of `apps/web/src/lib/hierarchy.ts` with:
-
-```ts
-import { defaultComparator } from "./sort.js";
-
-import type { BeanListItem } from "@beans-frontend/shared";
-
-export interface BeanNode {
-  bean: BeanListItem;
-  children: BeanNode[];
-  depth: number;
-  /**
-   * Orphaned beans anywhere beneath this node, not counting the node itself.
-   * Lets a collapsed row advertise stranded work nested under it.
-   */
-  orphanedDescendants: number;
-}
-
-function countOrphans(children: BeanNode[], orphaned: ReadonlySet<string>): number {
-  return children.reduce(
-    (sum, child) => sum + child.orphanedDescendants + (orphaned.has(child.bean.id) ? 1 : 0),
-    0,
-  );
-}
-
-export function buildTree(
-  beans: BeanListItem[],
-  orphaned: ReadonlySet<string> = new Set(),
-): { milestones: BeanNode[]; roots: BeanNode[] } {
-  const byId = new Map(beans.map((b) => [b.id, b]));
-  const childrenOf = new Map<string, BeanListItem[]>();
-  for (const b of beans) {
-    if (b.parentId && byId.has(b.parentId)) {
-      const list = childrenOf.get(b.parentId) ?? [];
-      list.push(b);
-      childrenOf.set(b.parentId, list);
-    }
-  }
-  const build = (b: BeanListItem, depth: number): BeanNode => {
-    // Copy before sorting: `childrenOf` holds the live arrays, and sorting in
-    // place would reorder them for every later reader.
-    const children = [...(childrenOf.get(b.id) ?? [])]
-      .sort(defaultComparator)
-      .map((child) => build(child, depth + 1));
-    return { bean: b, depth, children, orphanedDescendants: countOrphans(children, orphaned) };
-  };
-  const milestones = beans.filter((b) => b.type === "milestone").map((b) => build(b, 0));
-  const roots = beans
-    .filter((b) => b.type !== "milestone" && (!b.parentId || !byId.has(b.parentId)))
-    .map((b) => build(b, 0));
-  return { milestones, roots };
-}
-
-/**
- * Prunes a tree of BeanNodes down to beans matching `predicate`, keeping any
- * ancestor (milestone/epic/etc.) that has at least one matching descendant so
- * it still renders as context/section header. Nodes with no match anywhere
- * in their subtree, and no match themselves, are dropped entirely.
- *
- * Orphan counts are recomputed from the surviving children so a count always
- * describes what is actually nested beneath the node in the rendered tree.
- */
-export function pruneTreeToMatches(
-  nodes: BeanNode[],
-  predicate: (bean: BeanListItem) => boolean,
-  orphaned: ReadonlySet<string> = new Set(),
-): BeanNode[] {
-  const result: BeanNode[] = [];
-  for (const node of nodes) {
-    const children = pruneTreeToMatches(node.children, predicate, orphaned);
-    if (predicate(node.bean) || children.length > 0) {
-      result.push({ ...node, children, orphanedDescendants: countOrphans(children, orphaned) });
-    }
-  }
-  return result;
-}
-
-/**
- * Given a subset of `all` (e.g. beans matching a prefix filter), returns that
- * subset plus every ancestor (milestone/epic/etc.) needed so the hierarchy
- * still has somewhere to nest each match, deduplicated. Safe against parent
- * cycles since a bean already added to `keep` stops the walk.
- */
-export function withAncestors<T extends BeanListItem>(list: T[], all: T[]): T[] {
-  const byId = new Map(all.map((b) => [b.id, b]));
-  const keep = new Map(list.map((b) => [b.id, b]));
-  for (const bean of list) {
-    let parentId = bean.parentId;
-    while (parentId && byId.has(parentId) && !keep.has(parentId)) {
-      const parent = byId.get(parentId)!;
-      keep.set(parentId, parent);
-      parentId = parent.parentId;
-    }
-  }
-  return [...keep.values()];
-}
-```
-
-- [ ] **Step 4: Run the tests to verify they pass**
-
-Run: `pnpm --filter @beans-frontend/web exec vitest run src/lib/hierarchy.test.ts`
-
-Expected: PASS.
-
-- [ ] **Step 5: Fix the `HierarchyList` call site so the build stays green**
-
-`HierarchyList.tsx` still imports `collectCollapsibleIds`. Task 8 rewrites that component; for now, replace the import and the `initialCollapsed` line with an inline equivalent so this commit compiles:
-
-```tsx
-  const initialCollapsed = useMemo(() => {
-    const ids: string[] = [];
-    const walk = (list: BeanNode[]) => {
-      for (const node of list) {
-        if (node.children.length > 0) {
-          ids.push(node.bean.id);
-          walk(node.children);
-        }
-      }
-    };
-    walk(topNodes);
-    return new Set(ids);
-  }, [topNodes]);
-```
-
-Remove `collectCollapsibleIds` from the import list.
-
-- [ ] **Step 6: Verify**
-
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add apps/web/src/lib/hierarchy.ts apps/web/src/lib/hierarchy.test.ts apps/web/src/components/HierarchyList.tsx
-git commit -m "feat(web): order tree children by default sort and count orphans"
-```
-
----
-
-## Task 7: Warning token and the orphan badge on `BeanRow`
+## Task 6: Warning token and the orphan badge on `BeanRow`
 
 **Files:**
 
@@ -1548,387 +1306,26 @@ git commit -m "feat(web): badge orphaned beans in list rows"
 
 ---
 
-## Task 8: Persist expand state and show orphan counts in `HierarchyList`
+## Task 7: Unfiltered fetch and client-side filtering in `ProjectList`
 
-This is the fix for the snap-shut bug. The component stores **expanded** ids rather than collapsed ones: absence then means collapsed, which is already the default, so a node appearing for the first time seeds collapsed for free and there is no seed step left to re-fire on refetch. `initialCollapsed`, `seededFor`, and the render-phase `setState` all disappear.
-
-**Files:**
-
-- Modify: `apps/web/src/components/HierarchyList.tsx` (whole file)
-- Modify: `apps/web/src/components/HierarchyList.test.tsx`
-
-**Interfaces:**
-
-- Consumes: `buildTree`, `pruneTreeToMatches` (Task 6); `beanComparator`, `defaultComparator` (Task 3); `readStringSet`, `writeStringSet` (Task 2); `BeanRow` `orphaned` prop (Task 7).
-- Produces: `HierarchyList({ project, beans, orphaned, knownIds, typeFilter, sort, dir })` where `orphaned: ReadonlySet<string>` and `knownIds: ReadonlySet<string>` are the orphan set and the id set of the **full** project dataset.
-
-- [ ] **Step 1: Write the failing tests**
-
-Add to `apps/web/src/components/HierarchyList.test.tsx` (the file already has a `bean(id, type, parentId, title)` helper — extend it to take an optional status, defaulting to `"todo"`, and drop `body` from the fixture since `BeanListItem` has none):
-
-```tsx
-import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-const allIds = (list: BeanListItem[]) => new Set(list.map((b) => b.id));
-
-beforeEach(() => {
-  window.localStorage.clear();
-});
-
-afterEach(() => {
-  window.localStorage.clear();
-});
-
-describe("HierarchyList expand state", () => {
-  const beans = [
-    bean("m-1", "milestone", null, "Milestone One"),
-    bean("e-1", "epic", "m-1", "Epic One"),
-    bean("t-1", "task", "e-1", "Task One"),
-  ];
-
-  it("survives a refetch that produces a new array of identical beans", async () => {
-    const user = userEvent.setup();
-    const { rerender } = renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set()}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
-    expect(await screen.findByText("Epic One")).toBeInTheDocument();
-
-    // What an SSE-triggered refetch produces: same contents, new identities.
-    const refetched = beans.map((b) => ({ ...b }));
-    rerender(
-      <HierarchyList
-        project="demo"
-        beans={refetched}
-        orphaned={new Set()}
-        knownIds={allIds(refetched)}
-      />,
-    );
-
-    expect(screen.getByText("Epic One")).toBeInTheDocument();
-  });
-
-  it("restores expand state from storage on a fresh mount", async () => {
-    window.localStorage.setItem("beans:expanded:demo", JSON.stringify(["m-1"]));
-
-    renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set()}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    expect(await screen.findByText("Epic One")).toBeInTheDocument();
-  });
-
-  it("seeds a newly appeared node collapsed", async () => {
-    renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set()}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
-    expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
-  });
-
-  it("prunes ids that no longer exist in the project when writing", async () => {
-    const user = userEvent.setup();
-    window.localStorage.setItem("beans:expanded:demo", JSON.stringify(["gone-1"]));
-
-    renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set()}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
-
-    const stored: unknown = JSON.parse(window.localStorage.getItem("beans:expanded:demo") ?? "[]");
-    expect(stored).toEqual(["m-1"]);
-  });
-});
-
-describe("HierarchyList orphan display", () => {
-  const beans = [
-    bean("m-1", "milestone", null, "Docker setup", "completed"),
-    bean("t-1", "task", "m-1", "Fix SSE reconnect"),
-    bean("t-2", "task", "m-1", "Pin CI actions"),
-  ];
-
-  it("shows a recursive orphan count on the collapsed ancestor", async () => {
-    renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set(["t-1", "t-2"])}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    expect(await screen.findByText("⚠ 2 orphaned")).toBeInTheDocument();
-  });
-
-  it("badges the orphans themselves once expanded", async () => {
-    const user = userEvent.setup();
-    renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set(["t-1", "t-2"])}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    await user.click(await screen.findByRole("button", { name: "Expand Docker setup" }));
-    expect(screen.getAllByText("orphaned")).toHaveLength(2);
-  });
-
-  it("shows no count when nothing beneath is orphaned", async () => {
-    renderWithRouter(
-      <HierarchyList
-        project="demo"
-        beans={beans}
-        orphaned={new Set()}
-        knownIds={allIds(beans)}
-      />,
-    );
-
-    await screen.findByText("Docker setup");
-    expect(screen.queryByText(/orphaned/)).not.toBeInTheDocument();
-  });
-});
-```
-
-- [ ] **Step 2: Run the tests to verify they fail**
-
-Run: `pnpm --filter @beans-frontend/web exec vitest run src/components/HierarchyList.test.tsx`
-
-Expected: FAIL — `orphaned` / `knownIds` are not valid props, and the refetch test fails because expansion resets.
-
-- [ ] **Step 3: Rewrite `HierarchyList.tsx`**
-
-Replace the contents of `apps/web/src/components/HierarchyList.tsx` with:
-
-```tsx
-import { useEffect, useMemo, useState } from "react";
-
-import { BeanRow } from "./BeanRow.js";
-
-import { buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
-import { beanComparator } from "../lib/sort.js";
-import { readStringSet, writeStringSet } from "../lib/storage.js";
-
-import type { BeanNode } from "../lib/hierarchy.js";
-import type { SortDir, SortKey } from "../lib/sort.js";
-import type { BeanListItem, BeanType } from "@beans-frontend/shared";
-import type { ReactNode } from "react";
-
-// Milestones and epics act as visual "sections": when they contain children
-// they get a subtle tinted row so containers stand out from leaf beans.
-const SECTION_TYPES: readonly BeanType[] = ["milestone", "epic"];
-
-function expandedStorageKey(project: string): string {
-  return `beans:expanded:${project}`;
-}
-
-function toggleId(ids: ReadonlySet<string>, id: string): Set<string> {
-  const next = new Set(ids);
-  if (next.has(id)) {
-    next.delete(id);
-  } else {
-    next.add(id);
-  }
-  return next;
-}
-
-export function HierarchyList({
-  project,
-  beans,
-  orphaned,
-  knownIds,
-  typeFilter,
-  sort,
-  dir,
-}: {
-  project: string;
-  beans: BeanListItem[];
-  /** Ids of open beans whose parent is completed or scrapped. */
-  orphaned: ReadonlySet<string>;
-  /**
-   * Ids present in the full (unfiltered) project dataset. Persisted expand
-   * state is pruned against this on write so it stays bounded by project size
-   * and deleted beans do not accumulate. Pruning on write rather than read
-   * means an id temporarily hidden by a filter keeps its expansion.
-   */
-  knownIds: ReadonlySet<string>;
-  /**
-   * When set, the tree is pruned client-side to beans matching one of these
-   * types plus their ancestor chain, instead of relying on the server-side
-   * type filter (which would exclude ancestor milestones/epics entirely and
-   * collapse the hierarchy into a flat list).
-   */
-  typeFilter?: BeanType[];
-  /**
-   * When set, reorders only the top-level rows (milestones + roots) by this
-   * key. Nested children always keep their existing tree order (see
-   * buildTree, which sorts children by the default comparator) so that
-   * expanding a parent never surprises the user with a reshuffled subtree.
-   */
-  sort?: SortKey;
-  dir?: SortDir;
-}) {
-  const tree = useMemo(() => buildTree(beans, orphaned), [beans, orphaned]);
-  const { milestones, roots } = useMemo(() => {
-    if (!typeFilter || typeFilter.length === 0) {
-      return tree;
-    }
-    const matches = (bean: BeanListItem) => typeFilter.includes(bean.type);
-    return {
-      milestones: pruneTreeToMatches(tree.milestones, matches, orphaned),
-      roots: pruneTreeToMatches(tree.roots, matches, orphaned),
-    };
-  }, [tree, typeFilter, orphaned]);
-
-  const topNodes = useMemo(() => {
-    const nodes = [...milestones, ...roots];
-    if (!sort) return nodes;
-    const cmp = beanComparator(sort, dir ?? "asc");
-    return [...nodes].sort((a, b) => cmp(a.bean, b.bean));
-  }, [milestones, roots, sort, dir]);
-
-  // Expanded ids, not collapsed ones: absence means collapsed, which is the
-  // default we want, so a node appearing for the first time needs no seeding —
-  // and there is no seeding step left to re-fire when the data refetches.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
-    readStringSet(expandedStorageKey(project)),
-  );
-
-  useEffect(() => {
-    setExpanded(readStringSet(expandedStorageKey(project)));
-  }, [project]);
-
-  function toggle(id: string) {
-    setExpanded((current) => {
-      const next = toggleId(current, id);
-      const pruned = new Set([...next].filter((value) => knownIds.has(value)));
-      writeStringSet(expandedStorageKey(project), pruned);
-      return pruned;
-    });
-  }
-
-  // A single recursive renderer is used on every viewport so collapsing any
-  // parent hides its entire subtree, regardless of nesting depth. Rows with
-  // no children render no caret (and no reserved caret column), so top-level
-  // childless beans sit flush against the left edge; nesting indent comes
-  // only from paddingLeft.
-  function renderNode(node: BeanNode): ReactNode {
-    const hasChildren = node.children.length > 0;
-    const isExpanded = expanded.has(node.bean.id);
-    const isSection = hasChildren && SECTION_TYPES.includes(node.bean.type);
-    const rowClass = isSection
-      ? `hierarchy-row hierarchy-row--section hierarchy-row--section-${node.bean.type}`
-      : "hierarchy-row";
-    return (
-      <li key={node.bean.id} className="hierarchy-node" data-depth={node.depth}>
-        <div className={rowClass} style={{ paddingLeft: `calc(${node.depth} * var(--indent))` }}>
-          {hasChildren ? (
-            <button
-              type="button"
-              className="hierarchy-caret"
-              aria-label={isExpanded ? `Collapse ${node.bean.title}` : `Expand ${node.bean.title}`}
-              aria-expanded={isExpanded}
-              onClick={() => {
-                toggle(node.bean.id);
-              }}
-            >
-              {isExpanded ? "▾" : "▸"}
-            </button>
-          ) : null}
-          <BeanRow
-            project={project}
-            bean={node.bean}
-            orphaned={orphaned.has(node.bean.id)}
-          />
-          {node.orphanedDescendants > 0 && (
-            <span className="hierarchy-orphan-count">⚠ {node.orphanedDescendants} orphaned</span>
-          )}
-        </div>
-        {hasChildren && isExpanded && (
-          <ul className="hierarchy-children">{node.children.map((child) => renderNode(child))}</ul>
-        )}
-      </li>
-    );
-  }
-
-  return (
-    <ul className="hierarchy-list hierarchy-roots">{topNodes.map((node) => renderNode(node))}</ul>
-  );
-}
-```
-
-- [ ] **Step 4: Run the tests to verify they pass**
-
-Run: `pnpm --filter @beans-frontend/web exec vitest run src/components/HierarchyList.test.tsx`
-
-Expected: PASS. Pre-existing tests that asserted "starts collapsed" still hold — absence from storage means collapsed.
-
-- [ ] **Step 5: Verify**
-
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-
-`projectList.tsx` does not yet pass `orphaned`/`knownIds`, so typecheck fails here. Add the two props at the `HierarchyList` call site with placeholder-free real values that Task 9 then refines:
-
-```tsx
-        orphaned={new Set<string>()}
-        knownIds={new Set((beans ?? []).map((b) => b.id))}
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add apps/web/src/components/HierarchyList.tsx apps/web/src/components/HierarchyList.test.tsx apps/web/src/routes/projectList.tsx
-git commit -m "fix(web): persist hierarchy expand state across refetches"
-```
-
----
-
-## Task 9: Unfiltered fetch and client-side filtering in `ProjectList`
-
-The atomic switch. One query per project, everything else derived in the browser.
+The atomic switch. One query per project, everything else derived in the browser. This is also what makes orphan detection correct — from here on it is computed against the full project dataset, never a filtered subset.
 
 **Files:**
 
 - Modify: `apps/web/src/hooks/useBeans.ts` (whole file)
 - Modify: `apps/web/src/hooks/useBeans.test.tsx`
 - Modify: `apps/web/src/routes/projectList.tsx`
+- Modify: `apps/web/src/routes/projectList.test.tsx`
 - Modify: `apps/web/src/routes/beanDetail.tsx` (the `candidates` query only)
-- Modify: `apps/web/src/components/RelationEditor.tsx`, `BeanPicker.tsx`, `CreateBeanForm.tsx` (candidate prop types)
 
 **Interfaces:**
 
-- Consumes: `applyFilter`, `BeanFilterInput`, `DEFAULT_BEAN_FILTER` (Task 4); `orphanedIds` (Task 5); `withAncestors` (Task 6); `sortBeans` (Task 3); `HierarchyList`/`FlatList` props (Tasks 7-8).
-- Produces: `useProjectBeans(project: string, search: string): UseQueryResult<BeanListItem[]>`. `useBeans`, `toGraphqlFilter`, and the `BeanFilter` import are **removed**.
+- Consumes: `applyFilter`, `BeanFilterInput`, `DEFAULT_BEAN_FILTER` (Task 4); `orphanedIds` (Task 5); `sortBeans` (Task 3); `FlatList`'s `orphaned` prop (Task 6); `withAncestors` (existing, widened in Task 1).
+- Produces: `useProjectBeans(project: string, search: string): UseQueryResult<BeanListItem[]>`, and an `orphaned: Set<string>` in `ProjectList` computed from the full dataset. `useBeans` and `toGraphqlFilter` are **removed**.
 
 - [ ] **Step 1: Write the failing test**
 
-Rewrite `apps/web/src/hooks/useBeans.test.tsx`, keeping the existing `wrapper` and `sentFilter` helpers:
+Rewrite `apps/web/src/hooks/useBeans.test.tsx`:
 
 ```tsx
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -2092,9 +1489,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Rewire `ProjectList`**
 
-In `apps/web/src/routes/projectList.tsx`:
-
-Update imports:
+In `apps/web/src/routes/projectList.tsx`, update the imports:
 
 ```tsx
 import { useProjectBeans } from "../hooks/useBeans.js";
@@ -2107,7 +1502,7 @@ import { sortBeans } from "../lib/sort.js";
 import type { BeanFilterInput } from "../lib/filter.js";
 ```
 
-Replace the `filter` / `serverFilter` / `useBeans` block and both `useMemo`s with:
+Replace the `filter` / `serverFilter` / `useBeans` block and both existing `useMemo`s with:
 
 ```tsx
   // `search` is structurally memoized by TanStack Router, so this identity is
@@ -2134,7 +1529,6 @@ Replace the `filter` / `serverFilter` / `useBeans` block and both `useMemo`s wit
   // Orphan status is computed from the FULL project dataset, never a filtered
   // subset — a parent missing because of a filter is not an orphaning parent.
   const orphaned = useMemo(() => orphanedIds(allBeans ?? []), [allBeans]);
-  const knownIds = useMemo(() => new Set((allBeans ?? []).map((b) => b.id)), [allBeans]);
 
   const flatBeans = useMemo(
     () => (allBeans ? applyFilter(allBeans, filter) : []),
@@ -2183,8 +1577,6 @@ Replace `renderList` with:
       <HierarchyList
         project={project}
         beans={hierarchyBeans}
-        orphaned={orphaned}
-        knownIds={knownIds}
         typeFilter={filter.type}
         sort={search.sort}
         dir={search.dir}
@@ -2192,6 +1584,8 @@ Replace `renderList` with:
     );
   }
 ```
+
+`HierarchyList` keeps its current props here — Task 8 rewrites that component and wires the orphan data into it.
 
 - [ ] **Step 6: Rewire the detail page's candidate query**
 
@@ -2201,13 +1595,26 @@ In `apps/web/src/routes/beanDetail.tsx`, replace the `useBeans(project, EMPTY_BE
   const { data: candidates } = useProjectBeans(project, "");
 ```
 
-and update the import. This now hits the same cache entry the list already populated, so opening a bean no longer triggers a second full project fetch.
-
-Change `BeanDetailContentProps.candidates` from `Bean[]` to `BeanListItem[]`, and change the `candidates` prop type on `RelationEditor`, `BeanPicker`, and `CreateBeanForm` from `Bean[]` to `BeanListItem[]`. Update their test fixtures to drop `body`.
+and update the import, dropping the now-unused `EMPTY_BEAN_FILTER`. This now hits the same cache entry the list already populated, so opening a bean no longer triggers a second full project fetch.
 
 - [ ] **Step 7: Update `ProjectList`'s tests**
 
-In `apps/web/src/routes/projectList.test.tsx`, any assertion on the GraphQL request body's `variables.filter` must now expect `{}` or `{ search: "…" }` only. Assertions that a status/type filter reaches the server become assertions that the rendered list is filtered. Drop `body` from the bean fixtures.
+In `apps/web/src/routes/projectList.test.tsx`, any assertion on the GraphQL request body's `variables.filter` must now expect `{}` or `{ search: "…" }` only. Assertions that a status or type filter reaches the server become assertions that the rendered list is filtered. Drop `body` from the bean fixtures.
+
+Add a test covering the new behavior:
+
+```tsx
+  it("filters by status in the browser without refetching", async () => {
+    // Server returns every bean; the open-status default hides the completed one.
+    renderProjectList([
+      { ...bean, id: "t-1", title: "Open One", status: "todo" },
+      { ...bean, id: "t-2", title: "Done Two", status: "completed" },
+    ]);
+
+    expect(await screen.findByText("Open One")).toBeInTheDocument();
+    expect(screen.queryByText("Done Two")).not.toBeInTheDocument();
+  });
+```
 
 - [ ] **Step 8: Verify**
 
@@ -2218,13 +1625,582 @@ Expected: all green. If `pnpm test` reports a coverage threshold failure, add th
 - [ ] **Step 9: Commit**
 
 ```bash
-git add apps/web/src/hooks/useBeans.ts apps/web/src/hooks/useBeans.test.tsx apps/web/src/routes/projectList.tsx apps/web/src/routes/projectList.test.tsx apps/web/src/routes/beanDetail.tsx apps/web/src/components/RelationEditor.tsx apps/web/src/components/BeanPicker.tsx apps/web/src/components/CreateBeanForm.tsx
+git add apps/web/src/hooks/useBeans.ts apps/web/src/hooks/useBeans.test.tsx apps/web/src/routes/projectList.tsx apps/web/src/routes/projectList.test.tsx apps/web/src/routes/beanDetail.tsx
 git commit -m "fix(web): fetch a project's beans once and filter client-side"
 ```
 
----
+## Task 8: Hierarchy ordering, orphan counts, and persisted expand state
 
-## Task 10: `useReopenAncestors` mutation hook
+The fix for the snap-shut bug, plus the tree-side ordering and counting it depends on. `hierarchy.ts` and `HierarchyList` change together because splitting them would mean one commit shipping a `HierarchyList` that still re-seeds itself — reintroducing, for one commit, the exact bug this plan exists to remove.
+
+`HierarchyList` stores **expanded** ids rather than collapsed ones. Absence then means collapsed, which is already the default, so a node appearing for the first time seeds collapsed for free and there is no seed step left to re-fire on refetch. `initialCollapsed`, `seededFor`, the render-phase `setState`, and `collectCollapsibleIds` all disappear.
+
+**Files:**
+
+- Modify: `apps/web/src/lib/hierarchy.ts` (whole file)
+- Modify: `apps/web/src/lib/hierarchy.test.ts`
+- Modify: `apps/web/src/components/HierarchyList.tsx` (whole file)
+- Modify: `apps/web/src/components/HierarchyList.test.tsx`
+- Modify: `apps/web/src/routes/projectList.tsx` (the `HierarchyList` call site only)
+
+**Interfaces:**
+
+- Consumes: `defaultComparator`, `beanComparator` (Task 3); `readStringSet`, `writeStringSet` (Task 2); `BeanRow`'s `orphaned` prop (Task 6); the `orphaned` set already computed in `ProjectList` (Task 7).
+- Produces:
+  - `BeanNode { bean: BeanListItem; children: BeanNode[]; depth: number; orphanedDescendants: number }`
+  - `buildTree(beans: BeanListItem[], orphaned?: ReadonlySet<string>): { milestones: BeanNode[]; roots: BeanNode[] }`
+  - `pruneTreeToMatches(nodes: BeanNode[], predicate: (bean: BeanListItem) => boolean, orphaned?: ReadonlySet<string>): BeanNode[]`
+  - `withAncestors<T extends BeanListItem>(list: T[], all: T[]): T[]` (unchanged behavior)
+  - `HierarchyList({ project, beans, orphaned, knownIds, typeFilter, sort, dir })`
+  - `collectCollapsibleIds` is **removed**.
+
+- [ ] **Step 1: Write the failing tests for `hierarchy.ts`**
+
+Replace the fixture helper at the top of `apps/web/src/lib/hierarchy.test.ts` with one that takes an optional status, and drop the `collectCollapsibleIds` import and its tests. Existing `bean("m1", "milestone", null)` call sites keep working.
+
+```ts
+import { describe, expect, it } from "vitest";
+
+import { buildTree, pruneTreeToMatches, withAncestors } from "./hierarchy.js";
+
+import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
+
+const bean = (
+  id: string,
+  type: BeanListItem["type"],
+  parentId: string | null,
+  status: BeanStatus = "todo",
+): BeanListItem => ({
+  id,
+  slug: null,
+  path: "",
+  title: id,
+  status,
+  type,
+  priority: "normal",
+  tags: [],
+  createdAt: "",
+  updatedAt: "",
+  etag: "",
+  parentId,
+  blockingIds: [],
+  blockedByIds: [],
+});
+
+describe("buildTree ordering", () => {
+  it("orders children by the default comparator, not by title", () => {
+    const beans = [
+      bean("m-1", "milestone", null),
+      // Alphabetically "a-task" sorts first; by type, the epic wins.
+      { ...bean("t-1", "task", "m-1"), title: "a-task" },
+      { ...bean("e-1", "epic", "m-1"), title: "z-epic" },
+    ];
+    const { milestones } = buildTree(beans);
+    expect(milestones[0]!.children.map((c) => c.bean.id)).toEqual(["e-1", "t-1"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const beans = [
+      bean("m-1", "milestone", null),
+      bean("t-2", "task", "m-1"),
+      bean("t-1", "task", "m-1"),
+    ];
+    const before = beans.map((b) => b.id);
+    buildTree(beans);
+    expect(beans.map((b) => b.id)).toEqual(before);
+  });
+});
+
+describe("buildTree orphan counts", () => {
+  const beans = [
+    bean("m-1", "milestone", null, "completed"),
+    bean("e-1", "epic", "m-1", "completed"),
+    bean("t-1", "task", "e-1"),
+    bean("t-2", "task", "e-1"),
+    bean("t-3", "task", "m-1"),
+  ];
+  const orphaned = new Set(["t-1", "t-2", "t-3", "e-1"]);
+
+  it("counts orphaned descendants recursively, excluding the node itself", () => {
+    const { milestones } = buildTree(beans, orphaned);
+    const milestone = milestones[0]!;
+    // e-1 (orphaned) + t-1 + t-2 + t-3 = 4 beneath m-1; m-1 itself is not counted.
+    expect(milestone.orphanedDescendants).toBe(4);
+    const epic = milestone.children.find((c) => c.bean.id === "e-1")!;
+    expect(epic.orphanedDescendants).toBe(2);
+  });
+
+  it("counts zero when no orphan set is supplied", () => {
+    expect(buildTree(beans).milestones[0]!.orphanedDescendants).toBe(0);
+  });
+
+  it("recounts after pruning so the count matches what is rendered", () => {
+    const { milestones } = buildTree(beans, orphaned);
+    const pruned = pruneTreeToMatches(milestones, (b) => b.id !== "t-2", orphaned);
+    const epic = pruned[0]!.children.find((c) => c.bean.id === "e-1")!;
+    expect(epic.orphanedDescendants).toBe(1);
+  });
+});
+
+describe("withAncestors", () => {
+  it("keeps ancestors of every listed bean", () => {
+    const all = [
+      bean("m-1", "milestone", null),
+      bean("e-1", "epic", "m-1"),
+      bean("t-1", "task", "e-1"),
+    ];
+    const kept = withAncestors([all[2]!], all);
+    expect(kept.map((b) => b.id).sort()).toEqual(["e-1", "m-1", "t-1"]);
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `pnpm --filter @beans-frontend/web exec vitest run src/lib/hierarchy.test.ts`
+
+Expected: FAIL — `orphanedDescendants` does not exist and `buildTree` takes one argument.
+
+- [ ] **Step 3: Rewrite `hierarchy.ts`**
+
+Replace the contents of `apps/web/src/lib/hierarchy.ts` with:
+
+```ts
+import { defaultComparator } from "./sort.js";
+
+import type { BeanListItem } from "@beans-frontend/shared";
+
+export interface BeanNode {
+  bean: BeanListItem;
+  children: BeanNode[];
+  depth: number;
+  /**
+   * Orphaned beans anywhere beneath this node, not counting the node itself.
+   * Lets a collapsed row advertise stranded work nested under it.
+   */
+  orphanedDescendants: number;
+}
+
+function countOrphans(children: BeanNode[], orphaned: ReadonlySet<string>): number {
+  return children.reduce(
+    (sum, child) => sum + child.orphanedDescendants + (orphaned.has(child.bean.id) ? 1 : 0),
+    0,
+  );
+}
+
+export function buildTree(
+  beans: BeanListItem[],
+  orphaned: ReadonlySet<string> = new Set(),
+): { milestones: BeanNode[]; roots: BeanNode[] } {
+  const byId = new Map(beans.map((b) => [b.id, b]));
+  const childrenOf = new Map<string, BeanListItem[]>();
+  for (const b of beans) {
+    if (b.parentId && byId.has(b.parentId)) {
+      const list = childrenOf.get(b.parentId) ?? [];
+      list.push(b);
+      childrenOf.set(b.parentId, list);
+    }
+  }
+  const build = (b: BeanListItem, depth: number): BeanNode => {
+    // Copy before sorting: `childrenOf` holds the live arrays, and sorting in
+    // place would reorder them for every later reader.
+    const children = [...(childrenOf.get(b.id) ?? [])]
+      .sort(defaultComparator)
+      .map((child) => build(child, depth + 1));
+    return { bean: b, depth, children, orphanedDescendants: countOrphans(children, orphaned) };
+  };
+  const milestones = beans.filter((b) => b.type === "milestone").map((b) => build(b, 0));
+  const roots = beans
+    .filter((b) => b.type !== "milestone" && (!b.parentId || !byId.has(b.parentId)))
+    .map((b) => build(b, 0));
+  return { milestones, roots };
+}
+
+/**
+ * Prunes a tree of BeanNodes down to beans matching `predicate`, keeping any
+ * ancestor (milestone/epic/etc.) that has at least one matching descendant so
+ * it still renders as context/section header. Nodes with no match anywhere
+ * in their subtree, and no match themselves, are dropped entirely.
+ *
+ * Orphan counts are recomputed from the surviving children so a count always
+ * describes what is actually nested beneath the node in the rendered tree.
+ */
+export function pruneTreeToMatches(
+  nodes: BeanNode[],
+  predicate: (bean: BeanListItem) => boolean,
+  orphaned: ReadonlySet<string> = new Set(),
+): BeanNode[] {
+  const result: BeanNode[] = [];
+  for (const node of nodes) {
+    const children = pruneTreeToMatches(node.children, predicate, orphaned);
+    if (predicate(node.bean) || children.length > 0) {
+      result.push({ ...node, children, orphanedDescendants: countOrphans(children, orphaned) });
+    }
+  }
+  return result;
+}
+
+/**
+ * Given a subset of `all` (e.g. beans matching a prefix filter), returns that
+ * subset plus every ancestor (milestone/epic/etc.) needed so the hierarchy
+ * still has somewhere to nest each match, deduplicated. Safe against parent
+ * cycles since a bean already added to `keep` stops the walk.
+ */
+export function withAncestors<T extends BeanListItem>(list: T[], all: T[]): T[] {
+  const byId = new Map(all.map((b) => [b.id, b]));
+  const keep = new Map(list.map((b) => [b.id, b]));
+  for (const bean of list) {
+    let parentId = bean.parentId;
+    while (parentId && byId.has(parentId) && !keep.has(parentId)) {
+      const parent = byId.get(parentId)!;
+      keep.set(parentId, parent);
+      parentId = parent.parentId;
+    }
+  }
+  return [...keep.values()];
+}
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `pnpm --filter @beans-frontend/web exec vitest run src/lib/hierarchy.test.ts`
+
+Expected: PASS.
+
+- [ ] **Step 5: Write the failing tests for `HierarchyList`**
+
+Add to `apps/web/src/components/HierarchyList.test.tsx`. The file already has a `bean(id, type, parentId, title)` helper — extend it to take an optional status defaulting to `"todo"`, and drop `body` from the fixture since `BeanListItem` has none.
+
+```tsx
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+const allIds = (list: BeanListItem[]) => new Set(list.map((b) => b.id));
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
+afterEach(() => {
+  window.localStorage.clear();
+});
+
+describe("HierarchyList expand state", () => {
+  const beans = [
+    bean("m-1", "milestone", null, "Milestone One"),
+    bean("e-1", "epic", "m-1", "Epic One"),
+    bean("t-1", "task", "e-1", "Task One"),
+  ];
+
+  it("survives a refetch that produces a new array of identical beans", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderWithRouter(
+      <HierarchyList project="demo" beans={beans} orphaned={new Set()} knownIds={allIds(beans)} />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+    expect(await screen.findByText("Epic One")).toBeInTheDocument();
+
+    // What an SSE-triggered refetch produces: same contents, new identities.
+    const refetched = beans.map((b) => ({ ...b }));
+    rerender(
+      <HierarchyList
+        project="demo"
+        beans={refetched}
+        orphaned={new Set()}
+        knownIds={allIds(refetched)}
+      />,
+    );
+
+    expect(screen.getByText("Epic One")).toBeInTheDocument();
+  });
+
+  it("restores expand state from storage on a fresh mount", async () => {
+    window.localStorage.setItem("beans:expanded:demo", JSON.stringify(["m-1"]));
+
+    renderWithRouter(
+      <HierarchyList project="demo" beans={beans} orphaned={new Set()} knownIds={allIds(beans)} />,
+    );
+
+    expect(await screen.findByText("Epic One")).toBeInTheDocument();
+  });
+
+  it("seeds a newly appeared node collapsed", async () => {
+    renderWithRouter(
+      <HierarchyList project="demo" beans={beans} orphaned={new Set()} knownIds={allIds(beans)} />,
+    );
+
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
+    expect(screen.queryByText("Epic One")).not.toBeInTheDocument();
+  });
+
+  it("prunes ids that no longer exist in the project when writing", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem("beans:expanded:demo", JSON.stringify(["gone-1"]));
+
+    renderWithRouter(
+      <HierarchyList project="demo" beans={beans} orphaned={new Set()} knownIds={allIds(beans)} />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Expand Milestone One" }));
+
+    const stored: unknown = JSON.parse(window.localStorage.getItem("beans:expanded:demo") ?? "[]");
+    expect(stored).toEqual(["m-1"]);
+  });
+});
+
+describe("HierarchyList orphan display", () => {
+  const beans = [
+    bean("m-1", "milestone", null, "Docker setup", "completed"),
+    bean("t-1", "task", "m-1", "Fix SSE reconnect"),
+    bean("t-2", "task", "m-1", "Pin CI actions"),
+  ];
+
+  it("shows a recursive orphan count on the collapsed ancestor", async () => {
+    renderWithRouter(
+      <HierarchyList
+        project="demo"
+        beans={beans}
+        orphaned={new Set(["t-1", "t-2"])}
+        knownIds={allIds(beans)}
+      />,
+    );
+
+    expect(await screen.findByText("⚠ 2 orphaned")).toBeInTheDocument();
+  });
+
+  it("badges the orphans themselves once expanded", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <HierarchyList
+        project="demo"
+        beans={beans}
+        orphaned={new Set(["t-1", "t-2"])}
+        knownIds={allIds(beans)}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Expand Docker setup" }));
+    expect(screen.getAllByText("orphaned")).toHaveLength(2);
+  });
+
+  it("shows no count when nothing beneath is orphaned", async () => {
+    renderWithRouter(
+      <HierarchyList project="demo" beans={beans} orphaned={new Set()} knownIds={allIds(beans)} />,
+    );
+
+    await screen.findByText("Docker setup");
+    expect(screen.queryByText(/orphaned/)).not.toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 6: Run the tests to verify they fail**
+
+Run: `pnpm --filter @beans-frontend/web exec vitest run src/components/HierarchyList.test.tsx`
+
+Expected: FAIL — `orphaned` / `knownIds` are not valid props, and the refetch test fails because expansion resets.
+
+- [ ] **Step 7: Rewrite `HierarchyList.tsx`**
+
+Replace the contents of `apps/web/src/components/HierarchyList.tsx` with:
+
+```tsx
+import { useEffect, useMemo, useState } from "react";
+
+import { BeanRow } from "./BeanRow.js";
+
+import { buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
+import { beanComparator } from "../lib/sort.js";
+import { readStringSet, writeStringSet } from "../lib/storage.js";
+
+import type { BeanNode } from "../lib/hierarchy.js";
+import type { SortDir, SortKey } from "../lib/sort.js";
+import type { BeanListItem, BeanType } from "@beans-frontend/shared";
+import type { ReactNode } from "react";
+
+// Milestones and epics act as visual "sections": when they contain children
+// they get a subtle tinted row so containers stand out from leaf beans.
+const SECTION_TYPES: readonly BeanType[] = ["milestone", "epic"];
+
+function expandedStorageKey(project: string): string {
+  return `beans:expanded:${project}`;
+}
+
+function toggleId(ids: ReadonlySet<string>, id: string): Set<string> {
+  const next = new Set(ids);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  return next;
+}
+
+export function HierarchyList({
+  project,
+  beans,
+  orphaned,
+  knownIds,
+  typeFilter,
+  sort,
+  dir,
+}: {
+  project: string;
+  beans: BeanListItem[];
+  /** Ids of open beans whose parent is completed or scrapped. */
+  orphaned: ReadonlySet<string>;
+  /**
+   * Ids present in the full (unfiltered) project dataset. Persisted expand
+   * state is pruned against this on write so it stays bounded by project size
+   * and deleted beans do not accumulate. Pruning on write rather than read
+   * means an id temporarily hidden by a filter keeps its expansion.
+   */
+  knownIds: ReadonlySet<string>;
+  /**
+   * When set, the tree is pruned client-side to beans matching one of these
+   * types plus their ancestor chain, instead of relying on the server-side
+   * type filter (which would exclude ancestor milestones/epics entirely and
+   * collapse the hierarchy into a flat list).
+   */
+  typeFilter?: BeanType[];
+  /**
+   * When set, reorders only the top-level rows (milestones + roots) by this
+   * key. Nested children always keep their existing tree order (see
+   * buildTree, which sorts children by the default comparator) so that
+   * expanding a parent never surprises the user with a reshuffled subtree.
+   */
+  sort?: SortKey;
+  dir?: SortDir;
+}) {
+  const tree = useMemo(() => buildTree(beans, orphaned), [beans, orphaned]);
+  const { milestones, roots } = useMemo(() => {
+    if (!typeFilter || typeFilter.length === 0) {
+      return tree;
+    }
+    const matches = (bean: BeanListItem) => typeFilter.includes(bean.type);
+    return {
+      milestones: pruneTreeToMatches(tree.milestones, matches, orphaned),
+      roots: pruneTreeToMatches(tree.roots, matches, orphaned),
+    };
+  }, [tree, typeFilter, orphaned]);
+
+  const topNodes = useMemo(() => {
+    const nodes = [...milestones, ...roots];
+    if (!sort) return nodes;
+    const cmp = beanComparator(sort, dir ?? "asc");
+    return [...nodes].sort((a, b) => cmp(a.bean, b.bean));
+  }, [milestones, roots, sort, dir]);
+
+  // Expanded ids, not collapsed ones: absence means collapsed, which is the
+  // default we want, so a node appearing for the first time needs no seeding —
+  // and there is no seeding step left to re-fire when the data refetches.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
+    readStringSet(expandedStorageKey(project)),
+  );
+
+  useEffect(() => {
+    setExpanded(readStringSet(expandedStorageKey(project)));
+  }, [project]);
+
+  function toggle(id: string) {
+    setExpanded((current) => {
+      const next = toggleId(current, id);
+      const pruned = new Set([...next].filter((value) => knownIds.has(value)));
+      writeStringSet(expandedStorageKey(project), pruned);
+      return pruned;
+    });
+  }
+
+  // A single recursive renderer is used on every viewport so collapsing any
+  // parent hides its entire subtree, regardless of nesting depth. Rows with
+  // no children render no caret (and no reserved caret column), so top-level
+  // childless beans sit flush against the left edge; nesting indent comes
+  // only from paddingLeft.
+  function renderNode(node: BeanNode): ReactNode {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expanded.has(node.bean.id);
+    const isSection = hasChildren && SECTION_TYPES.includes(node.bean.type);
+    const rowClass = isSection
+      ? `hierarchy-row hierarchy-row--section hierarchy-row--section-${node.bean.type}`
+      : "hierarchy-row";
+    return (
+      <li key={node.bean.id} className="hierarchy-node" data-depth={node.depth}>
+        <div className={rowClass} style={{ paddingLeft: `calc(${node.depth} * var(--indent))` }}>
+          {hasChildren ? (
+            <button
+              type="button"
+              className="hierarchy-caret"
+              aria-label={isExpanded ? `Collapse ${node.bean.title}` : `Expand ${node.bean.title}`}
+              aria-expanded={isExpanded}
+              onClick={() => {
+                toggle(node.bean.id);
+              }}
+            >
+              {isExpanded ? "▾" : "▸"}
+            </button>
+          ) : null}
+          <BeanRow project={project} bean={node.bean} orphaned={orphaned.has(node.bean.id)} />
+          {node.orphanedDescendants > 0 && (
+            <span className="hierarchy-orphan-count">⚠ {node.orphanedDescendants} orphaned</span>
+          )}
+        </div>
+        {hasChildren && isExpanded && (
+          <ul className="hierarchy-children">{node.children.map((child) => renderNode(child))}</ul>
+        )}
+      </li>
+    );
+  }
+
+  return (
+    <ul className="hierarchy-list hierarchy-roots">{topNodes.map((node) => renderNode(node))}</ul>
+  );
+}
+```
+
+- [ ] **Step 8: Run the tests to verify they pass**
+
+Run: `pnpm --filter @beans-frontend/web exec vitest run src/components/HierarchyList.test.tsx`
+
+Expected: PASS. Pre-existing tests asserting "starts collapsed" still hold — absence from storage means collapsed.
+
+- [ ] **Step 9: Pass the new props at the call site**
+
+`ProjectList` already computes `orphaned` (Task 7). Add `knownIds` beside it — the id set of the full, unfiltered dataset, which is what expand state is pruned against:
+
+```tsx
+  const knownIds = useMemo(() => new Set((allBeans ?? []).map((bean) => bean.id)), [allBeans]);
+```
+
+Then add both to the `HierarchyList` element in `apps/web/src/routes/projectList.tsx`:
+
+```tsx
+      <HierarchyList
+        project={project}
+        beans={hierarchyBeans}
+        orphaned={orphaned}
+        knownIds={knownIds}
+        typeFilter={filter.type}
+        sort={search.sort}
+        dir={search.dir}
+      />
+```
+
+- [ ] **Step 10: Verify**
+
+Run: `pnpm lint && pnpm typecheck && pnpm test`
+
+Expected: all green.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add apps/web/src/lib/hierarchy.ts apps/web/src/lib/hierarchy.test.ts apps/web/src/components/HierarchyList.tsx apps/web/src/components/HierarchyList.test.tsx apps/web/src/routes/projectList.tsx
+git commit -m "fix(web): persist hierarchy expand state and count orphans"
+```
+
+## Task 9: `useReopenAncestors` mutation hook
 
 **Files:**
 
@@ -2403,7 +2379,7 @@ git commit -m "feat(web): add sequential re-open mutation for closed ancestors"
 
 ---
 
-## Task 11: Orphan warning and re-open action on the detail page
+## Task 10: Orphan warning and re-open action on the detail page
 
 **Files:**
 
@@ -2414,7 +2390,7 @@ git commit -m "feat(web): add sequential re-open mutation for closed ancestors"
 
 **Interfaces:**
 
-- Consumes: `isOrphaned`, `closedAncestors`, `indexById` (Task 5); `useReopenAncestors` (Task 10); `ConfirmDialog`.
+- Consumes: `isOrphaned`, `closedAncestors`, `indexById` (Task 5); `useReopenAncestors` (Task 9); `ConfirmDialog`.
 - Produces: no new exports.
 
 - [ ] **Step 1: Write the failing test**
@@ -2640,7 +2616,7 @@ git commit -m "feat(web): offer re-opening closed ancestors from an orphaned bea
 
 ---
 
-## Task 12: Sort discovered projects by name
+## Task 11: Sort discovered projects by name
 
 The Overview ledger renders directory-walk order, and `useEvents` invalidates `["projects"]` on every file change — the same reshuffle exposure, from the server side.
 
@@ -2708,7 +2684,7 @@ git commit -m "fix(server): return discovered projects in name order"
 
 ---
 
-## Task 13: Full-suite verification
+## Task 12: Full-suite verification
 
 **Files:** none created; fixes applied wherever the checks land.
 
@@ -2722,7 +2698,7 @@ Expected: all green. Redirect to a file and read it rather than piping through t
 
 - [ ] **Step 2: Fix what fails**
 
-- `knip` flags unused exports — most likely `collectCollapsibleIds` (deleted in Task 6) or a helper in `filter`/`orphan`/`storage` with no consumer. Delete genuinely dead exports; wire up anything that should have a consumer.
+- `knip` flags unused exports — most likely `collectCollapsibleIds` (deleted in Task 8) or a helper in `filter`/`orphan`/`storage` with no consumer. Delete genuinely dead exports; wire up anything that should have a consumer.
 - Coverage below 80% on a new module — add the missing tests. Never lower a threshold.
 - `spell` flags a new word — add it to `cspell.config.yaml`.
 
@@ -2755,19 +2731,23 @@ git commit -m "test: close coverage gaps from list stability work"
 
 | Spec section | Task |
 | --- | --- |
-| Types (`BeanListItem` split) | 1 |
-| Fetching (`useProjectBeans`, drop `body`, shared cache entry) | 9 |
-| Client-side filtering (`filter.ts`, port-before-delete) | 4, 9 |
-| Ordering (`defaultComparator`, natural id, tiebreak, child order) | 3, 6 |
-| Ordering (`discoverProjects` sorted) | 12 |
+| Types (`BeanListItem` split, list-facing widening) | 1 |
+| Fetching (`useProjectBeans`, drop `body`, shared cache entry) | 7 |
+| Client-side filtering (`filter.ts`, port-before-delete) | 4, 7 |
+| Ordering (`defaultComparator`, natural id, tiebreak) | 3 |
+| Ordering (tree child order) | 8 |
+| Ordering (`discoverProjects` sorted) | 11 |
 | Orphan model (`orphan.ts`, completed + scrapped) | 5 |
 | Collapse persistence (expanded ids, pruning, `storage.ts`) | 2, 8 |
-| Orphan UI (badge, recursive counts, `--warn` token) | 7, 8 |
-| Re-open parent (chain walk, confirm, sequential, partial failure) | 5, 10, 11 |
+| Orphan UI (row badge, `--warn` token) | 6 |
+| Orphan UI (recursive counts on ancestors) | 8 |
+| Re-open parent (chain walk, confirm, sequential, partial failure) | 5, 9, 10 |
 | Testing (shuffle-determinism, refetch-survives-expansion) | 3, 8 |
 
 No spec requirement is unassigned.
 
-**Type consistency:** `BeanListItem` is the list-facing type from Task 1 onward. `orphaned` is `ReadonlySet<string>` in `HierarchyList`, `FlatList`, `buildTree`, and `pruneTreeToMatches`; `orphanedIds` returns `Set<string>`, which satisfies it. `closedAncestors` returns nearest-first, which Task 10 consumes as `ancestorIds` and Task 11 indexes `[0]` for the warning text — consistent. `sortBeans`'s `key` is optional from Task 3 on, which Task 9 relies on when `search.sort` is `undefined`.
+**Type consistency:** `BeanListItem` is the list-facing type from Task 1 onward, widened there once so no later task carries a type migration as a side errand. `orphaned` is `ReadonlySet<string>` in `HierarchyList`, `FlatList`, `buildTree`, and `pruneTreeToMatches`; `orphanedIds` returns `Set<string>`, which satisfies it. `closedAncestors` returns nearest-first, which Task 9 consumes as `ancestorIds` and Task 10 indexes `[0]` for the warning text. `sortBeans`'s `key` is optional from Task 3 on, which Task 7 relies on when `search.sort` is `undefined`.
 
-**Ordering note:** Task 6 Step 5 and Task 8 Step 5 each patch a call site to keep the intermediate commit compiling. Both are replaced by their final form in the following task — they are real working code, not stubs.
+**Staging:** every commit is honest — no task writes code that a later task deletes. Task order is dictated by that constraint: the type widening lands first (Task 1), the row badge before the list that uses it (Task 6 before 7), the unfiltered fetch before anything that reads a parent's status (Task 7 before 8), and `hierarchy.ts` merges with `HierarchyList` (Task 8) because separating them would ship one commit whose `HierarchyList` still re-seeds itself — reintroducing, for that commit, the bug this plan removes.
+
+**Deliberately deferred to Task 12:** `pnpm knip` runs only in the final verification task. Tasks 2, 5, and 6 create exports whose first consumer arrives in Tasks 7-10, so an earlier `knip` run would fail on exports that are about to be used.
