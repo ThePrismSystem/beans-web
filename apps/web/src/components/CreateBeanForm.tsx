@@ -8,6 +8,8 @@ import {
   validParentTypes,
 } from "@beans-frontend/shared";
 
+import { EnumSelect } from "./EnumSelect.js";
+
 import type { CreateBeanInput } from "../api/generated.js";
 import type { ChangeEvent, FormEvent } from "react";
 import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
@@ -66,11 +68,7 @@ export function CreateBeanForm({
   // has candidate parents of the right type — matching RelationEditor.
   const showParent = validParentTypes(type) !== null;
 
-  function handleTypeChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextType = BEAN_TYPES.find((option) => option === event.target.value);
-    if (!nextType) {
-      return;
-    }
+  function handleTypeChange(nextType: BeanType) {
     setType(nextType);
     const stillValid = candidates.some(
       (candidate) => candidate.id === parentId && canParent(nextType, candidate.type),
@@ -137,13 +135,12 @@ export function CreateBeanForm({
 
       <div className="create-bean-field">
         <label htmlFor="create-bean-type">Type</label>
-        <select id="create-bean-type" value={type} onChange={handleTypeChange}>
-          {BEAN_TYPES.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <EnumSelect
+          id="create-bean-type"
+          options={BEAN_TYPES}
+          value={type}
+          onChange={handleTypeChange}
+        />
       </div>
 
       {showParent && (
@@ -162,42 +159,22 @@ export function CreateBeanForm({
 
       <div className="create-bean-field">
         <label htmlFor="create-bean-status">Status</label>
-        <select
+        <EnumSelect
           id="create-bean-status"
+          options={BEAN_STATUSES}
           value={status}
-          onChange={(event) => {
-            const next = BEAN_STATUSES.find((option) => option === event.target.value);
-            if (next) {
-              setStatus(next);
-            }
-          }}
-        >
-          {BEAN_STATUSES.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+          onChange={setStatus}
+        />
       </div>
 
       <div className="create-bean-field">
         <label htmlFor="create-bean-priority">Priority</label>
-        <select
+        <EnumSelect
           id="create-bean-priority"
+          options={BEAN_PRIORITIES}
           value={priority}
-          onChange={(event) => {
-            const next = BEAN_PRIORITIES.find((option) => option === event.target.value);
-            if (next) {
-              setPriority(next);
-            }
-          }}
-        >
-          {BEAN_PRIORITIES.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+          onChange={setPriority}
+        />
       </div>
 
       <div className="create-bean-field">
