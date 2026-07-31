@@ -53,6 +53,14 @@ words:
   - subfolders
   - tmpfs
   - websecure
+  - GHSA
+  - frvp
+  - untaken
+  - excludable
+  - stmts
+  - funcs
+  - FNHSIO
+  - dedup
 ignorePaths:
   - node_modules
   - dist
