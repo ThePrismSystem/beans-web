@@ -2,7 +2,82 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assertWithinRoot, findProjectDirs } from "./scan.js";
+import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+
+  return {
+    ...actual,
+    readdir: vi.fn(async (dir: string, options?: any) => {
+      // For the ordering test root, return mocked directory entries in non-alphabetical order
+      // Check if this is the root directory by seeing if it ends with the temp dir prefix
+      if (
+        typeof dir === "string" &&
+        dir.includes("scan-ordering-") &&
+        !dir.endsWith("/zeta") &&
+        !dir.endsWith("/mid") &&
+        !dir.endsWith("/alpha") &&
+        options?.withFileTypes
+      ) {
+        return [
+          {
+            name: "zeta",
+            isDirectory: () => true,
+            isFile: () => false,
+            isSymbolicLink: () => false,
+            isBlockDevice: () => false,
+            isCharacterDevice: () => false,
+            isFIFO: () => false,
+            isSocket: () => false,
+          },
+          {
+            name: "mid",
+            isDirectory: () => true,
+            isFile: () => false,
+            isSymbolicLink: () => false,
+            isBlockDevice: () => false,
+            isCharacterDevice: () => false,
+            isFIFO: () => false,
+            isSocket: () => false,
+          },
+          {
+            name: "alpha",
+            isDirectory: () => true,
+            isFile: () => false,
+            isSymbolicLink: () => false,
+            isBlockDevice: () => false,
+            isCharacterDevice: () => false,
+            isFIFO: () => false,
+            isSocket: () => false,
+          },
+        ] as any;
+      }
+      // For subdirectories in the ordering test (zeta/, mid/, alpha/), return .beans.yml
+      if (
+        typeof dir === "string" &&
+        dir.includes("scan-ordering-") &&
+        (dir.endsWith("/zeta") || dir.endsWith("/mid") || dir.endsWith("/alpha")) &&
+        options?.withFileTypes
+      ) {
+        return [
+          {
+            name: ".beans.yml",
+            isDirectory: () => false,
+            isFile: () => true,
+            isSymbolicLink: () => false,
+            isBlockDevice: () => false,
+            isCharacterDevice: () => false,
+            isFIFO: () => false,
+            isSocket: () => false,
+          },
+        ] as any;
+      }
+      // For all other calls, use the real readdir
+      return actual.readdir(dir, options);
+    }),
+  };
+});
 
 let root: string;
 beforeEach(() => {
@@ -48,14 +123,10 @@ describe("assertWithinRoot", () => {
 });
 
 describe("discoverProjects ordering", () => {
-  it("returns projects sorted by name", async () => {
-    const { discoverProjects } = await import("./scan.js");
-
+  it("returns projects sorted by name with mocked non-alphabetical readdir", async () => {
     // Mock runBeansGraphql to avoid needing beans CLI
     const executor = await import("../beans/executor.js");
-    const graphqlMock = vi
-      .spyOn(executor, "runBeansGraphql")
-      .mockResolvedValue({ beans: [] } as any);
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
 
     const testRoot = mkdtempSync(join(tmpdir(), "scan-ordering-"));
     try {
@@ -63,7 +134,7 @@ describe("discoverProjects ordering", () => {
         mkdirSync(join(testRoot, rel), { recursive: true });
         writeFileSync(join(testRoot, rel, ".beans.yml"), "beans:\n  prefix: x-\n");
       };
-      // Create in non-alphabetical creation order
+      // Create directories - readdir will be mocked to return them as: zeta, mid, alpha
       mk("zeta");
       mk("mid");
       mk("alpha");
@@ -71,12 +142,8 @@ describe("discoverProjects ordering", () => {
       const projects = await discoverProjects(testRoot, 2);
       const names = projects.map((p) => p.name);
 
-      // Verify each name is in sorted order relative to the next
-      for (let i = 0; i < names.length - 1; i++) {
-        expect(names[i]!.localeCompare(names[i + 1]!)).toBeLessThanOrEqual(0);
-      }
-
-      // Verify the exact sorted order
+      // Verify the exact sorted order - even though readdir was mocked to return zeta, mid, alpha
+      // the output should be sorted as alpha, mid, zeta (proving the sort() call works)
       expect(names).toEqual(["alpha", "mid", "zeta"]);
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
