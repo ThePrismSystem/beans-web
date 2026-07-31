@@ -84,5 +84,7 @@ export async function discoverProjects(root: string, maxDepth: number): Promise<
   });
   // Stable, name-ordered output: the Overview ledger renders this list directly
   // and is invalidated on every file change, so walk order would reshuffle it.
-  return projects.sort((a, b) => a.name.localeCompare(b.name));
+  // The path tiebreak keeps same-named projects in different directories
+  // deterministic too, instead of falling back to walk/resolution order.
+  return projects.sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
 }

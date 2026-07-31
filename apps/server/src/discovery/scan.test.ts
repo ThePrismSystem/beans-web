@@ -64,6 +64,50 @@ vi.mock("node:fs/promises", async (importOriginal) => {
         ];
         return entries;
       }
+      // For the tiebreak test root, list two parent directories that both
+      // contain a child named "shared" — a same-basename project pair.
+      if (
+        typeof dir === "string" &&
+        dir.includes("scan-tiebreak-") &&
+        !dir.endsWith("/parent-one") &&
+        !dir.endsWith("/parent-two") &&
+        !dir.endsWith("/parent-one/shared") &&
+        !dir.endsWith("/parent-two/shared") &&
+        opts?.withFileTypes
+      ) {
+        const entries: FakeDirEntry[] = [
+          { name: "parent-one", isDirectory: () => true, isFile: () => false },
+          { name: "parent-two", isDirectory: () => true, isFile: () => false },
+        ];
+        return entries;
+      }
+      // "parent-one" is deliberately delayed so "parent-two"'s subtree
+      // resolves and is pushed into the discovered-projects list first —
+      // reproducing the out-of-alphabetical discovery order that a
+      // name-only sort cannot repair for a same-named project pair.
+      if (typeof dir === "string" && dir.endsWith("/parent-one") && opts?.withFileTypes) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const entries: FakeDirEntry[] = [
+          { name: "shared", isDirectory: () => true, isFile: () => false },
+        ];
+        return entries;
+      }
+      if (typeof dir === "string" && dir.endsWith("/parent-two") && opts?.withFileTypes) {
+        const entries: FakeDirEntry[] = [
+          { name: "shared", isDirectory: () => true, isFile: () => false },
+        ];
+        return entries;
+      }
+      if (
+        typeof dir === "string" &&
+        (dir.endsWith("/parent-one/shared") || dir.endsWith("/parent-two/shared")) &&
+        opts?.withFileTypes
+      ) {
+        const entries: FakeDirEntry[] = [
+          { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
+        ];
+        return entries;
+      }
       // For all other calls, use the real readdir
       return actual.readdir(dir, options as Parameters<typeof actual.readdir>[1]);
     }),
@@ -136,6 +180,34 @@ describe("discoverProjects ordering", () => {
       // Verify the exact sorted order - even though readdir was mocked to return zeta, mid, alpha
       // the output should be sorted as alpha, mid, zeta (proving the sort() call works)
       expect(names).toEqual(["alpha", "mid", "zeta"]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("tiebreaks by path when two projects share the same basename", async () => {
+    // Mock runBeansGraphql to avoid needing beans CLI
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-tiebreak-"));
+    try {
+      const mk = (rel: string) => {
+        mkdirSync(join(testRoot, rel), { recursive: true });
+        writeFileSync(join(testRoot, rel, ".beans.yml"), "beans:\n  prefix: x-\n");
+      };
+      // Both projects are named "shared"; the mocked readdir above resolves
+      // "parent-two/shared" before "parent-one/shared", so discovery order
+      // alone is non-alphabetical. Only the `path` tiebreak can make the
+      // output deterministic.
+      mk("parent-one/shared");
+      mk("parent-two/shared");
+
+      const projects = await discoverProjects(testRoot, 2);
+      const paths = projects.map((p) => p.path.replace(testRoot + "/", ""));
+
+      expect(paths).toEqual(["parent-one/shared", "parent-two/shared"]);
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
       graphqlMock.mockRestore();
