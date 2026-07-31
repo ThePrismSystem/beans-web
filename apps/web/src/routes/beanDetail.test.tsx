@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -131,11 +131,12 @@ function renderBeanDetail(initialLocation = "/p/demo/t1") {
   // useReopenAncestors is real (unlike the other mutation hooks, which are
   // mocked above), so it needs an actual QueryClient in the tree.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return { ...view, router };
 }
 
 beforeEach(() => {
@@ -426,6 +427,136 @@ describe("BeanDetailPage", () => {
 
     expect(await screen.findByText("invalid parent for type task")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reload" })).not.toBeInTheDocument();
+  });
+
+  it("shows the raw value when a timestamp cannot be parsed", async () => {
+    useBeanMock.mockReturnValue({
+      data: { ...bean, createdAt: "not-a-date" },
+      isPending: false,
+      isError: false,
+    });
+
+    renderBeanDetail();
+
+    expect(await screen.findByText(/Created not-a-date/)).toBeInTheDocument();
+  });
+
+  it("resyncs the body draft when navigating to a different bean id", async () => {
+    const { router } = renderBeanDetail();
+    await screen.findByText("Task One");
+
+    const bean2: BeanDetail = { ...bean, id: "t2", title: "Task Two", body: "Body of task two" };
+    useBeanMock.mockReturnValue({ data: bean2, isPending: false, isError: false });
+    await router.navigate({ to: "/p/$project/$beanId", params: { project: "demo", beanId: "t2" } });
+    await screen.findByText("Task Two");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit body" }));
+
+    expect(screen.getByLabelText("Body")).toHaveValue("Body of task two");
+  });
+
+  it("does not mutate when committing the title without changes", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByText("Task One"));
+    await user.keyboard("{Enter}");
+
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Task One")).toBeInTheDocument();
+  });
+
+  it("cancels title editing without saving on Escape", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByText("Task One"));
+    await screen.findByLabelText("Title");
+    await user.keyboard("{Escape}");
+
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+  });
+
+  it("does not mutate when tag edits normalize to the same list", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Edit Tags" }));
+    const tagsInput = screen.getByLabelText("Tags editor");
+    fireEvent.change(tagsInput, { target: { value: "urgent," } });
+    await user.click(screen.getByRole("button", { name: "Save Tags" }));
+
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+  });
+
+  it("shows a placeholder when the bean has no tags", async () => {
+    useBeanMock.mockReturnValue({ data: { ...bean, tags: [] }, isPending: false, isError: false });
+
+    renderBeanDetail();
+
+    expect(await screen.findByText("—")).toBeInTheDocument();
+  });
+
+  it("does not mutate when saving the body without changes", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Edit body" }));
+    await user.click(screen.getByRole("button", { name: "Save body" }));
+
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Edit body" })).toBeInTheDocument();
+  });
+
+  it("renders without crashing when the project bean list has not loaded yet", async () => {
+    useBeansMock.mockReturnValue({ data: undefined, isPending: true, isError: false });
+
+    renderBeanDetail();
+
+    expect(await screen.findByText("Task One")).toBeInTheDocument();
+  });
+
+  it("dispatches addBlocking, removeBlocking, addBlockedBy, and removeBlockedBy to their mutation hooks", async () => {
+    const blocker: Bean = { ...otherMilestone, id: "blk1", title: "Blocker One", type: "task" };
+    const blockedBy: Bean = { ...otherMilestone, id: "bb1", title: "BlockedBy One", type: "task" };
+    const addCandidate: Bean = {
+      ...otherMilestone,
+      id: "new1",
+      title: "New Candidate",
+      type: "task",
+    };
+    useBeanMock.mockReturnValue({
+      data: { ...bean, blockingIds: [blocker.id], blockedByIds: [blockedBy.id] },
+      isPending: false,
+      isError: false,
+    });
+    useBeansMock.mockReturnValue({
+      data: [otherMilestone, blocker, blockedBy, addCandidate],
+      isPending: false,
+      isError: false,
+    });
+    const user = userEvent.setup();
+
+    renderBeanDetail();
+    await screen.findByText("Task One");
+
+    await user.click(screen.getByRole("button", { name: "Remove Blocker One from blocks" }));
+    expect(removeBlockingMutate).toHaveBeenCalledWith({ id: "t1", targetId: "blk1" });
+
+    await user.click(screen.getByRole("button", { name: "Remove BlockedBy One from blocked by" }));
+    expect(removeBlockedByMutate).toHaveBeenCalledWith({ id: "t1", targetId: "bb1" });
+
+    await user.click(screen.getByRole("button", { name: "Add blocks" }));
+    await user.click(screen.getByLabelText("Select New Candidate"));
+    await user.click(screen.getByRole("button", { name: /Add 1/ }));
+    expect(addBlockingMutate).toHaveBeenCalledWith({ id: "t1", targetId: "new1" });
+
+    await user.click(screen.getByRole("button", { name: "Add blocked by" }));
+    await user.click(screen.getByLabelText("Select New Candidate"));
+    await user.click(screen.getByRole("button", { name: /Add 1/ }));
+    expect(addBlockedByMutate).toHaveBeenCalledWith({ id: "t1", targetId: "new1" });
   });
 
   it("does not show a stale error once a later mutation succeeds", async () => {

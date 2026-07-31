@@ -11,6 +11,10 @@ import type { SearchHit } from "@beans-frontend/shared";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
+export function validateSearchPageSearch(search: Record<string, unknown>): { q: string } {
+  return { q: typeof search.q === "string" ? search.q : "" };
+}
+
 function SearchResultRow({ hit }: { hit: SearchHit }) {
   return (
     <Link

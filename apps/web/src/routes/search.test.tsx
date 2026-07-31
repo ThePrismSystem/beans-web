@@ -2,7 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { SearchPage } from "./search.js";
+import { SearchPage, validateSearchPageSearch } from "./search.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
@@ -104,5 +104,16 @@ describe("SearchPage", () => {
     await user.type(await screen.findByLabelText("Search beans"), "bell");
 
     expect(await screen.findByText(/Some projects failed to search: beans/)).toBeInTheDocument();
+  });
+});
+
+describe("validateSearchPageSearch", () => {
+  it("keeps a string q value", () => {
+    expect(validateSearchPageSearch({ q: "chocolate" })).toEqual({ q: "chocolate" });
+  });
+
+  it("defaults non-string or missing q to an empty string", () => {
+    expect(validateSearchPageSearch({ q: 123 })).toEqual({ q: "" });
+    expect(validateSearchPageSearch({})).toEqual({ q: "" });
   });
 });

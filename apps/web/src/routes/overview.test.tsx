@@ -5,7 +5,7 @@ import { Overview } from "./overview.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
-import type { Project } from "@beans-frontend/shared";
+import type { BeanType, Project } from "@beans-frontend/shared";
 
 const { useProjectsMock } = vi.hoisted(() => ({ useProjectsMock: vi.fn() }));
 
@@ -38,6 +38,23 @@ describe("Overview", () => {
     expect(screen.getByText(/bug/)).toBeInTheDocument();
     expect(screen.queryByText(/milestone/)).not.toBeInTheDocument();
     expect(screen.getByText("|")).toBeInTheDocument();
+  });
+
+  it("defaults a missing open-by-type count to zero instead of omitting the row", async () => {
+    const sparseProject: Project = {
+      ...project,
+      name: "sparse-project",
+      counts: { ...project.counts, openByType: { task: 2 } as Record<BeanType, number> },
+    };
+    useProjectsMock.mockReturnValue({ data: [sparseProject], isPending: false, isError: false });
+
+    renderWithRouter(<Overview />);
+
+    expect(await screen.findByText("sparse-project")).toBeInTheDocument();
+    expect(screen.getByText(/task/)).toBeInTheDocument();
+    // Only `task` (count 2) is open; every other type defaults to 0 and is
+    // filtered out, so there is nothing to separate with a pipe.
+    expect(screen.queryByText("|")).not.toBeInTheDocument();
   });
 
   it("shows a loading message while pending", async () => {

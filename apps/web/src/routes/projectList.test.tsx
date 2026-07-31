@@ -347,6 +347,101 @@ describe("ProjectList", () => {
     // the search-hit set.
     expect(screen.getByText("orphaned")).toBeInTheDocument();
   });
+
+  it("keeps ancestors visible when filtering by prefix in hierarchy view", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+
+    await user.click(screen.getByRole("button", { name: /^Prefix/ }));
+    await user.click(screen.getByRole("checkbox", { name: "t1" }));
+
+    expect(await screen.findByText("Milestone One")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Expand Milestone One" }));
+    await user.click(screen.getByRole("button", { name: "Expand Epic One" }));
+
+    expect(screen.getByText("Task One")).toBeInTheDocument();
+    expect(screen.queryByText("Bug One")).not.toBeInTheDocument();
+  });
+
+  it("clears the status filter down to an empty array when every option is unchecked", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+
+    await user.click(screen.getByRole("button", { name: /^Status/ }));
+    await user.click(screen.getByRole("checkbox", { name: "draft" }));
+    await user.click(screen.getByRole("checkbox", { name: "todo" }));
+    await user.click(screen.getByRole("checkbox", { name: "in-progress" }));
+
+    expect(screen.getByRole("button", { name: /^Status/ })).toBeInTheDocument();
+  });
+
+  it("propagates priority and tag filter changes to the URL and back", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+
+    await user.click(screen.getByRole("button", { name: /^Priority/ }));
+    await user.click(screen.getByRole("checkbox", { name: "high" }));
+    expect(screen.getByRole("button", { name: /^Priority \(1\)/ })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Tags"), "urgent");
+    expect(screen.getByLabelText("Tags")).toHaveValue("urgent");
+  });
+
+  it("defaults to ascending then toggles through descending and back to ascending", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList("/p/testproj?sort=title");
+    await screen.findByText("Milestone One");
+
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↑");
+
+    await user.click(screen.getByRole("button", { name: "Toggle sort direction" }));
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↓");
+
+    await user.click(screen.getByRole("button", { name: "Toggle sort direction" }));
+    expect(screen.getByRole("button", { name: "Toggle sort direction" })).toHaveTextContent("↑");
+  });
+
+  it("shows an empty state in flat view when a search leaves no beans", async () => {
+    useBeansMock.mockImplementation((_project: string, search: string) =>
+      search === ""
+        ? { data: beans, isPending: false, isError: false }
+        : { data: [], isPending: false, isError: false },
+    );
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+    await user.click(screen.getByRole("button", { name: "Flat" }));
+    await user.type(screen.getByLabelText("Search beans"), "zzz");
+
+    expect(await screen.findByText("No beans match the current filters.")).toBeInTheDocument();
+  });
+
+  it("shows an empty state in hierarchy view when a search leaves no beans", async () => {
+    useBeansMock.mockImplementation((_project: string, search: string) =>
+      search === ""
+        ? { data: beans, isPending: false, isError: false }
+        : { data: [], isPending: false, isError: false },
+    );
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await screen.findByText("Milestone One");
+    await user.type(screen.getByLabelText("Search beans"), "zzz");
+
+    expect(await screen.findByText("No beans match the current filters.")).toBeInTheDocument();
+  });
 });
 
 describe("validateProjectSearch", () => {
@@ -374,6 +469,10 @@ describe("validateProjectSearch", () => {
 
   it("ignores values that are neither strings nor arrays", () => {
     expect(validateProjectSearch({ type: 5, priority: null })).toEqual({});
+  });
+
+  it("keeps a non-empty priority filter", () => {
+    expect(validateProjectSearch({ priority: "high" })).toEqual({ priority: ["high"] });
   });
 
   it("validates prefix search param as a string array", () => {

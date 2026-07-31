@@ -120,6 +120,77 @@ describe("BeanPicker", () => {
     expect(screen.queryByText("Epic one")).not.toBeInTheDocument();
   });
 
+  it("filters candidates by type", async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BeanPicker
+        open
+        title="Set parent"
+        candidates={[
+          { id: "e1", title: "Epic one", type: "epic", status: "todo" } as never,
+          { id: "t1", title: "Task one", type: "task", status: "todo" } as never,
+        ]}
+        mode="single"
+        onPick={onPick}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Type/ }));
+    await user.click(screen.getByLabelText("task"));
+
+    expect(screen.queryByText("Epic one")).not.toBeInTheDocument();
+    expect(screen.getByText("Task one")).toBeInTheDocument();
+  });
+
+  it("filters candidates by prefix", async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BeanPicker
+        open
+        title="Set parent"
+        candidates={[
+          { id: "hh-1", title: "Alpha one", type: "epic", status: "todo" } as never,
+          { id: "bn-1", title: "Beans one", type: "epic", status: "todo" } as never,
+        ]}
+        mode="single"
+        onPick={onPick}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Prefix/ }));
+    await user.click(screen.getByLabelText("bn"));
+
+    expect(screen.queryByText("Alpha one")).not.toBeInTheDocument();
+    expect(screen.getByText("Beans one")).toBeInTheDocument();
+  });
+
+  it("unchecks a candidate that was already selected", async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BeanPicker
+        open
+        title="Add blocks"
+        candidates={candidates}
+        mode="multi"
+        onPick={onPick}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByLabelText("Select Epic one");
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
+
+    await user.click(checkbox);
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Add 0" })).toBeDisabled();
+  });
+
   it("resets selection when reopened", async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();

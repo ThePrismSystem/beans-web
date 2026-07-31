@@ -78,6 +78,7 @@ describe("useEvents", () => {
     const { result } = renderHook(() => useEvents(qc));
 
     act(() => {
+      instances[0]?.onmessage?.({ data: JSON.stringify(42) } as MessageEvent<string>);
       instances[0]?.onmessage?.({ data: JSON.stringify({}) } as MessageEvent<string>);
       instances[0]?.onmessage?.({
         data: JSON.stringify({ project: 1, kind: "change" }),

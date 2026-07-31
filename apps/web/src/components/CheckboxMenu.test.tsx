@@ -30,4 +30,16 @@ describe("CheckboxMenu", () => {
     await user.click(screen.getByLabelText("epic"));
     expect(onChange).toHaveBeenCalledWith([]);
   });
+
+  it("closes the list on Escape", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<CheckboxMenu label="Type" options={options} selected={["epic"]} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: /Type/ }));
+    expect(screen.getByRole("group", { name: "Type" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("group", { name: "Type" })).not.toBeInTheDocument();
+  });
 });

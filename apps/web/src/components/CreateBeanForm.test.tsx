@@ -110,6 +110,52 @@ describe("CreateBeanForm", () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ parent: null }));
   });
 
+  it("starts blank when the pre-filled parent id matches no candidate", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <CreateBeanForm
+        candidates={candidates}
+        defaultParentId="does-not-exist"
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.getByLabelText("Type")).toHaveValue("task");
+    expect(screen.getByLabelText("Parent")).toHaveValue("");
+
+    await user.type(screen.getByLabelText("Title"), "Orphan task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ parent: null }));
+  });
+
+  it("keeps the pre-filled parent selected when it still admits the newly chosen type", async () => {
+    const user = userEvent.setup();
+    render(<CreateBeanForm candidates={candidates} defaultParentId="m1" onSubmit={vi.fn()} />);
+
+    expect(screen.getByLabelText("Type")).toHaveValue("epic");
+    expect(screen.getByLabelText("Parent")).toHaveValue("m1");
+
+    // "feature" can also parent under a milestone, so the pre-filled parent
+    // should survive the type change instead of being cleared.
+    await user.selectOptions(screen.getByLabelText("Type"), "feature");
+
+    expect(screen.getByLabelText("Parent")).toHaveValue("m1");
+  });
+
+  it("sets a chosen status", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<CreateBeanForm candidates={candidates} onSubmit={onSubmit} />);
+
+    await user.selectOptions(screen.getByLabelText("Status"), "in-progress");
+    await user.type(screen.getByLabelText("Title"), "In progress task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ status: "in-progress" }));
+  });
+
   it("hides the parent control for the milestone type", async () => {
     const user = userEvent.setup();
     render(<CreateBeanForm candidates={candidates} onSubmit={vi.fn()} />);
