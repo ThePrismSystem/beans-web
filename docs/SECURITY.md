@@ -49,6 +49,6 @@ when they contain a user-supplied GraphQL query or variables.
 `beans-frontend` has no authentication or authorization layer (`apps/server/src/env.ts`). It's a
 local-first, single-user tool intended to run on `127.0.0.1` — the default `HOST` binding, though
 `HOST` is operator-configurable via environment variable. **Setting `HOST` to a non-loopback
-address exposes the API — including arbitrary-path GraphQL queries scoped to whatever `GIT_ROOT`
-was configured — to anything that can reach that address, with no access control.** Don't do this
-outside a trusted, isolated network.
+address exposes the API — including arbitrary-path GraphQL queries scoped to whichever `GIT_ROOT`
+roots were configured — to anything that can reach that address, with no access control.** Don't
+do this outside a trusted, isolated network.
