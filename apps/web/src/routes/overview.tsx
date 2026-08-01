@@ -14,7 +14,7 @@ function ProjectRow({ project }: { project: Project }) {
   return (
     <Link to="/p/$project" params={{ project: project.name }} className="project-row">
       <div className="project-row-top">
-        <span className="project-row-name">{project.name}</span>
+        <h2 className="project-row-name">{project.name}</h2>
         <span className="project-row-summary">
           <b>{project.counts.open}</b> open · {project.counts.total} total
         </span>
