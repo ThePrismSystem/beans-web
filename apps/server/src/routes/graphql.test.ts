@@ -101,4 +101,17 @@ describe("POST /api/projects/:name/graphql", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it("rejects an over-sized request body with 413", async () => {
+    const d = deps();
+    const app = createApp(d);
+    const huge = "x".repeat(300 * 1024);
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: `{ beans { id } } ${huge}` }),
+    });
+    expect(res.status).toBe(413);
+    expect(d.runGraphql).not.toHaveBeenCalled();
+  });
 });

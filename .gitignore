@@ -27,6 +27,8 @@ out/
 *.patch
 *.pem
 .pnpm-store/
+# Security audit reports (local working artifacts)
+security/
 .superpowers/
 *.swo
 *.swp

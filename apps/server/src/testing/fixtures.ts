@@ -1,5 +1,7 @@
-import type { Analytics, Project, ProjectCounts } from "@beans-frontend/shared";
+import type { Analytics, ProjectCounts } from "@beans-frontend/shared";
 import { BEAN_STATUSES, BEAN_TYPES, zeroCounts } from "@beans-frontend/shared";
+
+import type { ProjectRecord } from "../discovery/scan.js";
 
 function fakeCounts(): ProjectCounts {
   return {
@@ -12,7 +14,7 @@ function fakeCounts(): ProjectCounts {
   };
 }
 
-export function fakeProject(name: string): Project {
+export function fakeProject(name: string): ProjectRecord {
   return {
     name,
     path: `/root/${name}`,

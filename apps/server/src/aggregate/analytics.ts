@@ -1,8 +1,9 @@
 import { join } from "node:path";
 
-import type { Analytics, BeanStatus, BeanType, Project } from "@beans-frontend/shared";
+import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
 import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-frontend/shared";
 
+import type { ProjectRecord } from "../discovery/scan.js";
 import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
 import type { RunFn } from "./search.js";
 
@@ -11,7 +12,7 @@ const QUERY = "{ beans { type status updatedAt } }";
 // "YYYY-MM" prefix length of an ISO 8601 timestamp
 const MONTH_KEY_LENGTH = 7;
 
-export async function buildAnalytics(projects: Project[], run: RunFn): Promise<Analytics> {
+export async function buildAnalytics(projects: ProjectRecord[], run: RunFn): Promise<Analytics> {
   const byType = zeroCounts(BEAN_TYPES);
   const byStatus = zeroCounts(BEAN_STATUSES);
   const months = new Map<string, number>();

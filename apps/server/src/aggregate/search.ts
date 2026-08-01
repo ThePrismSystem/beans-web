@@ -1,7 +1,8 @@
 import { join } from "node:path";
 
-import type { Project, SearchHit, SearchResult } from "@beans-frontend/shared";
+import type { SearchHit, SearchResult } from "@beans-frontend/shared";
 
+import type { ProjectRecord } from "../discovery/scan.js";
 import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
 
 export type RunFn = (
@@ -13,7 +14,7 @@ export type RunFn = (
 const QUERY = "query S($q:String!){ beans(filter:{search:$q}){ id title type status priority } }";
 
 export async function globalSearch(
-  projects: Project[],
+  projects: ProjectRecord[],
   q: string,
   run: RunFn,
 ): Promise<SearchResult> {

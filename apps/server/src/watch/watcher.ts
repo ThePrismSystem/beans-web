@@ -1,7 +1,9 @@
 import { EventEmitter } from "node:events";
 import { join, sep } from "node:path";
 import chokidar from "chokidar";
-import type { Project, ServerEvent } from "@beans-frontend/shared";
+import type { ServerEvent } from "@beans-frontend/shared";
+
+import type { ProjectRecord } from "../discovery/scan.js";
 
 export interface WatchLike extends EventEmitter {
   add(paths: string | string[]): unknown;
@@ -13,15 +15,15 @@ export type WatchFactory = (paths: string[]) => WatchLike;
 const defaultFactory: WatchFactory = (paths) =>
   chokidar.watch(paths, { ignoreInitial: true, depth: 0 });
 
-function beansDir(project: Project): string {
+function beansDir(project: ProjectRecord): string {
   return join(project.path, ".beans");
 }
 
 export class BeansWatcher extends EventEmitter {
   private readonly watch: WatchLike;
-  private projects: Project[];
+  private projects: ProjectRecord[];
 
-  constructor(projects: Project[], factory: WatchFactory = defaultFactory) {
+  constructor(projects: ProjectRecord[], factory: WatchFactory = defaultFactory) {
     super();
     // SSE clients each attach a listener; without an unbounded cap the 11th
     // concurrent client would trip the default MaxListeners warning.
@@ -37,7 +39,7 @@ export class BeansWatcher extends EventEmitter {
   }
 
   /** Reconciles the watched project set, adding/removing `.beans` paths as needed. */
-  setProjects(next: Project[]): void {
+  setProjects(next: ProjectRecord[]): void {
     const nextPaths = new Set(next.map(beansDir));
     const currentPaths = new Set(this.projects.map(beansDir));
     const toAdd = [...nextPaths].filter((p) => !currentPaths.has(p));

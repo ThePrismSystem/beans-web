@@ -1,5 +1,12 @@
+import { execFile } from "node:child_process";
 import { describe, expect, it, vi } from "vitest";
-import { buildBeansArgs, BeansError, parseBeansResult, runBeansGraphql } from "./executor.js";
+import {
+  BEANS_EXEC_TIMEOUT_MS,
+  buildBeansArgs,
+  BeansError,
+  parseBeansResult,
+  runBeansGraphql,
+} from "./executor.js";
 
 type ExecFileCallback = (
   error: (Error & { stderr?: string; stdout?: string }) | null,
@@ -21,7 +28,21 @@ vi.mock("node:child_process", () => ({
 describe("buildBeansArgs", () => {
   it("passes config, json flag, and query as separate argv entries (no shell)", () => {
     const args = buildBeansArgs({ configPath: "/x/.beans.yml", query: "{ beans { id } }" });
-    expect(args).toEqual(["graphql", "--json", "--config", "/x/.beans.yml", "{ beans { id } }"]);
+    expect(args).toEqual([
+      "graphql",
+      "--json",
+      "--config",
+      "/x/.beans.yml",
+      "--",
+      "{ beans { id } }",
+    ]);
+  });
+  it("keeps a flag-shaped query positional so it cannot be parsed as a beans flag", () => {
+    const args = buildBeansArgs({ configPath: "/x/.beans.yml", query: "--beans-path=/etc" });
+    const sep = args.indexOf("--");
+    expect(sep).toBeGreaterThan(-1);
+    expect(args[sep + 1]).toBe("--beans-path=/etc");
+    expect(args[args.length - 1]).toBe("--beans-path=/etc");
   });
   it("adds -v when variables are provided", () => {
     const args = buildBeansArgs({
@@ -52,5 +73,17 @@ describe("runBeansGraphql", () => {
 
     if (!(err instanceof BeansError)) throw new Error("expected a BeansError");
     expect(err.message).toBe("real error message");
+  });
+
+  it("passes a timeout and SIGKILL so a hung beans child is reaped", async () => {
+    await runBeansGraphql({ configPath: "/x/.beans.yml", query: "{ beans { id } }" }).catch(
+      () => {},
+    );
+    const options = vi.mocked(execFile).mock.calls.at(-1)?.[2] as {
+      timeout?: number;
+      killSignal?: string;
+    };
+    expect(options.timeout).toBe(BEANS_EXEC_TIMEOUT_MS);
+    expect(options.killSignal).toBe("SIGKILL");
   });
 });

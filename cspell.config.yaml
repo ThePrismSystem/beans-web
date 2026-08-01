@@ -67,11 +67,15 @@ words:
   - samebase
   - dedups
   - realpath
+  - nosniff
+  - clickjacking
 ignorePaths:
   - node_modules
   - dist
   # Untracked, per-contributor working notes; not part of the published docs.
   - docs/superpowers
+  # Untracked security audit reports; local working artifacts, not published.
+  - security
   - build
   - coverage
   - pnpm-lock.yaml

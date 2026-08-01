@@ -1,17 +1,20 @@
 import { EventEmitter } from "node:events";
 import { Hono } from "hono";
-import type { Analytics, Project, SearchResult } from "@beans-frontend/shared";
+import { secureHeaders } from "hono/secure-headers";
+import type { Analytics, SearchResult } from "@beans-frontend/shared";
 
+import type { ProjectRecord } from "./discovery/scan.js";
 import { registerAnalytics } from "./routes/analytics.js";
 import { registerEvents } from "./routes/events.js";
 import { registerGraphql } from "./routes/graphql.js";
 import { registerProjects } from "./routes/projects.js";
 import { registerSearch } from "./routes/search.js";
+import { registerSecurity } from "./routes/security.js";
 
 export interface AppDeps {
   roots: string[];
   scanDepth: number;
-  listProjects(): Promise<Project[]>;
+  listProjects(): Promise<ProjectRecord[]>;
   runGraphql(
     configPath: string,
     query: string,
@@ -24,6 +27,23 @@ export interface AppDeps {
 
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
+  // All assets are self-hosted (vite bundles JS/CSS; no CDNs), so a self-only
+  // policy holds. `'unsafe-inline'` on style-src covers React/Recharts inline
+  // styles; `frame-ancestors 'none'` blocks clickjacking of the local UI.
+  app.use(
+    "*",
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+      },
+    }),
+  );
+  registerSecurity(app);
   registerProjects(app, deps);
   registerGraphql(app, deps);
   registerSearch(app, deps);
