@@ -10,21 +10,25 @@
   /* Light muted darkened from #8a857b (3.19:1) to meet WCAG AA (~4.6:1). */
   --muted: light-dark(#6f6a60, #9a948a);
 
-  --accent: #9a6b1f;
+  /* Per-theme so both meet WCAG AA: light darkened from #9a6b1f (3.20:1 on
+     --paper), dark lightened from #9a6b1f (2.57:1 on dark --paper). */
+  --accent: light-dark(#7b5619, #ba9a67);
   /* Text color for controls with a saturated background fill (e.g. the
      inline-edit save button) — same in both themes, unlike --ink. */
   --on-accent: #fff;
-  --t-milestone: #5a4a8a;
-  --t-epic: #9a6b1f;
-  --t-feature: #3f6b5f;
-  --t-task: #7a7f88;
-  --t-bug: #a5452f;
+  /* Type hues, per-theme for WCAG AA on --paper in both light and dark. */
+  --t-milestone: light-dark(#5a4a8a, #a39abd);
+  --t-epic: light-dark(#7b5619, #ba9a67);
+  --t-feature: light-dark(#3f6b5f, #8aa59d);
+  --t-task: light-dark(#696d75, #9b9fa6);
+  --t-bug: light-dark(#a5452f, #ca9184);
 
   --s-draft: light-dark(#b4ada0, #8c867a);
   --s-todo: light-dark(#4a6fa5, #7fa2d4);
   --s-in-progress: light-dark(#c9992f, #d9ac4f);
   --s-completed: light-dark(#4c8a4c, #6fae6f);
-  --s-scrapped: light-dark(#8f6b63, #b08a80);
+  /* Light scrapped darkened from #8f6b63 (4.10:1) to meet WCAG AA. */
+  --s-scrapped: light-dark(#86655d, #b08a80);
 
   /* Orphaned-bean warning. Light #9a3f12 on --paper ≈ 5.92:1; dark #e0906a on
      --paper ≈ 6.40:1 — both meet WCAG AA. */
