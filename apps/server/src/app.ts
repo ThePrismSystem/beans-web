@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { Hono } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 import type { Analytics, SearchResult } from "@beans-frontend/shared";
 
 import type { ProjectRecord } from "./discovery/scan.js";
@@ -25,6 +26,22 @@ export interface AppDeps {
 
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
+  // All assets are self-hosted (vite bundles JS/CSS; no CDNs), so a self-only
+  // policy holds. `'unsafe-inline'` on style-src covers React/Recharts inline
+  // styles; `frame-ancestors 'none'` blocks clickjacking of the local UI.
+  app.use(
+    "*",
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+      },
+    }),
+  );
   registerProjects(app, deps);
   registerGraphql(app, deps);
   registerSearch(app, deps);
