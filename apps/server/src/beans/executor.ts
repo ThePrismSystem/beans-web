@@ -4,6 +4,13 @@ import { env } from "../env.js";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Hard ceiling on a single `beans` invocation. Without it a child that blocks
+ * (e.g. one left waiting on stdin) would never be reaped, tying up a process
+ * slot indefinitely; on timeout the child is killed and the call rejects.
+ */
+export const BEANS_EXEC_TIMEOUT_MS = 15_000;
+
 export class BeansError extends Error {
   constructor(
     message: string,
@@ -24,7 +31,10 @@ export interface RunOpts {
 export function buildBeansArgs(opts: RunOpts): string[] {
   const args = ["graphql", "--json", "--config", opts.configPath];
   if (opts.variables) args.push("-v", JSON.stringify(opts.variables));
-  args.push(opts.query);
+  // "--" ends beans' option parsing: everything after it is a positional, so a
+  // query that starts with "-" (e.g. "--beans-path=/etc") can never be
+  // reinterpreted as a beans flag and used to escape the configured jail.
+  args.push("--", opts.query);
   return args;
 }
 
@@ -55,6 +65,8 @@ export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
   try {
     const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
       maxBuffer: 32 * 1024 * 1024,
+      timeout: BEANS_EXEC_TIMEOUT_MS,
+      killSignal: "SIGKILL",
     });
     return parseBeansResult(stdout);
   } catch (err) {
