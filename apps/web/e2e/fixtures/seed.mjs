@@ -34,7 +34,21 @@ export function seedGitRoot() {
     stdio: "inherit",
   });
 
-  const state = { root, projectDir, projectName: PROJECT_NAME, taskTitle, featureTitle };
+  // A second project with no beans, so the E2E suite can exercise empty-state UI.
+  const emptyProjectName = "e2e-empty";
+  const emptyProjectDir = join(root, emptyProjectName);
+  mkdirSync(emptyProjectDir, { recursive: true });
+  execFileSync("beans", ["init"], { cwd: emptyProjectDir, stdio: "inherit" });
+
+  const state = {
+    root,
+    projectDir,
+    projectName: PROJECT_NAME,
+    taskTitle,
+    featureTitle,
+    emptyProjectName,
+    emptyProjectDir,
+  };
   writeFileSync(STATE_FILE, JSON.stringify(state));
   return state;
 }

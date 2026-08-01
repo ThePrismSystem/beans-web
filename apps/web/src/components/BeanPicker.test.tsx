@@ -228,6 +228,42 @@ describe("BeanPicker", () => {
     expect(await screen.findByLabelText("Search beans")).toHaveFocus();
   });
 
+  it("restores focus to the opener when it closes", async () => {
+    const props: BeanPickerProps = {
+      open: false,
+      title: "Set parent",
+      candidates,
+      mode: "single",
+      onPick: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(
+      <>
+        <button type="button">opener</button>
+        <BeanPicker {...props} />
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "opener" });
+    opener.focus();
+    expect(opener).toHaveFocus();
+
+    rerender(
+      <>
+        <button type="button">opener</button>
+        <BeanPicker {...props} open={true} />
+      </>,
+    );
+    expect(await screen.findByLabelText("Search beans")).toHaveFocus();
+
+    rerender(
+      <>
+        <button type="button">opener</button>
+        <BeanPicker {...props} open={false} />
+      </>,
+    );
+    expect(opener).toHaveFocus();
+  });
+
   it("traps Tab focus within the dialog", async () => {
     const user = userEvent.setup();
     render(

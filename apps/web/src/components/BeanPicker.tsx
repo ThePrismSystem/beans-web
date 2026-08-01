@@ -66,9 +66,16 @@ export function BeanPicker({
   }, [open, onClose]);
 
   // Move focus into the dialog when it opens, so keyboard users don't have
-  // to tab in from wherever focus happened to be on the page behind it.
+  // to tab in from wherever focus happened to be on the page behind it — and
+  // restore focus to whatever opened it when it closes (WCAG 2.4.3).
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (open) searchRef.current?.focus();
+    if (open) {
+      restoreFocusRef.current = document.activeElement as HTMLElement | null;
+      searchRef.current?.focus();
+    } else {
+      restoreFocusRef.current?.focus();
+    }
   }, [open]);
 
   // Lock background scrolling while the picker sheet is open so dragging

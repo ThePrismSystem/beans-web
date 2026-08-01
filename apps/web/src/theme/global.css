@@ -718,6 +718,9 @@ a {
 }
 
 .bean-detail-delete {
+  /* Explicit surface so dark mode doesn't fall back to the UA button gray,
+     against which --s-scrapped text fails WCAG AA contrast. */
+  background: transparent;
   color: var(--s-scrapped);
   border-color: var(--s-scrapped);
 }
