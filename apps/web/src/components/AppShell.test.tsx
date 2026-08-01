@@ -27,6 +27,7 @@ vi.mock("../hooks/useSearch.js", () => ({
 const project: Project = {
   name: "handbellhub",
   path: "/g/handbellhub",
+  root: "/g",
   prefix: "hh-",
   counts: {
     total: 10,

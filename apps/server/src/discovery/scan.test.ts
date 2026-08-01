@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
 
@@ -174,7 +174,7 @@ describe("discoverProjects ordering", () => {
       mk("mid");
       mk("alpha");
 
-      const projects = await discoverProjects(testRoot, 2);
+      const projects = await discoverProjects([testRoot], 2);
       const names = projects.map((p) => p.name);
 
       // Verify the exact sorted order - even though readdir was mocked to return zeta, mid, alpha
@@ -186,7 +186,7 @@ describe("discoverProjects ordering", () => {
     }
   });
 
-  it("tiebreaks by path when two projects share the same basename", async () => {
+  it("disambiguates same-name, same-root projects with a numeric suffix, deterministically", async () => {
     // Mock runBeansGraphql to avoid needing beans CLI
     const executor = await import("../beans/executor.js");
     const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
@@ -197,19 +197,128 @@ describe("discoverProjects ordering", () => {
         mkdirSync(join(testRoot, rel), { recursive: true });
         writeFileSync(join(testRoot, rel, ".beans.yml"), "beans:\n  prefix: x-\n");
       };
-      // Both projects are named "shared"; the mocked readdir above resolves
-      // "parent-two/shared" before "parent-one/shared", so discovery order
-      // alone is non-alphabetical. Only the `path` tiebreak can make the
-      // output deterministic.
+      // Both projects are named "shared" under the same root, so the
+      // root-basename prefix is identical for both and cannot disambiguate
+      // them on its own — this exercises the numeric-suffix fallback. The
+      // mocked readdir above resolves "parent-two/shared" before
+      // "parent-one/shared", so discovery order alone is non-alphabetical;
+      // only a path-based tiebreak inside the fallback keeps the numbering
+      // deterministic.
       mk("parent-one/shared");
       mk("parent-two/shared");
 
-      const projects = await discoverProjects(testRoot, 2);
-      const paths = projects.map((p) => p.path.replace(testRoot + "/", ""));
+      const projects = await discoverProjects([testRoot], 2);
+      const rootName = basename(testRoot);
+      const byName = new Map(projects.map((p) => [p.name, p.path.replace(testRoot + "/", "")]));
 
-      expect(paths).toEqual(["parent-one/shared", "parent-two/shared"]);
+      expect(projects.map((p) => p.name).sort()).toEqual([
+        `${rootName}-shared`,
+        `${rootName}-shared-2`,
+      ]);
+      expect(byName.get(`${rootName}-shared`)).toBe("parent-one/shared");
+      expect(byName.get(`${rootName}-shared-2`)).toBe("parent-two/shared");
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+});
+
+describe("discoverProjects multi-root", () => {
+  it("discovers projects across two independent roots, tagging each with its owning root", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const rootA = mkdtempSync(join(tmpdir(), "scan-multi-a-"));
+    const rootB = mkdtempSync(join(tmpdir(), "scan-multi-b-"));
+    try {
+      mkdirSync(join(rootA, "proj-a"), { recursive: true });
+      writeFileSync(join(rootA, "proj-a", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(rootB, "proj-b"), { recursive: true });
+      writeFileSync(join(rootB, "proj-b", ".beans.yml"), "beans:\n  prefix: y-\n");
+
+      const projects = await discoverProjects([rootA, rootB], 2);
+      const byName = new Map(projects.map((p) => [p.name, p]));
+
+      expect(byName.get("proj-a")?.root).toBe(resolve(rootA));
+      expect(byName.get("proj-b")?.root).toBe(resolve(rootB));
+    } finally {
+      rmSync(rootA, { recursive: true, force: true });
+      rmSync(rootB, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("disambiguates same-name projects discovered under different roots", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const rootA = mkdtempSync(join(tmpdir(), "scan-collide-a-"));
+    const rootB = mkdtempSync(join(tmpdir(), "scan-collide-b-"));
+    try {
+      mkdirSync(join(rootA, "frontend"), { recursive: true });
+      writeFileSync(join(rootA, "frontend", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(rootB, "frontend"), { recursive: true });
+      writeFileSync(join(rootB, "frontend", ".beans.yml"), "beans:\n  prefix: y-\n");
+
+      const projects = await discoverProjects([rootA, rootB], 2);
+      const names = projects.map((p) => p.name).sort();
+
+      expect(names).toEqual([`${basename(rootA)}-frontend`, `${basename(rootB)}-frontend`]);
+    } finally {
+      rmSync(rootA, { recursive: true, force: true });
+      rmSync(rootB, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("dedupes a project found via two overlapping root entries", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const projects = await discoverProjects([root, root], 4);
+
+    expect(projects.map((p) => p.name).sort()).toEqual(["proj-a", "sub-b"]);
+    graphqlMock.mockRestore();
+  });
+
+  it("dedupes a project found via a root nested inside another configured root", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const projects = await discoverProjects([root, join(root, "mono")], 4);
+
+    expect(projects.map((p) => p.name).sort()).toEqual(["proj-a", "sub-b"]);
+    graphqlMock.mockRestore();
+  });
+
+  it("disambiguates a renamed project that would otherwise collide with an untouched project's original name", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const parent = mkdtempSync(join(tmpdir(), "scan-collide2-"));
+    const rootWork = join(parent, "work");
+    const rootPersonal = join(parent, "personal");
+    mkdirSync(rootWork, { recursive: true });
+    mkdirSync(rootPersonal, { recursive: true });
+    try {
+      mkdirSync(join(rootWork, "api"), { recursive: true });
+      writeFileSync(join(rootWork, "api", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(rootPersonal, "api"), { recursive: true });
+      writeFileSync(join(rootPersonal, "api", ".beans.yml"), "beans:\n  prefix: y-\n");
+      mkdirSync(join(rootPersonal, "work-api"), { recursive: true });
+      writeFileSync(join(rootPersonal, "work-api", ".beans.yml"), "beans:\n  prefix: z-\n");
+
+      const projects = await discoverProjects([rootWork, rootPersonal], 2);
+      const names = projects.map((p) => p.name);
+
+      // All three names must be distinct — in particular, the "api" project
+      // under rootWork must not silently collide with the untouched
+      // "work-api" project once qualified with rootWork's basename ("work").
+      expect(new Set(names).size).toBe(3);
+      expect(names).toContain("work-api");
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
       graphqlMock.mockRestore();
     }
   });
@@ -226,7 +335,7 @@ describe("discoverProjects counts", () => {
     });
 
     try {
-      const projects = await discoverProjects(root, 4);
+      const projects = await discoverProjects([root], 4);
       const projA = projects.find((p) => p.name === "proj-a");
       if (!projA) throw new Error("expected proj-a to be discovered");
 

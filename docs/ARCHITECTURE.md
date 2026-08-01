@@ -17,9 +17,12 @@
 ## The server: thin passthrough + discovery + aggregation + SSE
 
 The server holds no bean data itself. On startup and on each `/api/projects` request, it walks
-`GIT_ROOT` (`apps/server/src/discovery/scan.ts`) up to `SCAN_DEPTH` levels looking for
-directories containing a `.beans.yml`; each one becomes a `Project` (name, path, prefix, and
-counts by type/status, read via `beans`).
+every configured `GIT_ROOT` entry (`apps/server/src/discovery/scan.ts`) up to `SCAN_DEPTH`
+levels looking for directories containing a `.beans.yml`; each one becomes a `Project` (name,
+path, the specific root it was found under, prefix, and counts by type/status, read via
+`beans`). Projects found under different roots (or nested/overlapping roots) are deduped by
+resolved path; same-name collisions are resolved by qualifying the name with the owning root's
+basename, falling back to a numeric suffix if that still collides.
 
 Per-project GraphQL traffic is a **passthrough**: `POST /api/projects/:name/graphql` resolves the
 project's `.beans.yml`, then spawns `beans graphql --json --config <path> <query>`
@@ -47,13 +50,15 @@ manual refresh.
 
 ## The `GIT_ROOT` path jail
 
-`GIT_ROOT` is the only directory tree the server is allowed to touch. Every project path used to
-build a `--config` argument or serve a file is passed through `assertWithinRoot(root, candidate)`
-(`apps/server/src/discovery/scan.ts`), which resolves both paths and rejects anything whose
-relative path from `root` starts with `..` — i.e. anything outside `GIT_ROOT`, including via
-symlink traversal or a crafted `:name` route param. This keeps the server unable to read or
-execute `beans` against arbitrary filesystem paths even if a project name or path were attacker
-controlled.
+The configured `GIT_ROOT` directories are the only trees the server is allowed to touch. Every
+project path used to build a `--config` argument or serve a file is passed through
+`assertWithinRoot(root, candidate)` (`apps/server/src/discovery/scan.ts`), which resolves both
+paths and rejects anything whose relative path from `root` starts with `..` — i.e. anything
+outside that root, including via symlink traversal or a crafted `:name` route param. Each
+project validates against the specific root it was discovered under (`Project.root`, set once at
+discovery), not against "any configured root" — strictly more precise than a single shared root
+check. This keeps the server unable to read or execute `beans` against arbitrary filesystem
+paths even if a project name or path were attacker controlled.
 
 ## The web app: an SPA typed from the `beans` schema
 

@@ -55,16 +55,17 @@ pnpm install
 
 Copy `.env.example` to `.env` (or export the variables directly) and adjust as needed:
 
-| Variable     | Default     | Description                                                                   |
-| ------------ | ----------- | ----------------------------------------------------------------------------- |
-| `GIT_ROOT`   | `~/git`     | Root directory scanned for `beans` projects (any dir with a `.beans.yml`).    |
-| `SCAN_DEPTH` | `1`         | Max recursion depth (1–8) when scanning `GIT_ROOT` for projects.              |
-| `PORT`       | `4780`      | Port the server listens on.                                                   |
-| `HOST`       | `127.0.0.1` | Bind address — keep this loopback unless you intend to expose it on a LAN.    |
-| `BEANS_BIN`  | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`. |
+| Variable     | Default     | Description                                                                                  |
+| ------------ | ----------- | -------------------------------------------------------------------------------------------- |
+| `GIT_ROOT`   | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`). |
+| `SCAN_DEPTH` | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                  |
+| `PORT`       | `4780`      | Port the server listens on.                                                                  |
+| `HOST`       | `127.0.0.1` | Bind address — keep this loopback unless you intend to expose it on a LAN.                   |
+| `BEANS_BIN`  | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                |
 
-The server never reads or writes outside `GIT_ROOT` — every resolved project path is checked
-against it before use (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#the-git_root-path-jail)).
+The server never reads or writes outside a project's own configured root — every resolved
+project path is checked against the specific root it was discovered under before use (see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#the-git_root-path-jail)).
 
 ## Development
 
@@ -91,7 +92,7 @@ This runs `pnpm --filter @beans-frontend/web build` followed by
 `node` — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-tsx-in-production) for why.
 
 ```bash
-GIT_ROOT=/path/to/your/git/projects PORT=4780 pnpm start
+GIT_ROOT=/path/to/your/git/projects,/path/to/other/projects PORT=4780 pnpm start
 ```
 
 Then visit `http://127.0.0.1:4780`.

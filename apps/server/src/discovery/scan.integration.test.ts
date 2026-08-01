@@ -24,7 +24,7 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("discoverProjects (real binary)", () => {
   it("finds the seeded project with non-zero counts", async () => {
-    const projects = await discoverProjects(root, 4);
+    const projects = await discoverProjects([root], 4);
     const project = projects.find((p) => p.name === "proj-a");
     expect(project?.path).toBe(projectDir);
     expect(project?.prefix.length).toBeGreaterThan(0);
@@ -35,7 +35,7 @@ describe("discoverProjects (real binary)", () => {
   });
 
   it("zeroes counts and flags the error (does not crash) for a project whose beans query fails", async () => {
-    const projects = await discoverProjects(root, 4);
+    const projects = await discoverProjects([root], 4);
     const broken = projects.find((p) => p.name === "proj-broken");
     expect(broken?.path).toBe(brokenDir);
     expect(broken?.prefix).toBe("");

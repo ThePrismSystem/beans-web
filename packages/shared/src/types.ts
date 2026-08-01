@@ -41,6 +41,7 @@ export interface ProjectCounts {
 export interface Project {
   name: string;
   path: string;
+  root: string;
   prefix: string;
   counts: ProjectCounts;
 }

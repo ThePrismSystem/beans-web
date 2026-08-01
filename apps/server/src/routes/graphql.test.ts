@@ -9,7 +9,7 @@ const project = fakeProject("proj-a");
 
 function deps(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
-    root: "/root",
+    roots: ["/root"],
     scanDepth: 4,
     listProjects: vi.fn(async () => [project]),
     runGraphql: vi.fn(async () => ({ beans: [{ id: "x-1" }] })),
@@ -89,5 +89,16 @@ describe("POST /api/projects/:name/graphql", () => {
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(500);
+  });
+
+  it("returns 404 when the resolved project's root isn't one of the configured roots", async () => {
+    const rogueProject = { ...project, root: "/somewhere/else" };
+    const app = createApp(deps({ listProjects: vi.fn(async () => [rogueProject]) }));
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+    expect(res.status).toBe(404);
   });
 });
