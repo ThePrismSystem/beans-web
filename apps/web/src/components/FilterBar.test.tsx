@@ -6,6 +6,8 @@ import { FilterBar } from "./FilterBar.js";
 
 import { EMPTY_BEAN_FILTER } from "../lib/filter.js";
 
+import type { BeanFilterInput } from "../lib/filter.js";
+
 const props = { filter: EMPTY_BEAN_FILTER, prefixOptions: ["hhroot", "romn"], onChange: vi.fn() };
 
 describe("FilterBar", () => {
@@ -39,6 +41,17 @@ describe("FilterBar", () => {
     render(<FilterBar {...props} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Tags"), { target: { value: "a, b" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_BEAN_FILTER, tags: ["a", "b"] });
+  });
+
+  it("shows the active filter count in the toggle label", () => {
+    const filtered: BeanFilterInput = { ...EMPTY_BEAN_FILTER, type: ["epic"], status: ["todo"] };
+    render(<FilterBar {...props} filter={filtered} />);
+    expect(screen.getByRole("button", { name: "Filters (2)" })).toBeInTheDocument();
+  });
+
+  it("omits the count from the toggle label when no filters are active", () => {
+    render(<FilterBar {...props} />);
+    expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
   });
 
   it("opens the advanced filters panel when the toggle is clicked", async () => {
