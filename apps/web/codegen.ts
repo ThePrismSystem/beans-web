@@ -6,7 +6,7 @@ const config: CodegenConfig = {
   ignoreNoDocuments: true,
   generates: {
     "src/api/generated.ts": {
-      plugins: ["typescript", "typescript-operations"],
+      plugins: ["typescript-operations"],
       config: { scalars: { Time: "string", ID: "string" }, avoidOptionals: true },
     },
   },
