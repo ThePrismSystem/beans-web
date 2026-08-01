@@ -756,15 +756,110 @@ git commit -m "feat(server): validate project paths against their own root"
 
 ---
 
-### Task 5: Update docs and run the full gate suite
+### Task 5: Fix apps/web test fixtures, update docs, run the full gate suite
 
 **Files:**
+- Modify: `apps/web/src/components/AppShell.test.tsx`
+- Modify: `apps/web/src/components/Sidebar.test.tsx`
+- Modify: `apps/web/src/hooks/useProjects.test.tsx`
+- Modify: `apps/web/src/routes/overview.test.tsx`
 - Modify: `README.md`
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `.env.example`
 
 **Interfaces:**
-- Consumes: nothing new — this task only updates prose to match Tasks 1-4's behavior.
+- Consumes: `Project.root: string` (Task 1) — this task's first step closes a gap Task 1 exposed but couldn't see: `pnpm -r typecheck` stops at the first failing package, so `apps/web` errors from the new required field only surface once Task 4 makes `apps/server` typecheck clean.
+
+- [ ] **Step 0: Add the required `root` field to four `apps/web` test fixtures**
+
+Task 1 added `root: string` as a **required** field to the shared `Project` type. Four `apps/web` test files construct `Project` literals inline (not via a shared fixture) and are now missing that field — invisible until Task 4 made every `apps/server` type error disappear, since `pnpm -r typecheck` runs packages in dependency order and stops at the first failure. All four literals share the same shape (`path: "/g/handbellhub"`); add `root: "/g",` immediately after the `path` line in each.
+
+In `apps/web/src/components/AppShell.test.tsx`, change:
+
+```typescript
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  prefix: "hh-",
+```
+
+to:
+
+```typescript
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  root: "/g",
+  prefix: "hh-",
+```
+
+In `apps/web/src/components/Sidebar.test.tsx`, change:
+
+```typescript
+  {
+    name: "handbellhub",
+    path: "/g/handbellhub",
+    prefix: "hh-",
+```
+
+to:
+
+```typescript
+  {
+    name: "handbellhub",
+    path: "/g/handbellhub",
+    root: "/g",
+    prefix: "hh-",
+```
+
+In `apps/web/src/hooks/useProjects.test.tsx`, change:
+
+```typescript
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  prefix: "hh-",
+```
+
+to:
+
+```typescript
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  root: "/g",
+  prefix: "hh-",
+```
+
+In `apps/web/src/routes/overview.test.tsx`, change:
+
+```typescript
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  prefix: "hh-",
+```
+
+to:
+
+```typescript
+const project: Project = {
+  name: "handbellhub",
+  path: "/g/handbellhub",
+  root: "/g",
+  prefix: "hh-",
+```
+
+Run: `pnpm --filter @beans-frontend/web typecheck && pnpm --filter @beans-frontend/web test`
+Expected: PASS (the four `TS2741: Property 'root' is missing` errors are gone; existing web tests are otherwise unaffected — this field isn't rendered or asserted on anywhere in `apps/web`)
+
+Commit this fix on its own, separate from the docs commit below:
+
+```bash
+git add apps/web/src/components/AppShell.test.tsx apps/web/src/components/Sidebar.test.tsx \
+  apps/web/src/hooks/useProjects.test.tsx apps/web/src/routes/overview.test.tsx
+git commit -m "test(web): add root field to Project test fixtures"
+```
 
 - [ ] **Step 1: Update `.env.example`**
 
