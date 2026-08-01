@@ -16,6 +16,7 @@ export function fakeProject(name: string): Project {
   return {
     name,
     path: `/root/${name}`,
+    root: "/root",
     prefix: "x-",
     counts: fakeCounts(),
   };
