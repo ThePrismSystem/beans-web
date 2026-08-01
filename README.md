@@ -209,11 +209,11 @@ pnpm -r knip                         # unused files/exports/dependencies
 pnpm spell                           # cspell
 ```
 
-End-to-end tests (Playwright) live in `apps/web/e2e`:
+End-to-end tests (Playwright) live in `apps/web/e2e`. The harness builds the web app and
+starts the production server against a seeded temp root, so a single command runs them:
 
 ```bash
-pnpm --filter @beans-frontend/web build
-pnpm --filter @beans-frontend/web exec playwright test
+pnpm --filter @beans-frontend/web e2e
 ```
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more detail on the development workflow.
@@ -226,4 +226,10 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more detail on the development work
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © ThePrismSystem.
+
+This project bundles the [`beans`](https://github.com/hmans/beans) CLI, which is licensed
+under Apache-2.0; its license ships inside the Docker image at
+`/usr/local/share/licenses/beans/LICENSE`.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for release history.
