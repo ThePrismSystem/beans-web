@@ -12,6 +12,7 @@ const projects: Project[] = [
   {
     name: "handbellhub",
     path: "/g/handbellhub",
+    root: "/g",
     prefix: "hh-",
     counts: {
       total: 10,
