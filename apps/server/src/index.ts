@@ -35,7 +35,7 @@ const projects = await listProjects();
 const watcher = new BeansWatcher(projects);
 
 const app = createApp({
-  root: env.GIT_ROOT,
+  roots: env.GIT_ROOT,
   scanDepth: env.SCAN_DEPTH,
   listProjects,
   runGraphql: run,
@@ -48,7 +48,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 if (env.NODE_ENV === "production") registerStatic(app, resolve(here, "../../web/dist"));
 
 // touch assertWithinRoot so the jail is exercised at startup for each project
-for (const p of projects) assertWithinRoot(env.GIT_ROOT, p.path);
+for (const p of projects) assertWithinRoot(p.root, p.path);
 
 const refresh = setInterval(() => {
   void (async () => {

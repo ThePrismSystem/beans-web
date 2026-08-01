@@ -22,11 +22,11 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 describe("server integration", () => {
   const run = (cfg: string, q: string, v?: Record<string, unknown>) =>
     runBeansGraphql({ configPath: cfg, query: q, variables: v });
-  const listProjects = () => discoverProjects(root, 4);
+  const listProjects = () => discoverProjects([root], 4);
 
   it("lists the discovered project", async () => {
     const app = createApp({
-      root,
+      roots: [root],
       scanDepth: 4,
       listProjects,
       runGraphql: run,
@@ -41,7 +41,7 @@ describe("server integration", () => {
 
   it("passes a query through to the project", async () => {
     const app = createApp({
-      root,
+      roots: [root],
       scanDepth: 4,
       listProjects,
       runGraphql: run,

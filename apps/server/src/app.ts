@@ -9,7 +9,7 @@ import { registerProjects } from "./routes/projects.js";
 import { registerSearch } from "./routes/search.js";
 
 export interface AppDeps {
-  root: string;
+  roots: string[];
   scanDepth: number;
   listProjects(): Promise<Project[]>;
   runGraphql(

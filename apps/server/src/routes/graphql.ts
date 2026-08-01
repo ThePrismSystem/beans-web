@@ -24,7 +24,7 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
       );
     }
 
-    const configPath = join(assertWithinRoot(deps.root, project.path), ".beans.yml");
+    const configPath = join(assertWithinRoot(project.root, project.path), ".beans.yml");
     try {
       const data = await deps.runGraphql(configPath, parsed.data.query, parsed.data.variables);
       return c.json({ data });

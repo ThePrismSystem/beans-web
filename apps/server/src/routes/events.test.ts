@@ -37,7 +37,7 @@ const project = fakeProject("proj-a");
 
 function deps(watcher: EventEmitter, overrides: Partial<AppDeps> = {}): AppDeps {
   return {
-    root: "/root",
+    roots: ["/root"],
     scanDepth: 4,
     listProjects: vi.fn(async () => [project]),
     runGraphql: vi.fn(async () => ({})),
