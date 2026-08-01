@@ -70,9 +70,11 @@ function dedupeByPath(projects: Project[]): Project[] {
 }
 
 // Resolves same-name collisions by qualifying each colliding project's name
-// with its owning root's basename, then — only when that still collides,
-// which happens when the colliding projects share the same owning root —
-// appending a numeric suffix in stable path order.
+// with its owning root's basename, then appending a numeric suffix if that
+// candidate is already taken — whether by another colliding project or by an
+// unrelated project whose original name happens to equal the candidate.
+// Every project ends up with a name unique across the whole result, so the
+// final sort below no longer needs a path-based tiebreak.
 function disambiguateNames(projects: Project[]): Project[] {
   const byName = new Map<string, Project[]>();
   for (const project of projects) {
@@ -81,26 +83,25 @@ function disambiguateNames(projects: Project[]): Project[] {
     else byName.set(project.name, [project]);
   }
 
+  const taken = new Set<string>();
+  const colliding: Project[] = [];
+  for (const [name, group] of byName) {
+    if (group.length === 1) taken.add(name);
+    else colliding.push(...group);
+  }
+  colliding.sort((a, b) => a.path.localeCompare(b.path));
+
   const renamed = new Map<Project, string>();
-  for (const group of byName.values()) {
-    if (group.length < 2) continue;
-    const byPrefixed = new Map<string, Project[]>();
-    for (const project of group) {
-      const prefixed = `${basename(project.root)}-${project.name}`;
-      const subgroup = byPrefixed.get(prefixed);
-      if (subgroup) subgroup.push(project);
-      else byPrefixed.set(prefixed, [project]);
+  for (const project of colliding) {
+    const base = `${basename(project.root)}-${project.name}`;
+    let candidate = base;
+    let suffix = 2;
+    while (taken.has(candidate)) {
+      candidate = `${base}-${suffix}`;
+      suffix += 1;
     }
-    for (const [prefixed, subgroup] of byPrefixed) {
-      if (subgroup.length === 1) {
-        renamed.set(subgroup[0]!, prefixed);
-        continue;
-      }
-      const ordered = [...subgroup].sort((a, b) => a.path.localeCompare(b.path));
-      ordered.forEach((project, i) => {
-        renamed.set(project, i === 0 ? prefixed : `${prefixed}-${i + 1}`);
-      });
-    }
+    taken.add(candidate);
+    renamed.set(project, candidate);
   }
 
   return projects.map((project) => {
@@ -150,9 +151,7 @@ export async function discoverProjects(roots: string[], maxDepth: number): Promi
 
   const deduped = dedupeByPath(perRoot.flat());
   const disambiguated = disambiguateNames(deduped);
-  // Stable, name-ordered output: the Overview ledger renders this list directly
-  // and is invalidated on every file change, so walk order would reshuffle it.
-  // The path tiebreak keeps same-named projects in different directories
-  // deterministic too, instead of falling back to walk/resolution order.
-  return disambiguated.sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
+  // disambiguateNames guarantees every project's name is unique, so a
+  // name-only sort is sufficient and deterministic — no path tiebreak needed.
+  return disambiguated.sort((a, b) => a.name.localeCompare(b.name));
 }

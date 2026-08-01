@@ -14,7 +14,9 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
   app.post("/api/projects/:name/graphql", async (c) => {
     const name = c.req.param("name");
     const project = (await deps.listProjects()).find((p) => p.name === name);
-    if (!project) return c.json({ errors: [{ message: `unknown project: ${name}` }] }, 404);
+    if (!project || !deps.roots.includes(project.root)) {
+      return c.json({ errors: [{ message: `unknown project: ${name}` }] }, 404);
+    }
 
     const parsed = bodySchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) {

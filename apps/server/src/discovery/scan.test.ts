@@ -291,6 +291,37 @@ describe("discoverProjects multi-root", () => {
     expect(projects.map((p) => p.name).sort()).toEqual(["proj-a", "sub-b"]);
     graphqlMock.mockRestore();
   });
+
+  it("disambiguates a renamed project that would otherwise collide with an untouched project's original name", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const parent = mkdtempSync(join(tmpdir(), "scan-collide2-"));
+    const rootWork = join(parent, "work");
+    const rootPersonal = join(parent, "personal");
+    mkdirSync(rootWork, { recursive: true });
+    mkdirSync(rootPersonal, { recursive: true });
+    try {
+      mkdirSync(join(rootWork, "api"), { recursive: true });
+      writeFileSync(join(rootWork, "api", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(rootPersonal, "api"), { recursive: true });
+      writeFileSync(join(rootPersonal, "api", ".beans.yml"), "beans:\n  prefix: y-\n");
+      mkdirSync(join(rootPersonal, "work-api"), { recursive: true });
+      writeFileSync(join(rootPersonal, "work-api", ".beans.yml"), "beans:\n  prefix: z-\n");
+
+      const projects = await discoverProjects([rootWork, rootPersonal], 2);
+      const names = projects.map((p) => p.name);
+
+      // All three names must be distinct — in particular, the "api" project
+      // under rootWork must not silently collide with the untouched
+      // "work-api" project once qualified with rootWork's basename ("work").
+      expect(new Set(names).size).toBe(3);
+      expect(names).toContain("work-api");
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
 });
 
 describe("discoverProjects counts", () => {
