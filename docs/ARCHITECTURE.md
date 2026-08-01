@@ -150,7 +150,8 @@ involved, and they are not interchangeable:
   these appear as three distinct entries under the repo's Flags tab (`shared` → `packages/shared`,
   `server` → `apps/server`, `web` → `apps/web`), and can be turned into Components for per-package
   status checks or badges. This mapping is configured entirely on the Codecov side (dashboard) and
-  via these `flags:` values — there is no `codecov.yml` in this repo.
+  via these `flags:` values. The repo's `codecov.yml` sets only the patch coverage target (90%);
+  the flag-to-path mapping itself lives in the Codecov dashboard.
 - **The README badge's token (`N7I7FNHSIO`)** is a different kind of token: a Codecov *graph
   token*, scoped only to fetching a badge SVG
   (`https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=...`), not to
