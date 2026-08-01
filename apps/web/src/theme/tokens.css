@@ -11,6 +11,9 @@
   --muted: light-dark(#6f6a60, #9a948a);
 
   --accent: #9a6b1f;
+  /* Text color for controls with a saturated background fill (e.g. the
+     inline-edit save button) — same in both themes, unlike --ink. */
+  --on-accent: #fff;
   --t-milestone: #5a4a8a;
   --t-epic: #9a6b1f;
   --t-feature: #3f6b5f;

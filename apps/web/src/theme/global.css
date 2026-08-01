@@ -685,7 +685,7 @@ a {
 .inline-edit-save {
   background: var(--s-completed);
   border-color: var(--s-completed);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .bean-detail-section {
