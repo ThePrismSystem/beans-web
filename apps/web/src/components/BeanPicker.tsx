@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-frontend/shared";
 
@@ -37,15 +37,40 @@ export function BeanPicker({
   const [statuses, setStatuses] = useState<BeanStatus[]>([...OPEN_STATUSES]);
   const [prefixes, setPrefixes] = useState<string[]>([]);
   const [checked, setChecked] = useState<string[]>([]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
+
+  // Move focus into the dialog when it opens, so keyboard users don't have
+  // to tab in from wherever focus happened to be on the page behind it.
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
+  }, [open]);
 
   // Lock background scrolling while the picker sheet is open so dragging
   // inside it doesn't also scroll the page behind the backdrop.
@@ -95,6 +120,7 @@ export function BeanPicker({
     <div className="picker-backdrop" onClick={onClose}>
       <div
         className="picker"
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -108,6 +134,7 @@ export function BeanPicker({
         </div>
         <input
           className="picker-search"
+          ref={searchRef}
           type="search"
           placeholder="Search beans…"
           aria-label="Search beans"

@@ -214,6 +214,48 @@ describe("BeanPicker", () => {
     expect(screen.getByLabelText("Select Epic one")).not.toBeChecked();
   });
 
+  it("moves focus into the dialog's search field when opened", async () => {
+    const props: BeanPickerProps = {
+      open: true,
+      title: "Set parent",
+      candidates,
+      mode: "single",
+      onPick: vi.fn(),
+      onClose: vi.fn(),
+    };
+    render(<BeanPicker {...props} />);
+
+    expect(await screen.findByLabelText("Search beans")).toHaveFocus();
+  });
+
+  it("traps Tab focus within the dialog", async () => {
+    const user = userEvent.setup();
+    render(
+      <BeanPicker
+        open
+        title="Set parent"
+        candidates={candidates}
+        mode="single"
+        onPick={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Set parent" });
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+
+    last.focus();
+    await user.tab();
+    expect(first).toHaveFocus();
+
+    first.focus();
+    await user.tab({ shift: true });
+    expect(last).toHaveFocus();
+  });
+
   it("locks body scroll while open", () => {
     const props: BeanPickerProps = {
       open: true,
