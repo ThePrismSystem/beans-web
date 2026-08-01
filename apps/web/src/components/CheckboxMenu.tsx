@@ -25,7 +25,7 @@ export function CheckboxMenu<T extends string>({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
-        triggerRef.current?.focus();
+        triggerRef.current!.focus();
       }
     }
     document.addEventListener("mousedown", onDoc);

@@ -256,6 +256,54 @@ describe("BeanPicker", () => {
     expect(last).toHaveFocus();
   });
 
+  it("does not wrap Tab when focus is not on the last focusable element", async () => {
+    const user = userEvent.setup();
+    render(
+      <BeanPicker
+        open
+        title="Set parent"
+        candidates={candidates}
+        mode="single"
+        onPick={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Set parent" });
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0]!;
+    const second = focusable[1]!;
+
+    first.focus();
+    await user.tab();
+    expect(second).toHaveFocus();
+  });
+
+  it("does not wrap Shift+Tab when focus is not on the first focusable element", async () => {
+    const user = userEvent.setup();
+    render(
+      <BeanPicker
+        open
+        title="Set parent"
+        candidates={candidates}
+        mode="single"
+        onPick={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Set parent" });
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const secondToLast = focusable[focusable.length - 2]!;
+    const last = focusable[focusable.length - 1]!;
+
+    last.focus();
+    await user.tab({ shift: true });
+    expect(secondToLast).toHaveFocus();
+  });
+
   it("locks body scroll while open", () => {
     const props: BeanPickerProps = {
       open: true,
