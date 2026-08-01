@@ -42,4 +42,20 @@ describe("CheckboxMenu", () => {
 
     expect(screen.queryByRole("group", { name: "Type" })).not.toBeInTheDocument();
   });
+
+  it("restores focus to the trigger when closed via Escape while focus was inside the list", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<CheckboxMenu label="Type" options={options} selected={["epic"]} onChange={onChange} />);
+    const trigger = screen.getByRole("button", { name: /Type/ });
+
+    await user.click(trigger);
+    // Move focus into the list — closing unmounts this checkbox, so without
+    // an explicit restore focus would fall back to <body>, not the trigger.
+    screen.getByLabelText("task").focus();
+
+    await user.keyboard("{Escape}");
+
+    expect(trigger).toHaveFocus();
+  });
 });
