@@ -55,36 +55,104 @@ function emptyCounts(): ProjectCounts {
   };
 }
 
-export async function discoverProjects(root: string, maxDepth: number): Promise<Project[]> {
-  const dirs = await findProjectDirs(root, maxDepth);
-  const projects = await mapWithConcurrency(dirs, BEANS_CONCURRENCY, async (dir) => {
-    const yml = await readFile(join(dir, ".beans.yml"), "utf8");
-    const counts = emptyCounts();
-    try {
-      const data = (await runBeansGraphql({
-        configPath: join(dir, ".beans.yml"),
-        query: "{ beans { type status } }",
-      })) as { beans: { type: BeanType; status: BeanStatus }[] };
-      for (const b of data.beans) {
-        counts.total += 1;
-        counts.byType[b.type] += 1;
-        counts.byStatus[b.status] += 1;
-        if (OPEN_STATUSES.includes(b.status)) {
-          counts.open += 1;
-          counts.openByType[b.type] += 1;
-        }
-      }
-    } catch (err) {
-      // Zeroed counts stay, but flag the failure so callers/UI can tell an
-      // errored project apart from a genuinely empty one.
-      counts.error = true;
-      console.error(`beans discovery failed for ${dir}:`, err);
+// Drops duplicate project directories that overlapping or nested configured
+// roots would otherwise discover twice. First occurrence (in root order) wins.
+function dedupeByPath(projects: Project[]): Project[] {
+  const seen = new Set<string>();
+  const result: Project[] = [];
+  for (const project of projects) {
+    const resolved = resolve(project.path);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    result.push(project);
+  }
+  return result;
+}
+
+// Resolves same-name collisions by qualifying each colliding project's name
+// with its owning root's basename, then — only when that still collides,
+// which happens when the colliding projects share the same owning root —
+// appending a numeric suffix in stable path order.
+function disambiguateNames(projects: Project[]): Project[] {
+  const byName = new Map<string, Project[]>();
+  for (const project of projects) {
+    const group = byName.get(project.name);
+    if (group) group.push(project);
+    else byName.set(project.name, [project]);
+  }
+
+  const renamed = new Map<Project, string>();
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    const byPrefixed = new Map<string, Project[]>();
+    for (const project of group) {
+      const prefixed = `${basename(project.root)}-${project.name}`;
+      const subgroup = byPrefixed.get(prefixed);
+      if (subgroup) subgroup.push(project);
+      else byPrefixed.set(prefixed, [project]);
     }
-    return { name: basename(dir), path: dir, prefix: parsePrefix(yml), counts };
+    for (const [prefixed, subgroup] of byPrefixed) {
+      if (subgroup.length === 1) {
+        renamed.set(subgroup[0]!, prefixed);
+        continue;
+      }
+      const ordered = [...subgroup].sort((a, b) => a.path.localeCompare(b.path));
+      ordered.forEach((project, i) => {
+        renamed.set(project, i === 0 ? prefixed : `${prefixed}-${i + 1}`);
+      });
+    }
+  }
+
+  return projects.map((project) => {
+    const name = renamed.get(project);
+    return name === undefined ? project : { ...project, name };
   });
+}
+
+export async function discoverProjects(roots: string[], maxDepth: number): Promise<Project[]> {
+  const perRoot = await Promise.all(
+    roots.map(async (root) => {
+      const resolvedRoot = resolve(root);
+      const dirs = await findProjectDirs(resolvedRoot, maxDepth);
+      return mapWithConcurrency(dirs, BEANS_CONCURRENCY, async (dir) => {
+        const yml = await readFile(join(dir, ".beans.yml"), "utf8");
+        const counts = emptyCounts();
+        try {
+          const data = (await runBeansGraphql({
+            configPath: join(dir, ".beans.yml"),
+            query: "{ beans { type status } }",
+          })) as { beans: { type: BeanType; status: BeanStatus }[] };
+          for (const b of data.beans) {
+            counts.total += 1;
+            counts.byType[b.type] += 1;
+            counts.byStatus[b.status] += 1;
+            if (OPEN_STATUSES.includes(b.status)) {
+              counts.open += 1;
+              counts.openByType[b.type] += 1;
+            }
+          }
+        } catch (err) {
+          // Zeroed counts stay, but flag the failure so callers/UI can tell an
+          // errored project apart from a genuinely empty one.
+          counts.error = true;
+          console.error(`beans discovery failed for ${dir}:`, err);
+        }
+        return {
+          name: basename(dir),
+          path: dir,
+          root: resolvedRoot,
+          prefix: parsePrefix(yml),
+          counts,
+        };
+      });
+    }),
+  );
+
+  const deduped = dedupeByPath(perRoot.flat());
+  const disambiguated = disambiguateNames(deduped);
   // Stable, name-ordered output: the Overview ledger renders this list directly
   // and is invalidated on every file change, so walk order would reshuffle it.
   // The path tiebreak keeps same-named projects in different directories
   // deterministic too, instead of falling back to walk/resolution order.
-  return projects.sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
+  return disambiguated.sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
 }
