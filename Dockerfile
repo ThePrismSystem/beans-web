@@ -6,7 +6,8 @@
 #   * It shells out to the `beans` Go CLI (github.com/hmans/beans) per project,
 #     so the binary must be on PATH inside the container (stage 1 builds it).
 #   * It has no database: it reads/writes the on-disk `.beans` files under
-#     GIT_ROOT, which must be bind-mounted read-write at runtime.
+#     GIT_ROOT (a comma-separated list of one or more paths), each of which
+#     must be bind-mounted read-write at runtime.
 #   * The server runs its TypeScript source directly via `tsx` (the shared
 #     package is consumed as raw TS), so the runtime image keeps the source +
 #     node_modules rather than a compiled JS bundle.
@@ -61,7 +62,8 @@ ENV NODE_ENV=production \
     SCAN_DEPTH=1 \
     BEANS_BIN=beans
 
-# GIT_ROOT is a bind mount supplied by the compose stack.
+# GIT_ROOT is a bind mount supplied by the compose stack. Add more mounts and
+# extend GIT_ROOT's comma-separated value to scan more than one root.
 VOLUME ["/projects"]
 EXPOSE 4780
 

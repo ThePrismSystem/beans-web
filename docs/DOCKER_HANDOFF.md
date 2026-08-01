@@ -16,8 +16,9 @@ deployment:
    image builds a static `beans` binary in a Go stage and puts it on `PATH`, so
    you don't need to install anything separately.
 2. **State lives on disk under `GIT_ROOT`.** The app reads *and writes* the
-   `.beans` files (creating, editing, scrapping beans). The projects directory
-   must be bind-mounted **read-write**.
+   `.beans` files (creating, editing, scrapping beans). `GIT_ROOT` accepts a
+   comma-separated list of paths — each one must be bind-mounted
+   **read-write**; a single mount is still the common case.
 3. **The server runs its TypeScript via `tsx`.** The image therefore ships the
    source + `node_modules` (not a compiled bundle). This makes the image larger
    than a typical Node service; that's expected.
@@ -46,8 +47,8 @@ compose as needed.
 
 | Var | Default (image) | Notes |
 |-----|-----------------|-------|
-| `GIT_ROOT` | `/projects` | Scan root **inside** the container. Point your bind mount here. |
-| `SCAN_DEPTH` | `1` | Each immediate subdirectory of `GIT_ROOT` containing a `.beans.yml` is one project. Increase only if your projects are nested deeper. |
+| `GIT_ROOT` | `/projects` | Comma-separated scan root(s) **inside** the container. Point your bind mount(s) here — mount each root at a distinct path and list them all, e.g. `/projects,/projects2`. |
+| `SCAN_DEPTH` | `1` | Each immediate subdirectory of every `GIT_ROOT` entry containing a `.beans.yml` is one project. Increase only if your projects are nested deeper. |
 | `HOST` | `0.0.0.0` | Must bind all interfaces inside the container (do **not** set to `127.0.0.1`). |
 | `PORT` | `4780` | Container listen port; this is the Traefik service port. |
 | `BEANS_BIN` | `beans` | Resolved from `PATH`; the baked-in static binary. |
@@ -133,8 +134,8 @@ docker rm -f beans-frontend
 ```
 
 If `/api/projects` returns `[]`, the mount path or `SCAN_DEPTH` is off: confirm
-`GIT_ROOT` points at the directory whose immediate subfolders contain
-`.beans.yml`.
+every `GIT_ROOT` entry points at a directory whose immediate subfolders
+contain `.beans.yml`.
 
 ## Notes / gotchas
 

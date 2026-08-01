@@ -155,6 +155,16 @@ describe("assertWithinRoot", () => {
   it("throws on traversal outside root", () => {
     expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(/outside/i);
   });
+  it("names the violated root in the error message", () => {
+    expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(
+      new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  });
+  it("accepts a directory whose name literally starts with ..", () => {
+    expect(assertWithinRoot(root, join(root, "..hidden-backup"))).toBe(
+      join(root, "..hidden-backup"),
+    );
+  });
 });
 
 describe("discoverProjects ordering", () => {
@@ -319,6 +329,38 @@ describe("discoverProjects multi-root", () => {
       expect(names).toContain("work-api");
     } finally {
       rmSync(parent, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("falls back to a numeric suffix for two distinct roots that share an identical basename", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    // Two different physical roots both happen to be named "src" — the
+    // root-basename qualifier alone ("src-shared") can't tell them apart,
+    // so this must fall through to the numeric-suffix tier.
+    const parentA = mkdtempSync(join(tmpdir(), "scan-samebase-a-"));
+    const parentB = mkdtempSync(join(tmpdir(), "scan-samebase-b-"));
+    const rootA = join(parentA, "src");
+    const rootB = join(parentB, "src");
+    mkdirSync(rootA, { recursive: true });
+    mkdirSync(rootB, { recursive: true });
+    try {
+      mkdirSync(join(rootA, "shared"), { recursive: true });
+      writeFileSync(join(rootA, "shared", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(rootB, "shared"), { recursive: true });
+      writeFileSync(join(rootB, "shared", ".beans.yml"), "beans:\n  prefix: y-\n");
+
+      const projects = await discoverProjects([rootA, rootB], 2);
+      const names = projects.map((p) => p.name).sort();
+      const paths = new Set(projects.map((p) => p.path));
+
+      expect(names).toEqual(["src-shared", "src-shared-2"]);
+      expect(paths).toEqual(new Set([join(rootA, "shared"), join(rootB, "shared")]));
+    } finally {
+      rmSync(parentA, { recursive: true, force: true });
+      rmSync(parentB, { recursive: true, force: true });
       graphqlMock.mockRestore();
     }
   });

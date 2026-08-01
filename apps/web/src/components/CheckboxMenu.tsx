@@ -15,6 +15,7 @@ export function CheckboxMenu<T extends string>({
 }: CheckboxMenuProps<T>) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -22,7 +23,10 @@ export function CheckboxMenu<T extends string>({
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current!.focus();
+      }
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -40,6 +44,7 @@ export function CheckboxMenu<T extends string>({
     <div className="checkbox-menu" ref={rootRef}>
       <button
         type="button"
+        ref={triggerRef}
         className={`checkbox-menu-trigger ${selected.length > 0 ? "active" : ""}`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}

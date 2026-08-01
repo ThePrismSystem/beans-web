@@ -63,6 +63,9 @@ words:
   - dedup
   - subcomponents
   - unstarted
+  - samebase
+  - dedups
+  - realpath
 ignorePaths:
   - node_modules
   - dist

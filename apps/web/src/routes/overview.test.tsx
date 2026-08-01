@@ -41,6 +41,14 @@ describe("Overview", () => {
     expect(screen.getByText("|")).toBeInTheDocument();
   });
 
+  it("renders the project name as a heading", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+    renderWithRouter(<Overview />);
+    expect(
+      await screen.findByRole("heading", { name: project.name, level: 2 }),
+    ).toBeInTheDocument();
+  });
+
   it("defaults a missing open-by-type count to zero instead of omitting the row", async () => {
     const sparseProject: Project = {
       ...project,

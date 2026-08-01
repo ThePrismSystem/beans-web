@@ -42,4 +42,13 @@ describe("env GIT_ROOT", () => {
     if (before === undefined) delete process.env.GIT_ROOT;
     else process.env.GIT_ROOT = before;
   });
+
+  it("fails fast instead of silently yielding zero roots for an all-empty value", async () => {
+    const before = process.env.GIT_ROOT;
+    process.env.GIT_ROOT = ",,";
+    vi.resetModules();
+    await expect(import("./env.js")).rejects.toThrow(/invalid environment/i);
+    if (before === undefined) delete process.env.GIT_ROOT;
+    else process.env.GIT_ROOT = before;
+  });
 });

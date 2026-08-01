@@ -37,6 +37,19 @@ builds a filesystem path from client input. Static file serving
 (`apps/server/src/routes/static.ts`) relies on `@hono/node-server`'s own `serveStatic` traversal
 guard, patched as above.
 
+Discovery dedups projects across configured roots by comparing `path.resolve()`d strings, not
+`realpath()` — two roots that reach the same physical directory through different symlinks are
+treated as distinct projects rather than deduped. This has no security impact: each entry still
+validates correctly against the specific root it was discovered under, so the path-jail guarantee
+above holds regardless.
+
+### Information disclosure
+
+`GET /api/projects` returns each project's absolute `path` on the host filesystem, and now also
+its `root` — the specific configured `GIT_ROOT` entry it was discovered under. Both are internal
+filesystem details of the host, not secrets, but neither is intended for exposure beyond a trusted
+caller — this is another reason `HOST` should stay loopback-only (see below).
+
 ### Command injection
 
 The `beans` CLI is invoked via `execFile` (`apps/server/src/beans/executor.ts`), which does not
@@ -49,6 +62,6 @@ when they contain a user-supplied GraphQL query or variables.
 `beans-frontend` has no authentication or authorization layer (`apps/server/src/env.ts`). It's a
 local-first, single-user tool intended to run on `127.0.0.1` — the default `HOST` binding, though
 `HOST` is operator-configurable via environment variable. **Setting `HOST` to a non-loopback
-address exposes the API — including arbitrary-path GraphQL queries scoped to whatever `GIT_ROOT`
-was configured — to anything that can reach that address, with no access control.** Don't do this
-outside a trusted, isolated network.
+address exposes the API — including arbitrary-path GraphQL queries scoped to whichever `GIT_ROOT`
+roots were configured — to anything that can reach that address, with no access control.** Don't
+do this outside a trusted, isolated network.

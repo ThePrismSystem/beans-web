@@ -14,7 +14,10 @@ export const env = createEnv({
           .map((p) => p.trim())
           .filter((p) => p.length > 0)
           .map((p) => resolve(p)),
-      ),
+      )
+      .refine((roots) => roots.length > 0, {
+        message: "GIT_ROOT must contain at least one path",
+      }),
     SCAN_DEPTH: z.coerce.number().int().min(1).max(8).default(1),
     PORT: z.coerce.number().int().default(4780),
     HOST: z.string().default("127.0.0.1"),
