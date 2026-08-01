@@ -9,6 +9,7 @@ import { registerEvents } from "./routes/events.js";
 import { registerGraphql } from "./routes/graphql.js";
 import { registerProjects } from "./routes/projects.js";
 import { registerSearch } from "./routes/search.js";
+import { registerSecurity } from "./routes/security.js";
 
 export interface AppDeps {
   roots: string[];
@@ -42,6 +43,7 @@ export function createApp(deps: AppDeps): Hono {
       },
     }),
   );
+  registerSecurity(app);
   registerProjects(app, deps);
   registerGraphql(app, deps);
   registerSearch(app, deps);
