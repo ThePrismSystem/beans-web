@@ -4,7 +4,7 @@ import { readSeedState } from "./fixtures/seed.mjs";
 
 test.describe("empty states (real data)", () => {
   test("a gibberish search reports no matches", async ({ page }) => {
-    await page.goto("/search?q=zzzznomatchzzzz");
+    await page.goto("/search?q=nonexistent-000000");
     await expect(page.getByText(/No beans match/)).toBeVisible();
   });
 
