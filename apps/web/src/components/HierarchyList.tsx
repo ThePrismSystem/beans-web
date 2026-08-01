@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { BeanRow } from "./BeanRow.js";
 
+import { usePersistedProjectState } from "../hooks/usePersistedState.js";
 import { buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
 import { beanComparator } from "../lib/sort.js";
 import { readStringSet, writeStringSet } from "../lib/storage.js";
@@ -14,10 +15,6 @@ import type { ReactNode } from "react";
 // Milestones and epics act as visual "sections": when they contain children
 // they get a subtle tinted row so containers stand out from leaf beans.
 const SECTION_TYPES: readonly BeanType[] = ["milestone", "epic"];
-
-function expandedStorageKey(project: string): string {
-  return `beans:expanded:${project}`;
-}
 
 function toggleId(ids: ReadonlySet<string>, id: string): Set<string> {
   const next = new Set(ids);
@@ -87,20 +84,17 @@ export function HierarchyList({
   // Expanded ids, not collapsed ones: absence means collapsed, which is the
   // default we want, so a node appearing for the first time needs no seeding —
   // and there is no seeding step left to re-fire when the data refetches.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
-    readStringSet(expandedStorageKey(project)),
+  const [expanded, setExpanded] = usePersistedProjectState<ReadonlySet<string>>(
+    project,
+    "expanded",
+    readStringSet,
+    writeStringSet,
   );
-
-  useEffect(() => {
-    setExpanded(readStringSet(expandedStorageKey(project)));
-  }, [project]);
 
   function toggle(id: string) {
     setExpanded((current) => {
       const next = toggleId(current, id);
-      const pruned = new Set([...next].filter((value) => knownIds.has(value)));
-      writeStringSet(expandedStorageKey(project), pruned);
-      return pruned;
+      return new Set([...next].filter((value) => knownIds.has(value)));
     });
   }
 

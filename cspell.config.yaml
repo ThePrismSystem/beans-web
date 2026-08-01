@@ -61,6 +61,8 @@ words:
   - funcs
   - FNHSIO
   - dedup
+  - subcomponents
+  - unstarted
 ignorePaths:
   - node_modules
   - dist
