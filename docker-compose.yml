@@ -1,9 +1,9 @@
-# Reference compose for beans-frontend.
+# Runs beans-frontend standalone. Point the bind mount below at your projects
+# directory, then `docker compose up -d` and visit http://localhost:4780.
 #
-# The real deployment folds this single service into an existing Docker Compose
-# stack fronted by Traefik (see docs/DOCKER_HANDOFF.md). This file is a working
-# standalone starting point — copy the `beans-frontend` service into your stack
-# and wire it to your Traefik network + labels.
+# To put it behind Traefik instead, uncomment the networks and labels blocks at
+# the bottom and swap the published port for `expose`. See the Docker section of
+# README.md for configuration, volume ownership, and security notes.
 
 services:
   beans-frontend:
@@ -34,12 +34,13 @@ services:
       # writes to the on-disk .beans files. Point the left side at your projects.
       - /home/youruser/git:/projects
 
-    expose:
-      - "4780"
+    ports:
+      - "4780:4780"
 
-    # For standalone testing WITHOUT Traefik, publish the port instead:
-    # ports:
-    #   - "4780:4780"
+    # Behind Traefik, drop the published port and expose it to the proxy network
+    # instead:
+    # expose:
+    #   - "4780"
 
     # --- Traefik (adapt entrypoints / certresolver / network to your stack) ---
     # networks:

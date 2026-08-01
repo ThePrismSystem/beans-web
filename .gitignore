@@ -9,6 +9,7 @@ coverage/
 test-report.junit.xml
 # Dependencies
 dist/
+docs/superpowers/
 .DS_Store
 .env
 .env.*

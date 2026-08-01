@@ -4,15 +4,16 @@
 
 `beans-frontend` is a pnpm monorepo with three packages:
 
-- **`apps/server`** — a small [Hono](https://hono.dev) API server. It does not own any data; it
-  discovers `beans` projects on disk, shells out to the `beans` CLI's own GraphQL interface per
-  project, aggregates results across projects for search/analytics, and streams file-change
-  events over Server-Sent Events (SSE). In production it also serves the built web app.
-- **`apps/web`** — a React SPA (Vite + TanStack Router + TanStack Query) typed against the
+- **`apps/server`** is a small [Hono](https://hono.dev) API server that owns no data of its own.
+  It discovers `beans` projects on disk and shells out to the `beans` CLI's GraphQL interface per
+  project. On top of that it aggregates results across projects for search and analytics, and
+  streams file-change events over Server-Sent Events (SSE). In production it also serves the built
+  web app.
+- **`apps/web`** is a React SPA (Vite + TanStack Router + TanStack Query) typed against the
   `beans` GraphQL schema.
-- **`packages/shared`** — bean type/status/priority enums, hierarchy validation rules, and the
-  GraphQL operation strings used by the web app's mutations/queries. Consumed as TypeScript
-  source by both apps (see [Why `tsx` in production](#why-tsx-in-production)).
+- **`packages/shared`** holds bean type/status/priority enums, hierarchy validation rules, and the
+  GraphQL operation strings the web app's mutations and queries use. Both apps consume it as
+  TypeScript source (see [Why `tsx` in production](#why-tsx-in-production)).
 
 ## The server: thin passthrough + discovery + aggregation + SSE
 
@@ -27,43 +28,46 @@ basename, falling back to a numeric suffix if that still collides.
 Per-project GraphQL traffic is a **passthrough**: `POST /api/projects/:name/graphql` resolves the
 project's `.beans.yml`, then spawns `beans graphql --json --config <path> <query>`
 (`apps/server/src/beans/executor.ts`) and relays stdout back as the response body. The server
-does not parse or validate the GraphQL query itself — `beans` does, using the exact schema
-captured in `apps/web/beans.schema.graphql` (regenerate with `beans graphql --schema` if `beans`
-is upgraded and the schema drifts).
+never parses or validates the GraphQL query itself; `beans` does, using the exact schema captured
+in `apps/web/beans.schema.graphql` (regenerate with `beans graphql --schema` if `beans` is
+upgraded and the schema drifts).
 
 Two things the server *does* compute itself, by fanning a query out to every discovered project
 and merging the results:
 
-- **Global search** (`apps/server/src/aggregate/search.ts`, `GET /api/search`) — queries each
+- **Global search** (`apps/server/src/aggregate/search.ts`, `GET /api/search`) queries each
   project for matching beans and flattens the results into one ranked list with the owning
   project attached.
-- **Analytics** (`apps/server/src/aggregate/analytics.ts`, `GET /api/analytics`) — per-project
-  totals plus cross-project breakdowns by type/status and completions by month.
+- **Analytics** (`apps/server/src/aggregate/analytics.ts`, `GET /api/analytics`) returns
+  per-project totals plus cross-project breakdowns by type/status and completions by month.
 
-**Live updates** are pushed over SSE (`GET /api/events`, `apps/server/src/routes/events.ts`).
+Live updates go out over SSE (`GET /api/events`, `apps/server/src/routes/events.ts`).
 `BeansWatcher` (`apps/server/src/watch/watcher.ts`) uses `chokidar` to watch each project's
-`.beans/` directory non-recursively; any add/change/unlink is mapped back to its owning project
-and re-emitted as a `{ project, kind }` event, which the SSE route relays to every connected
-client. The web app's `useEvents` hook consumes this to invalidate its TanStack Query caches, so
+`.beans/` directory non-recursively. It maps any add/change/unlink back to its owning project and
+re-emits it as a `{ project, kind }` event, which the SSE route relays to every connected client. The web app's `useEvents` hook consumes this to invalidate its TanStack Query caches, so
 edits made outside the browser (e.g. via the `beans` CLI or another tab) show up without a
 manual refresh.
 
 ## The `GIT_ROOT` path jail
 
 The configured `GIT_ROOT` directories are the only trees the server is allowed to touch. Every
-project path used to build a `--config` argument or serve a file is passed through
+project path used to build a `--config` argument or serve a file goes through
 `assertWithinRoot(root, candidate)` (`apps/server/src/discovery/scan.ts`), which resolves both
-paths and rejects anything whose relative path from `root` starts with `..` — i.e. anything
-outside that root, including via symlink traversal or a crafted `:name` route param. Each
-project validates against the specific root it was discovered under (`Project.root`, set once at
-discovery), not against "any configured root" — strictly more precise than a single shared root
-check. This keeps the server unable to read or execute `beans` against arbitrary filesystem
-paths even if a project name or path were attacker controlled.
+paths and rejects the candidate when the first segment of its path relative to `root` is `..`.
+That covers anything outside the root, whether it got there by symlink traversal or a crafted
+`:name` route param. Comparing the first segment rather than testing the relative path with
+`startsWith("..")` is deliberate: a directory legitimately named something like `..config` would
+fail the naive check.
+
+Each project validates against the specific root it was discovered under (`Project.root`, set
+once at discovery) rather than against any configured root, so a project found under one root
+cannot borrow another root's permission. The server therefore cannot read or execute `beans`
+against arbitrary filesystem paths even if a project name or path were attacker controlled.
 
 ## The web app: an SPA typed from the `beans` schema
 
 `apps/web` is a single-page app served by the server in production (see
-`apps/server/src/routes/static.ts` — static assets, with an SPA fallback to `index.html` for
+`apps/server/src/routes/static.ts`: static assets, with an SPA fallback to `index.html` for
 client-side routes) and by Vite's dev server (with an API proxy) in development.
 
 Routing is TanStack Router (`apps/web/src/router.tsx`): `/` (cross-project overview), `/p/$project`
@@ -82,8 +86,8 @@ The `beans` GraphQL schema supports optimistic-concurrency guarding via an `ifMa
 on mutations, and the web app's mutation hooks (`apps/web/src/hooks/useMutations.ts`) still carry
 `isEtagConflict`/`describeMutationError` and a "this bean changed on disk — reload" UI prompt for
 it. In the installed `beans` v0.4.2 binary, though, mutation resolvers reject a freshly-queried
-etag as a mismatch even immediately after a read with no intervening write — every etag-guarded
-mutation fails, making editing impossible. Until that's fixed upstream, no mutation document sends
+etag as a mismatch even immediately after a read with no intervening write. Every etag-guarded
+mutation fails, which makes editing impossible. Until that's fixed upstream, no mutation sends
 `ifMatch`, so bean edits are **last-write-wins**: if a bean is edited both in the browser and via
 an external `beans` CLI invocation (or another agent/tab) between load and save, whichever save
 lands last silently overwrites the other, with no conflict surfaced. The conflict-handling code
@@ -114,12 +118,12 @@ GIT_ROOT  ─scan──▶  │  discovery │ passthrough │ aggregate│ ─S
 
 ## Why `tsx` in production
 
-`@beans-frontend/shared` is consumed by `apps/server` as **TypeScript source**
+`apps/server` consumes `@beans-frontend/shared` as **TypeScript source**
 (`"main": "./src/index.ts"` in its `package.json`, not a compiled `dist/`). Plain `node` running
 compiled server output cannot resolve those `.ts` imports at runtime (`ERR_MODULE_NOT_FOUND`), so
-the server's `start` script runs `NODE_ENV=production tsx src/index.ts` — the same `tsx`-based
-execution used in development (`tsx watch`), just without the watch/reload behavior. `tsx` is
-therefore a runtime dependency of `apps/server`, not a dev-only tool. `pnpm start` at the repo
+the server's `start` script runs `NODE_ENV=production tsx src/index.ts`. That is the same
+`tsx`-based execution used in development (`tsx watch`), minus the watch and reload behavior.
+`tsx` is therefore a runtime dependency of `apps/server` rather than a dev-only tool. `pnpm start` at the repo
 root builds the web app first, then runs this production server start script.
 
 ## Codecov setup
@@ -128,14 +132,14 @@ CI (`.github/workflows/ci.yml`) sends coverage and test-result data to codecov.i
 involved, and they are not interchangeable:
 
 - **`CODECOV_TOKEN` (GitHub repo secret)** authenticates uploads. The `test` job passes it as the
-  `token:` input to six upload steps: three `codecov/codecov-action` steps (one per package —
+  `token:` input to six upload steps: three `codecov/codecov-action` steps (one per package:
   `shared`, `server`, `web`) each uploading that package's `coverage/lcov.info`, and three
   `codecov/test-results-action` steps each uploading that package's `test-report.junit.xml`. It's
-  a private, repo-scoped write credential — never commit or log it.
+  a private, repo-scoped write credential. Never commit or log it.
 - **`CODECOV_TOKEN` as a build-time env var (same secret)** gates bundle analysis in
   `apps/web/vite.config.ts`: `codecovVitePlugin({ enableBundleAnalysis:
   Boolean(process.env.CODECOV_TOKEN), uploadToken: process.env.CODECOV_TOKEN, ... })`. This is the
-  identical secret value, just read a second way — as a process env var during `vite build` rather
+  identical secret value, just read a second way: as a process env var during `vite build` rather
   than as an action input. The CI `build` job declares `env: CODECOV_TOKEN: ${{
   secrets.CODECOV_TOKEN }}` at the job level, so `pnpm -r build` runs with the secret exported and
   bundle analysis runs on every push/PR to `main` where the secret is available. On fork PRs,
@@ -144,13 +148,13 @@ involved, and they are not interchangeable:
   builds still no-op cleanly instead of attempting an upload with a blank token. Bundle analysis
   can also be triggered manually outside CI, e.g. `CODECOV_TOKEN=<token> pnpm --filter
   @beans-frontend/web build`.
-- **`flags: shared` / `flags: server` / `flags: web`** — each upload step is scoped to exactly one
-  package's report and tagged with exactly one flag, so Codecov keeps the three packages' coverage
+- **`flags: shared` / `flags: server` / `flags: web`** scope each upload step to exactly one
+  package's report, tagged with exactly one flag, so Codecov keeps the three packages' coverage
   and test results separate instead of blending them into one repo-wide number. In the Codecov UI
   these appear as three distinct entries under the repo's Flags tab (`shared` → `packages/shared`,
   `server` → `apps/server`, `web` → `apps/web`), and can be turned into Components for per-package
-  status checks or badges. This mapping is configured entirely on the Codecov side (dashboard) and
-  via these `flags:` values — there is no `codecov.yml` in this repo.
+  status checks or badges. The repo's `codecov.yml` sets only the patch coverage target (90%), so
+  the flag-to-path mapping lives in the Codecov dashboard rather than in the repo.
 - **The README badge's token (`N7I7FNHSIO`)** is a different kind of token: a Codecov *graph
   token*, scoped only to fetching a badge SVG
   (`https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=...`), not to

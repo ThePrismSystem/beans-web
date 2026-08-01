@@ -48,6 +48,7 @@ words:
   - navigations
   - authelia
   - certresolver
+  - letsencrypt
   - healthcheck
   - homelab
   - subfolders
@@ -69,6 +70,8 @@ words:
 ignorePaths:
   - node_modules
   - dist
+  # Untracked, per-contributor working notes; not part of the published docs.
+  - docs/superpowers
   - build
   - coverage
   - pnpm-lock.yaml
