@@ -607,6 +607,7 @@ git commit -m "feat(server): discover projects across multiple roots"
 - Modify: `apps/server/src/routes/analytics.test.ts`
 - Modify: `apps/server/src/routes/search.test.ts`
 - Modify: `apps/server/src/index.integration.test.ts`
+- Modify: `apps/server/src/discovery/scan.integration.test.ts`
 
 **Interfaces:**
 - Consumes: `discoverProjects(roots: string[], maxDepth: number)` (Task 3), `env.GIT_ROOT: string[]` (Task 2), `Project.root: string` (Task 1).
@@ -718,23 +719,38 @@ to:
       scanDepth: 4,
 ```
 
-- [ ] **Step 6: Run the server test suite**
+- [ ] **Step 6: Update `scan.integration.test.ts`**
+
+`apps/server/src/discovery/scan.integration.test.ts` has two direct calls to `discoverProjects` still using the old single-string signature (this file is separate from `scan.test.ts`, which Task 3 already updated). Change both occurrences of:
+
+```typescript
+    const projects = await discoverProjects(root, 4);
+```
+
+to:
+
+```typescript
+    const projects = await discoverProjects([root], 4);
+```
+
+- [ ] **Step 7: Run the server test suite**
 
 Run: `pnpm --filter @beans-frontend/server test`
-Expected: PASS (all tests, including `graphql.test.ts`'s existing assertion that `runGraphql` is called with `/root/proj-a/.beans.yml` — `fakeProject`'s `root: "/root"` from Task 1 makes `assertWithinRoot(project.root, project.path)` resolve the same path as before)
+Expected: PASS (all tests, including `graphql.test.ts`'s existing assertion that `runGraphql` is called with `/root/proj-a/.beans.yml` — `fakeProject`'s `root: "/root"` from Task 1 makes `assertWithinRoot(project.root, project.path)` resolve the same path as before). This includes the `beans`-binary-backed integration tests in `index.integration.test.ts` and `scan.integration.test.ts` — both require the `beans` CLI on `PATH`.
 
-- [ ] **Step 7: Typecheck and lint**
+- [ ] **Step 8: Typecheck and lint**
 
 Run: `pnpm typecheck && pnpm lint`
 Expected: PASS
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add apps/server/src/app.ts apps/server/src/index.ts apps/server/src/routes/graphql.ts \
   apps/server/src/routes/graphql.test.ts apps/server/src/routes/projects.test.ts \
   apps/server/src/routes/events.test.ts apps/server/src/routes/analytics.test.ts \
-  apps/server/src/routes/search.test.ts apps/server/src/index.integration.test.ts
+  apps/server/src/routes/search.test.ts apps/server/src/index.integration.test.ts \
+  apps/server/src/discovery/scan.integration.test.ts
 git commit -m "feat(server): validate project paths against their own root"
 ```
 
