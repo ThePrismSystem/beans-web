@@ -1,7 +1,8 @@
 import { EventEmitter } from "node:events";
 import { Hono } from "hono";
-import type { Analytics, Project, SearchResult } from "@beans-frontend/shared";
+import type { Analytics, SearchResult } from "@beans-frontend/shared";
 
+import type { ProjectRecord } from "./discovery/scan.js";
 import { registerAnalytics } from "./routes/analytics.js";
 import { registerEvents } from "./routes/events.js";
 import { registerGraphql } from "./routes/graphql.js";
@@ -11,7 +12,7 @@ import { registerSearch } from "./routes/search.js";
 export interface AppDeps {
   roots: string[];
   scanDepth: number;
-  listProjects(): Promise<Project[]>;
+  listProjects(): Promise<ProjectRecord[]>;
   runGraphql(
     configPath: string,
     query: string,

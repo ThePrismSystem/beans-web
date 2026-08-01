@@ -7,6 +7,17 @@ import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
 
 const IGNORED = new Set(["node_modules", ".git", ".beans", "dist", ".next", "coverage"]);
 
+/**
+ * A discovered project plus the host filesystem details the server needs
+ * internally (to resolve each project's `.beans.yml` and enforce the path
+ * jail). These fields are stripped before the project reaches any API client;
+ * see the wire-facing `Project` type in `@beans-frontend/shared`.
+ */
+export interface ProjectRecord extends Project {
+  path: string;
+  root: string;
+}
+
 export function assertWithinRoot(root: string, candidate: string): string {
   const r = resolve(root);
   const c = resolve(candidate);
@@ -57,9 +68,9 @@ function emptyCounts(): ProjectCounts {
 
 // Drops duplicate project directories that overlapping or nested configured
 // roots would otherwise discover twice. First occurrence (in root order) wins.
-function dedupeByPath(projects: Project[]): Project[] {
+function dedupeByPath(projects: ProjectRecord[]): ProjectRecord[] {
   const seen = new Set<string>();
-  const result: Project[] = [];
+  const result: ProjectRecord[] = [];
   for (const project of projects) {
     const resolved = resolve(project.path);
     if (seen.has(resolved)) continue;
@@ -75,8 +86,8 @@ function dedupeByPath(projects: Project[]): Project[] {
 // unrelated project whose original name happens to equal the candidate.
 // Every project ends up with a name unique across the whole result, so the
 // final sort below no longer needs a path-based tiebreak.
-function disambiguateNames(projects: Project[]): Project[] {
-  const byName = new Map<string, Project[]>();
+function disambiguateNames(projects: ProjectRecord[]): ProjectRecord[] {
+  const byName = new Map<string, ProjectRecord[]>();
   for (const project of projects) {
     const group = byName.get(project.name);
     if (group) group.push(project);
@@ -84,14 +95,14 @@ function disambiguateNames(projects: Project[]): Project[] {
   }
 
   const taken = new Set<string>();
-  const colliding: Project[] = [];
+  const colliding: ProjectRecord[] = [];
   for (const [name, group] of byName) {
     if (group.length === 1) taken.add(name);
     else colliding.push(...group);
   }
   colliding.sort((a, b) => a.path.localeCompare(b.path));
 
-  const renamed = new Map<Project, string>();
+  const renamed = new Map<ProjectRecord, string>();
   for (const project of colliding) {
     const base = `${basename(project.root)}-${project.name}`;
     let candidate = base;
@@ -110,7 +121,10 @@ function disambiguateNames(projects: Project[]): Project[] {
   });
 }
 
-export async function discoverProjects(roots: string[], maxDepth: number): Promise<Project[]> {
+export async function discoverProjects(
+  roots: string[],
+  maxDepth: number,
+): Promise<ProjectRecord[]> {
   const perRoot = await Promise.all(
     roots.map(async (root) => {
       const resolvedRoot = resolve(root);

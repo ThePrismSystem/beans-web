@@ -1,10 +1,10 @@
 import { serve } from "@hono/node-server";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import type { Project } from "@beans-frontend/shared";
 import { env } from "./env.js";
 import { createApp } from "./app.js";
 import { discoverProjects, assertWithinRoot } from "./discovery/scan.js";
+import type { ProjectRecord } from "./discovery/scan.js";
 import { runBeansGraphql } from "./beans/executor.js";
 import { globalSearch } from "./aggregate/search.js";
 import { buildAnalytics } from "./aggregate/analytics.js";
@@ -22,8 +22,8 @@ const run = (configPath: string, query: string, variables?: Record<string, unkno
 
 const discover = () => discoverProjects(env.GIT_ROOT, env.SCAN_DEPTH);
 
-let cache: { at: number; projects: Project[] } | null = null;
-const listProjects = async (): Promise<Project[]> => {
+let cache: { at: number; projects: ProjectRecord[] } | null = null;
+const listProjects = async (): Promise<ProjectRecord[]> => {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_TTL_MS) return cache.projects;
   const projects = await discover();

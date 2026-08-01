@@ -20,12 +20,17 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
 }
 
 describe("GET /api/projects", () => {
-  it("returns the list of discovered projects", async () => {
+  it("returns discovered projects without host filesystem paths", async () => {
     const d = deps();
     const app = createApp(d);
     const res = await app.request("/api/projects");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([project]);
+    const body = (await res.json()) as unknown[];
+    expect(body).toEqual([{ name: "proj-a", prefix: "x-", counts: project.counts }]);
+    for (const entry of body) {
+      expect(entry).not.toHaveProperty("path");
+      expect(entry).not.toHaveProperty("root");
+    }
     expect(d.listProjects).toHaveBeenCalled();
   });
 });

@@ -38,10 +38,13 @@ export interface ProjectCounts {
   error: boolean;
 }
 
+/**
+ * A project as exposed to clients over the API. Deliberately excludes host
+ * filesystem details (absolute `path`, configured `root`); those live only on
+ * the server-internal `ProjectRecord` and never reach the wire.
+ */
 export interface Project {
   name: string;
-  path: string;
-  root: string;
   prefix: string;
   counts: ProjectCounts;
 }
