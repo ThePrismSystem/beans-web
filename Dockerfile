@@ -21,6 +21,9 @@ ARG BEANS_VERSION=latest
 ENV CGO_ENABLED=0
 RUN go install "github.com/hmans/beans@${BEANS_VERSION}"
 # -> /go/bin/beans
+# Keep the upstream Apache-2.0 license so the redistributed binary ships with
+# its attribution (the module cache dir name embeds the resolved version).
+RUN cp "$(go env GOMODCACHE)"/github.com/hmans/beans@*/LICENSE /beans-LICENSE
 
 # ---------------------------------------------------------------------------
 # Stage 2 — install workspace deps and build the web SPA.
@@ -49,8 +52,9 @@ FROM node:22-bookworm-slim AS runtime
 RUN corepack enable
 WORKDIR /app
 
-# The beans CLI.
+# The beans CLI, plus its Apache-2.0 license for redistribution attribution.
 COPY --from=beans-builder /go/bin/beans /usr/local/bin/beans
+COPY --from=beans-builder /beans-LICENSE /usr/local/share/licenses/beans/LICENSE
 
 # The app: source + node_modules (incl. tsx) + built web dist.
 COPY --from=app-builder /app ./
