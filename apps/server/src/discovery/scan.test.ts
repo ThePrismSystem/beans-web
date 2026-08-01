@@ -155,6 +155,11 @@ describe("assertWithinRoot", () => {
   it("throws on traversal outside root", () => {
     expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(/outside/i);
   });
+  it("names the violated root in the error message", () => {
+    expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(
+      new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  });
   it("accepts a directory whose name literally starts with ..", () => {
     expect(assertWithinRoot(root, join(root, "..hidden-backup"))).toBe(
       join(root, "..hidden-backup"),
