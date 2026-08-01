@@ -12,7 +12,7 @@ export function assertWithinRoot(root: string, candidate: string): string {
   const c = resolve(candidate);
   const rel = relative(r, c);
   if (rel === "") return c;
-  if (rel.startsWith("..") || rel.split(sep)[0] === "..") {
+  if (rel.split(sep)[0] === "..") {
     throw new Error(`path is outside GIT_ROOT: ${candidate}`);
   }
   return c;
