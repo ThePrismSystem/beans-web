@@ -6,21 +6,21 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](.nvmrc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A web UI for [`beans`](https://github.com/hmans/beans) — the local-first, Markdown-backed issue
-tracker. `beans-frontend` discovers every `beans` project under a configured root directory,
-gives each one a browsable overview, hierarchy/flat bean lists, a detail view with inline editing
-and relationship management, cross-project search, and simple analytics — all backed directly by
-your on-disk `.beans` files (there is no separate database).
+A web UI for [`beans`](https://github.com/hmans/beans), the local-first, Markdown-backed issue
+tracker. `beans-frontend` discovers every `beans` project under a configured root directory and
+gives each one a browsable overview, hierarchy and flat bean lists, and a detail view with inline
+editing and relationship management. It also does cross-project search and simple analytics.
+Everything reads and writes your on-disk `.beans` files directly; there is no separate database.
 
 It is a pnpm monorepo with two apps and a shared package:
 
-- `apps/server` — a [Hono](https://hono.dev) API server that discovers `beans` projects, proxies
-  GraphQL queries/mutations to the `beans` CLI per project, aggregates cross-project search and
-  analytics, streams file-change events over SSE, and serves the built web app in production.
-- `apps/web` — a React + [TanStack Router](https://tanstack.com/router)/[Query](https://tanstack.com/query)
+- `apps/server` is a [Hono](https://hono.dev) API server. It discovers `beans` projects, proxies
+  GraphQL queries and mutations to the `beans` CLI per project, aggregates cross-project search
+  and analytics, streams file-change events over SSE, and serves the built web app in production.
+- `apps/web` is a React + [TanStack Router](https://tanstack.com/router)/[Query](https://tanstack.com/query)
   single-page app.
-- `packages/shared` — bean type/status/priority enums, hierarchy rules, and generated GraphQL
-  operation strings shared by both apps.
+- `packages/shared` holds bean type/status/priority enums, hierarchy rules, and generated GraphQL
+  operation strings both apps use.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit together, and
 [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow.
@@ -60,16 +60,16 @@ Copy `.env.example` to `.env` (or export the variables directly) and adjust as n
 | `GIT_ROOT`   | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`). |
 | `SCAN_DEPTH` | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                  |
 | `PORT`       | `4780`      | Port the server listens on.                                                                  |
-| `HOST`       | `127.0.0.1` | Bind address — keep this loopback unless you intend to expose it on a LAN.                   |
+| `HOST`       | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                    |
 | `BEANS_BIN`  | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                |
 
-The server never reads or writes outside a project's own configured root — every resolved
-project path is checked against the specific root it was discovered under before use (see
+The server never reads or writes outside a project's own configured root. Every resolved project
+path is checked against the specific root it was discovered under before use (see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#the-git_root-path-jail)).
 
 ## Development
 
-Runs both apps with hot reload — the server via `tsx watch`, the web app via Vite:
+Runs both apps with hot reload, the server via `tsx watch` and the web app via Vite:
 
 ```bash
 pnpm dev
@@ -88,8 +88,8 @@ pnpm start
 ```
 
 This runs `pnpm --filter @beans-frontend/web build` followed by
-`pnpm --filter @beans-frontend/server start`. The server is started via `tsx` rather than plain
-`node` — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-tsx-in-production) for why.
+`pnpm --filter @beans-frontend/server start`. The server runs through `tsx` rather than plain
+`node`; see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-tsx-in-production) for why.
 
 ```bash
 GIT_ROOT=/path/to/your/git/projects,/path/to/other/projects PORT=4780 pnpm start
@@ -220,7 +220,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more detail on the development work
 
 ## Known limitations
 
-- **Last-write-wins editing** — optimistic-concurrency (etag/`ifMatch`) guarding is disabled due
+- **Last-write-wins editing.** Optimistic-concurrency (etag/`ifMatch`) guarding is disabled due
   to an upstream `beans` v0.4.2 bug; see
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-limitation--optimistic-concurrency).
 
