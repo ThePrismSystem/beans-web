@@ -434,8 +434,13 @@ textarea:focus-visible,
   margin-bottom: var(--sp-7);
 }
 
+/* `.filter-search` is listed by class, not left to `.filter-bar input`. Styling
+   a reusable control through its parent means using it anywhere else silently
+   drops every declaration — which is exactly what happened on the search page,
+   where this input rendered as a raw browser control. */
 .filter-bar input,
-.filter-bar select {
+.filter-bar select,
+.filter-search {
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--hairline);
   border-radius: var(--r-sm);
@@ -445,6 +450,8 @@ textarea:focus-visible,
   font-size: var(--fs-4);
 }
 
+/* Appearance above travels with the class; how it is sized is contextual —
+   a flex child in the filter bar, full width on the search page. */
 .filter-search {
   flex: 1 1 220px;
 }
@@ -496,6 +503,43 @@ textarea:focus-visible,
 
 .sort-control button {
   padding: 0.35rem var(--sp-3);
+}
+
+/* Search page */
+
+/* Bounded like the bean detail page. Left unconstrained, a result row spanned
+   the full content column and threw its project and status to the far edge,
+   leaving the eye to cross ~700px to connect a title to its metadata. */
+.search-page {
+  max-width: 46rem;
+}
+
+.search-page .filter-search {
+  /* `flex: 1 1 220px` above does nothing here — .search-page is a block, not a
+     flex container — so without this the input falls back to its intrinsic
+     width and stays 185px wide at every viewport. */
+  width: 100%;
+  margin-bottom: var(--sp-6);
+}
+
+.search-count {
+  margin: 0 0 var(--sp-3);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Hairline separators, matching .flat-list — structure in this app is carried
+   by rules, and results were the one list rendering without any. */
+.bean-list {
+  border-top: 1px solid var(--hairline);
+}
+
+.bean-list .bean-row {
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
 }
 
 /* Bean row */
@@ -1381,6 +1425,9 @@ textarea:focus-visible,
   .filter-bar input,
   .filter-bar select,
   .filter-tags,
+  /* By class, not via .filter-bar — the search page's copy of this input sat
+     at the browser's 13.3px default and made iOS zoom the page on focus. */
+  .filter-search,
   .header-search-input,
   .picker-search,
   .sort-control select,
@@ -1499,6 +1546,25 @@ textarea:focus-visible,
 @media (max-width: 640px) {
   .chart-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* A search result carries a project name that a project-list row does not,
+     so four columns competed for ~343px and every one of them wrapped
+     mid-word ("e2e-" / "project", "To" / "do"). Give the title the first line
+     with its type tag and drop the metadata onto a second. */
+  .bean-list .bean-row {
+    flex-wrap: wrap;
+    align-items: baseline;
+    row-gap: var(--sp-1);
+  }
+
+  .bean-list .bean-row-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .bean-list .bean-row > .muted {
+    flex-basis: 100%;
   }
 }
 

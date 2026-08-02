@@ -57,7 +57,11 @@ export function SearchPage() {
       return <p className="muted">Type to search beans across all projects.</p>;
     }
     if (isError) {
-      return <p className="muted">Search failed.</p>;
+      return (
+        <p className="muted" role="alert">
+          Search failed.
+        </p>
+      );
     }
     if (isPending || !data) {
       return (
@@ -74,13 +78,23 @@ export function SearchPage() {
           </p>
         )}
         {data.hits.length === 0 ? (
-          <p className="muted">No beans match &quot;{trimmed}&quot;.</p>
+          <p className="muted" role="status">
+            No beans match &quot;{trimmed}&quot;.
+          </p>
         ) : (
-          <div className="bean-list">
-            {data.hits.map((hit) => (
-              <SearchResultRow key={`${hit.project}:${hit.bean.id}`} hit={hit} />
-            ))}
-          </div>
+          <>
+            {/* The header-search dropdown already announces its result count;
+                this page said nothing. Visible as well as announced — the
+                number is useful to everyone, not only to a screen reader. */}
+            <p className="search-count" role="status">
+              {data.hits.length} {data.hits.length === 1 ? "result" : "results"}
+            </p>
+            <div className="bean-list">
+              {data.hits.map((hit) => (
+                <SearchResultRow key={`${hit.project}:${hit.bean.id}`} hit={hit} />
+              ))}
+            </div>
+          </>
         )}
       </>
     );
