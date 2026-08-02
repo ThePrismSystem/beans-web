@@ -14,7 +14,9 @@ import { expect, test } from "@playwright/test";
 const BREAKPOINT = 768;
 
 test.describe("drawer breakpoint", () => {
-  test(`at ${BREAKPOINT}px the sidebar is a drawer and is inert when closed`, async ({ page }) => {
+  test(`at ${String(BREAKPOINT)}px the sidebar is a drawer and is inert when closed`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: BREAKPOINT, height: 800 });
     await page.goto("/");
 
@@ -22,7 +24,9 @@ test.describe("drawer breakpoint", () => {
     await expect(page.locator("nav.sidebar")).toHaveAttribute("inert", "");
   });
 
-  test(`at ${BREAKPOINT + 1}px the sidebar is persistent and never inert`, async ({ page }) => {
+  test(`at ${String(BREAKPOINT + 1)}px the sidebar is persistent and never inert`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: BREAKPOINT + 1, height: 800 });
     await page.goto("/");
 

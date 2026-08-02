@@ -34,8 +34,11 @@ function resolveColor(page: Page, property: string): Promise<string> {
 
 function measure(page: Page) {
   return page.evaluate(() => {
-    const input = document.querySelector<HTMLInputElement>(".search-page .filter-search")!;
-    const column = document.querySelector<HTMLElement>(".search-page")!;
+    const input = document.querySelector<HTMLInputElement>(".search-page .filter-search");
+    const column = document.querySelector<HTMLElement>(".search-page");
+    if (!input || !column) {
+      throw new Error("search page input or column element not found");
+    }
     const style = getComputedStyle(input);
     return {
       inputWidth: Math.round(input.getBoundingClientRect().width),
@@ -103,8 +106,11 @@ test.describe("search page", () => {
     await gotoResults(page);
     const [rule, hairline] = await Promise.all([
       page.evaluate(() => {
-        const list = document.querySelector<HTMLElement>(".bean-list")!;
-        const row = document.querySelector<HTMLElement>(".bean-list .bean-row")!;
+        const list = document.querySelector<HTMLElement>(".bean-list");
+        const row = document.querySelector<HTMLElement>(".bean-list .bean-row");
+        if (!list || !row) {
+          throw new Error("bean list or row element not found");
+        }
         const rowStyle = getComputedStyle(row);
         return {
           listTop: getComputedStyle(list).borderTopWidth,
@@ -128,9 +134,12 @@ test.describe("search page", () => {
     await gotoResults(page);
 
     const stacked = await page.evaluate(() => {
-      const row = document.querySelector<HTMLElement>(".bean-list .bean-row")!;
-      const title = row.querySelector<HTMLElement>(".bean-row-title")!;
-      const project = row.querySelector<HTMLElement>(".muted")!;
+      const row = document.querySelector<HTMLElement>(".bean-list .bean-row");
+      const title = row?.querySelector<HTMLElement>(".bean-row-title");
+      const project = row?.querySelector<HTMLElement>(".muted");
+      if (!row || !title || !project) {
+        throw new Error("bean row, title, or project element not found");
+      }
       return {
         projectBelowTitle: project.getBoundingClientRect().top > title.getBoundingClientRect().top,
         titleFitsOneLine:
@@ -155,7 +164,7 @@ test.describe("search page", () => {
 
     // The count is derived, not decorative.
     const rows = await page.locator(".bean-list .bean-row").count();
-    await expect(count).toHaveText(`${rows} ${rows === 1 ? "result" : "results"}`);
+    await expect(count).toHaveText(`${String(rows)} ${rows === 1 ? "result" : "results"}`);
   });
 
   test("a failed search is announced, not just printed", async ({ page }) => {

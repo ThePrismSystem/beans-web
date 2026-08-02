@@ -27,7 +27,7 @@ async function readChartPaint(browser: Browser, colorScheme: "light" | "dark") {
     await expect(page.locator(GRID).first()).toBeAttached();
     await expect(page.locator(TICK).first()).toBeAttached();
 
-    return page.evaluate(
+    return await page.evaluate(
       ([bar, grid, tick]) => {
         const paint = (selector: string, property: string) => {
           const node = document.querySelector(selector);
@@ -35,13 +35,13 @@ async function readChartPaint(browser: Browser, colorScheme: "light" | "dark") {
         };
         const surface = document.querySelector(".chart-section");
         return {
-          bar: paint(bar!, "fill"),
-          grid: paint(grid!, "stroke"),
-          tick: paint(tick!, "fill"),
+          bar: paint(bar, "fill"),
+          grid: paint(grid, "stroke"),
+          tick: paint(tick, "fill"),
           surface: surface ? getComputedStyle(surface).backgroundColor : null,
         };
       },
-      [BAR, GRID, TICK],
+      [BAR, GRID, TICK] as const,
     );
   } finally {
     await context.close();
@@ -50,10 +50,11 @@ async function readChartPaint(browser: Browser, colorScheme: "light" | "dark") {
 
 /** WCAG 2.1 relative luminance of an `rgb(r, g, b)` string. */
 function luminance(color: string): number {
-  const [r, g, b] = color
-    .match(/\d+(\.\d+)?/g)!
-    .slice(0, 3)
-    .map(Number) as [number, number, number];
+  const channels = color.match(/\d+(\.\d+)?/g);
+  if (!channels) {
+    throw new Error(`could not parse color channels from "${color}"`);
+  }
+  const [r, g, b] = channels.slice(0, 3).map(Number) as [number, number, number];
   const channel = (value: number) => {
     const srgb = value / 255;
     return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
@@ -89,14 +90,15 @@ test("chart marks resolve to real colors in both schemes, and differ between the
 test("chart text and bars clear their WCAG minimums in both schemes", async ({ browser }) => {
   for (const scheme of ["light", "dark"] as const) {
     const paint = await readChartPaint(browser, scheme);
+    if (paint.tick === null || paint.bar === null || paint.surface === null) {
+      throw new Error(`${scheme}: chart paint did not resolve to real colors`);
+    }
 
     // Axis labels are text: 4.5:1 (1.4.3). They previously sat at 3.40:1 in
     // light and 4.00:1 in dark, and recharts' untouched default is worse.
-    expect(contrast(paint.tick!, paint.surface!), `${scheme} axis tick`).toBeGreaterThanOrEqual(
-      4.5,
-    );
+    expect(contrast(paint.tick, paint.surface), `${scheme} axis tick`).toBeGreaterThanOrEqual(4.5);
 
     // A bar carries meaning on its own: 3:1 non-text minimum (1.4.11).
-    expect(contrast(paint.bar!, paint.surface!), `${scheme} bar fill`).toBeGreaterThanOrEqual(3);
+    expect(contrast(paint.bar, paint.surface), `${scheme} bar fill`).toBeGreaterThanOrEqual(3);
   }
 });
