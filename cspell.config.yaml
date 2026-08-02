@@ -71,6 +71,8 @@ words:
   - clickjacking
   - noopener
   - noreferrer
+  # cspell knows "viewport" but not its plural.
+  - viewports
 ignorePaths:
   - node_modules
   - dist
