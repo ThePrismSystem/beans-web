@@ -23,6 +23,7 @@ export interface AppDeps {
   search(q: string): Promise<SearchResult>;
   analytics(): Promise<Analytics>;
   watcher: EventEmitter;
+  trustProxy: boolean;
 }
 
 export function createApp(deps: AppDeps): Hono {
@@ -43,7 +44,7 @@ export function createApp(deps: AppDeps): Hono {
       },
     }),
   );
-  registerSecurity(app);
+  registerSecurity(app, deps.trustProxy);
   registerProjects(app, deps);
   registerGraphql(app, deps);
   registerSearch(app, deps);

@@ -13,6 +13,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     search: vi.fn(async () => ({ hits: [], failures: [] })),
     analytics: vi.fn(async () => fakeAnalytics()),
     watcher: new EventEmitter(),
+    trustProxy: false,
     ...overrides,
   };
 }

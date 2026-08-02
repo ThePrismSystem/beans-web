@@ -64,7 +64,8 @@ ENV NODE_ENV=production \
     PORT=4780 \
     GIT_ROOT=/projects \
     SCAN_DEPTH=1 \
-    BEANS_BIN=beans
+    BEANS_BIN=beans \
+    TRUST_PROXY=false
 
 # GIT_ROOT is a bind mount supplied by the compose stack. Add more mounts and
 # extend GIT_ROOT's comma-separated value to scan more than one root.

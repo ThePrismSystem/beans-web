@@ -55,13 +55,14 @@ pnpm install
 
 Copy `.env.example` to `.env` (or export the variables directly) and adjust as needed:
 
-| Variable     | Default     | Description                                                                                  |
-| ------------ | ----------- | -------------------------------------------------------------------------------------------- |
-| `GIT_ROOT`   | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`). |
-| `SCAN_DEPTH` | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                  |
-| `PORT`       | `4780`      | Port the server listens on.                                                                  |
-| `HOST`       | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                    |
-| `BEANS_BIN`  | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                |
+| Variable      | Default     | Description                                                                                                                                                                                                    |
+| ------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_ROOT`    | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`).                                                                                                                   |
+| `SCAN_DEPTH`  | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                                                                                                                                    |
+| `PORT`        | `4780`      | Port the server listens on.                                                                                                                                                                                    |
+| `HOST`        | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                                                                                                                                      |
+| `BEANS_BIN`   | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                                                                                                                                  |
+| `TRUST_PROXY` | `false`     | Trust `X-Forwarded-Proto`/`X-Forwarded-Host` when checking whether a request is same-origin. Turn this on only when a reverse proxy is the only way in; see [Behind a reverse proxy](#behind-a-reverse-proxy). |
 
 The server never reads or writes outside a project's own configured root. Every resolved project
 path is checked against the specific root it was discovered under before use (see
@@ -119,14 +120,15 @@ docker build --build-arg BEANS_VERSION=v0.4.2 -t beans-frontend:latest .  # pin 
 The image bakes container defaults that differ from the local development
 defaults above:
 
-| Variable     | Image default | Notes                                                                                                                                   |
-| ------------ | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `GIT_ROOT`   | `/projects`   | Comma-separated scan root(s) _inside_ the container. Mount each root at a distinct path and list them all, e.g. `/projects,/projects2`. |
-| `SCAN_DEPTH` | `1`           | Each immediate subdirectory holding a `.beans.yml` is one project.                                                                      |
-| `HOST`       | `0.0.0.0`     | Binds all interfaces inside the container. Do not set this to `127.0.0.1`.                                                              |
-| `PORT`       | `4780`        | Container listen port.                                                                                                                  |
-| `BEANS_BIN`  | `beans`       | The static binary baked into the image, resolved from `PATH`.                                                                           |
-| `NODE_ENV`   | `production`  |                                                                                                                                         |
+| Variable      | Image default | Notes                                                                                                                                          |
+| ------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_ROOT`    | `/projects`   | Comma-separated scan root(s) _inside_ the container. Mount each root at a distinct path and list them all, e.g. `/projects,/projects2`.        |
+| `SCAN_DEPTH`  | `1`           | Each immediate subdirectory holding a `.beans.yml` is one project.                                                                             |
+| `HOST`        | `0.0.0.0`     | Binds all interfaces inside the container. Do not set this to `127.0.0.1`.                                                                     |
+| `PORT`        | `4780`        | Container listen port.                                                                                                                         |
+| `BEANS_BIN`   | `beans`       | The static binary baked into the image, resolved from `PATH`.                                                                                  |
+| `NODE_ENV`    | `production`  |                                                                                                                                                |
+| `TRUST_PROXY` | `false`       | Set to `true` when a reverse proxy is the only way in. Required behind TLS termination; see [Behind a reverse proxy](#behind-a-reverse-proxy). |
 
 #### The projects mount
 
@@ -166,6 +168,20 @@ labels:
   traefik.http.services.beans.loadbalancer.server.port: "4780"
   traefik.http.routers.beans.middlewares: "authelia@docker"
 ```
+
+Set `TRUST_PROXY=true` on any proxied deployment. The app refuses state-changing
+requests whose `Origin` doesn't match its own, which is what stops another site
+from driving your API. TLS termination breaks that comparison: the browser sends
+`Origin: https://beans.example.com`, the proxy forwards plain HTTP, and the server
+sees `http://beans.example.com`, so every write comes back `403`. With the flag on
+it reads `X-Forwarded-Proto` and `X-Forwarded-Host` instead. If you forget, the
+project list still loads because that is a `GET`, but opening a project shows
+nothing: the GraphQL reads behind it are `POST`s.
+
+The default is off because a server reachable directly on its port would otherwise
+accept forged `X-Forwarded-*` headers, which defeats the guard entirely. Most
+proxies send both headers already; Traefik and Caddy do, and a hand-rolled nginx
+needs `proxy_set_header X-Forwarded-Proto $scheme;`.
 
 Live updates arrive over an SSE stream at `GET /api/events`. Proxies handle this
 by default, but anything that buffers responses or imposes a short read timeout
