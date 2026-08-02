@@ -81,10 +81,21 @@ export interface SearchResult {
 /** A related bean shown in link lists — the minimal shape needed to render a row. */
 export type LinkedBean = Pick<BeanListItem, "id" | "title" | "type" | "status">;
 
-/** A bean plus its resolved relationships, as returned by the bean-detail query. */
+/**
+ * A bean plus its resolved relationships, as returned by the bean-detail query.
+ *
+ * beans records a blocking edge on whichever bean's file declared it and never
+ * resolves the inverse, so each direction arrives in two halves that must be
+ * combined to see the whole relationship:
+ *
+ * - blocks     = `blockingIds` (this bean's own list) + `blocksInbound`
+ * - blocked by = `blockedByIds` (this bean's own list) + `blockedBy`
+ */
 export interface BeanDetail extends Bean {
   parent: LinkedBean | null;
   children: LinkedBean[];
-  blocking: LinkedBean[];
+  /** Beans whose own `blocking` list names this bean, so they block this one. */
   blockedBy: LinkedBean[];
+  /** Beans whose own `blocked_by` list names this bean, so this one blocks them. */
+  blocksInbound: LinkedBean[];
 }

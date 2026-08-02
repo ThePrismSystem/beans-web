@@ -54,8 +54,15 @@ describe("GraphQL operation documents", () => {
     expect(BEAN_DETAIL_QUERY).toContain("blockedByIds");
     expect(BEAN_DETAIL_QUERY).toContain("parent {");
     expect(BEAN_DETAIL_QUERY).toContain("children {");
-    expect(BEAN_DETAIL_QUERY).toContain("blocking {");
     expect(BEAN_DETAIL_QUERY).toContain("blockedBy {");
+  });
+
+  it("BEAN_DETAIL_QUERY fetches the half of each blocking direction declared on the other bean", () => {
+    // `blockedBy` covers beans whose own `blocking` names this one; the reverse
+    // case (beans whose own `blocked_by` names this one) has no field on Bean and
+    // only comes back through this filter.
+    expect(BEAN_DETAIL_QUERY).toContain("blocksInbound: beans(filter: { blockedById: $idStr })");
+    expect(BEAN_DETAIL_QUERY).toContain("$idStr: String!");
   });
 
   it("no mutation document references ifMatch (disabled pending an upstream beans fix)", () => {

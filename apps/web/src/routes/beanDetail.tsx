@@ -8,7 +8,6 @@ import { ConfirmDialog } from "../components/ConfirmDialog.js";
 import { CreateBeanForm } from "../components/CreateBeanForm.js";
 import { EnumSelect } from "../components/EnumSelect.js";
 import { InlineEditRow } from "../components/InlineEditRow.js";
-import { LinkedBeans } from "../components/LinkedBeans.js";
 import { RelationEditor } from "../components/RelationEditor.js";
 import { StatusDot } from "../components/StatusDot.js";
 
@@ -434,14 +433,25 @@ function BeanDetailContent({
       case "addBlocking":
         addBlocking.mutate({ id: bean.id, targetId: change.targetId });
         break;
+      // An `inbound` edge lives in the other bean's file. Calling the matching
+      // mutation on this bean would report success and change nothing, so the
+      // inverse mutation is issued against the bean that declared it.
       case "removeBlocking":
-        removeBlocking.mutate({ id: bean.id, targetId: change.targetId });
+        if (change.origin === "own") {
+          removeBlocking.mutate({ id: bean.id, targetId: change.targetId });
+        } else {
+          removeBlockedBy.mutate({ id: change.targetId, targetId: bean.id });
+        }
         break;
       case "addBlockedBy":
         addBlockedBy.mutate({ id: bean.id, targetId: change.targetId });
         break;
       case "removeBlockedBy":
-        removeBlockedBy.mutate({ id: bean.id, targetId: change.targetId });
+        if (change.origin === "own") {
+          removeBlockedBy.mutate({ id: bean.id, targetId: change.targetId });
+        } else {
+          removeBlocking.mutate({ id: change.targetId, targetId: bean.id });
+        }
         break;
     }
   }
@@ -542,16 +552,13 @@ function BeanDetailContent({
 
       <section className="bean-detail-section">
         <h2 className="bean-detail-section-title">Relationships</h2>
-        <RelationEditor bean={bean} candidates={candidates} onChange={handleRelationChange} />
+        <RelationEditor
+          project={project}
+          bean={bean}
+          candidates={candidates}
+          onChange={handleRelationChange}
+        />
       </section>
-
-      <LinkedBeans
-        project={project}
-        parent={bean.parent}
-        children={bean.children}
-        blocking={bean.blocking}
-        blockedBy={bean.blockedBy}
-      />
 
       <section className="bean-detail-actions">
         <button type="button" onClick={() => setIsCreating((v) => !v)}>

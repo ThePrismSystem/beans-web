@@ -228,6 +228,25 @@ describe("link mutations", () => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["beans", "demo"] });
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["projects"] });
     });
+
+    it(`${name} also invalidates the target, whose relation lists changed too`, async () => {
+      const fetchMock = vi.fn(
+        async (_url: string, _init: RequestInit) =>
+          new Response(JSON.stringify({ data: { [resultKey]: { id: "t1", etag: "new-etag" } } }), {
+            status: 200,
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const { wrapper, invalidateSpy } = makeWrapper();
+
+      const { result } = renderHook(() => hook("demo"), { wrapper });
+
+      result.current.mutate({ id: "t1", targetId: "t2" });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t2"] });
+    });
   }
 });
 
