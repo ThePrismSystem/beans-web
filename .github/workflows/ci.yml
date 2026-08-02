@@ -241,3 +241,8 @@ jobs:
 
       - name: Spell check
         run: pnpm spell
+
+      # Regenerates in place and fails on any diff, so a hand-edited or stale
+      # generated.ts cannot reach main. Run `pnpm codegen:check` locally to fix.
+      - name: Check generated GraphQL types are current
+        run: pnpm codegen:check

@@ -70,7 +70,14 @@ pnpm -r test:coverage
 pnpm -r build
 pnpm -r knip                         # unused files/exports/dependencies
 pnpm spell                           # cspell
+pnpm codegen:check                   # apps/web/src/api/generated.ts matches the operations
 ```
+
+`codegen:check` regenerates `apps/web/src/api/generated.ts` in place, formats it, and
+fails if the result differs from what is committed. Change a GraphQL document in
+`packages/shared/src/graphql/operations.ts` and this is the step that tells you to
+commit the regenerated types alongside it. Never hand-edit that file: the check will
+overwrite the edit and then fail on it.
 
 ## TypeScript conventions
 
