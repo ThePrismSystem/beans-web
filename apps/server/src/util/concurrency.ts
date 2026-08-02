@@ -15,10 +15,11 @@ export async function mapWithConcurrency<T, R>(
   fn: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
-  let next = 0;
+  const iterator = items.entries();
   async function worker(): Promise<void> {
-    for (let i = next++; i < items.length; i = next++) {
-      results[i] = await fn(items[i]!, i);
+    for (let entry = iterator.next(); !entry.done; entry = iterator.next()) {
+      const [i, item] = entry.value;
+      results[i] = await fn(item, i);
     }
   }
   const size = Math.max(1, Math.min(limit, items.length));

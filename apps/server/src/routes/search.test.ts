@@ -1,9 +1,11 @@
 import { EventEmitter } from "node:events";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
-import type { AppDeps } from "../app.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
+
+import type { AppDeps } from "../app.js";
 
 const project = fakeProject("proj-a");
 
@@ -11,10 +13,10 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
     roots: ["/root"],
     scanDepth: 4,
-    listProjects: vi.fn(async () => [project]),
-    runGraphql: vi.fn(async () => ({})),
-    search: vi.fn(async () => ({ hits: [], failures: [] })),
-    analytics: vi.fn(async () => fakeAnalytics()),
+    listProjects: vi.fn(() => Promise.resolve([project])),
+    runGraphql: vi.fn(() => Promise.resolve({})),
+    search: vi.fn(() => Promise.resolve({ hits: [], failures: [] })),
+    analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
     ...overrides,
@@ -33,7 +35,7 @@ describe("GET /api/search", () => {
         priority: "normal" as const,
       },
     };
-    const d = deps({ search: vi.fn(async () => ({ hits: [hit], failures: [] })) });
+    const d = deps({ search: vi.fn(() => Promise.resolve({ hits: [hit], failures: [] })) });
     const app = createApp(d);
     const res = await app.request("/api/search?q=auth");
     expect(res.status).toBe(200);

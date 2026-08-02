@@ -1,7 +1,11 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+
+const MAX_SCAN_DEPTH = 8;
+const DEFAULT_PORT = 4780;
 
 export const env = createEnv({
   server: {
@@ -18,8 +22,8 @@ export const env = createEnv({
       .refine((roots) => roots.length > 0, {
         message: "GIT_ROOT must contain at least one path",
       }),
-    SCAN_DEPTH: z.coerce.number().int().min(1).max(8).default(1),
-    PORT: z.coerce.number().int().default(4780),
+    SCAN_DEPTH: z.coerce.number().int().min(1).max(MAX_SCAN_DEPTH).default(1),
+    PORT: z.coerce.number().int().default(DEFAULT_PORT),
     HOST: z.string().default("127.0.0.1"),
     BEANS_BIN: z.string().default("beans"),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

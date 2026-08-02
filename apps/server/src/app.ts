@@ -16,14 +16,14 @@ import type { Analytics, SearchResult } from "@beans-frontend/shared";
 export interface AppDeps {
   roots: string[];
   scanDepth: number;
-  listProjects(): Promise<ProjectRecord[]>;
-  runGraphql(
+  listProjects: () => Promise<ProjectRecord[]>;
+  runGraphql: (
     configPath: string,
     query: string,
     variables?: Record<string, unknown>,
-  ): Promise<unknown>;
-  search(q: string): Promise<SearchResult>;
-  analytics(): Promise<Analytics>;
+  ) => Promise<unknown>;
+  search: (q: string) => Promise<SearchResult>;
+  analytics: () => Promise<Analytics>;
   watcher: EventEmitter;
   trustProxy: boolean;
 }

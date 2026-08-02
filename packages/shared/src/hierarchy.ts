@@ -16,5 +16,5 @@ export function validParentTypes(type: BeanType): BeanType[] | null {
 
 export function canParent(childType: BeanType, parentType: BeanType): boolean {
   const valid = validParentTypes(childType);
-  return valid !== null && valid.includes(parentType);
+  return valid?.includes(parentType) ?? false;
 }

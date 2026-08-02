@@ -3,10 +3,12 @@ import { EventEmitter } from "node:events";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
 import { createApp } from "./app.js";
-import { discoverProjects } from "./discovery/scan.js";
 import { runBeansGraphql } from "./beans/executor.js";
+import { discoverProjects } from "./discovery/scan.js";
 import { fakeAnalytics } from "./testing/fixtures.js";
 
 const root = mkdtempSync(join(tmpdir(), "srv-it-"));
@@ -17,7 +19,9 @@ beforeAll(() => {
   execFileSync("beans", ["init"], { cwd: projDir });
   execFileSync("beans", ["create", "First bean", "-t", "task"], { cwd: projDir });
 });
-afterAll(() => rmSync(root, { recursive: true, force: true }));
+afterAll(() => {
+  rmSync(root, { recursive: true, force: true });
+});
 
 describe("server integration", () => {
   const run = (cfg: string, q: string, v?: Record<string, unknown>) =>
@@ -30,8 +34,8 @@ describe("server integration", () => {
       scanDepth: 4,
       listProjects,
       runGraphql: run,
-      search: async () => ({ hits: [], failures: [] }),
-      analytics: async () => fakeAnalytics(),
+      search: () => Promise.resolve({ hits: [], failures: [] }),
+      analytics: () => Promise.resolve(fakeAnalytics()),
       watcher: new EventEmitter(),
       trustProxy: false,
     });
@@ -46,8 +50,8 @@ describe("server integration", () => {
       scanDepth: 4,
       listProjects,
       runGraphql: run,
-      search: async () => ({ hits: [], failures: [] }),
-      analytics: async () => fakeAnalytics(),
+      search: () => Promise.resolve({ hits: [], failures: [] }),
+      analytics: () => Promise.resolve(fakeAnalytics()),
       watcher: new EventEmitter(),
       trustProxy: false,
     });

@@ -1,9 +1,12 @@
 import { readFile, readdir } from "node:fs/promises";
 import { basename, join, relative, resolve, sep } from "node:path";
-import type { BeanStatus, BeanType, Project, ProjectCounts } from "@beans-frontend/shared";
+
 import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-frontend/shared";
+
 import { runBeansGraphql } from "../beans/executor.js";
 import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
+
+import type { BeanStatus, BeanType, Project, ProjectCounts } from "@beans-frontend/shared";
 
 const IGNORED = new Set(["node_modules", ".git", ".beans", "dist", ".next", "coverage"]);
 
@@ -108,7 +111,7 @@ function disambiguateNames(projects: ProjectRecord[]): ProjectRecord[] {
     let candidate = base;
     let suffix = 2;
     while (taken.has(candidate)) {
-      candidate = `${base}-${suffix}`;
+      candidate = `${base}-${String(suffix)}`;
       suffix += 1;
     }
     taken.add(candidate);

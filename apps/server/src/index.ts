@@ -1,15 +1,18 @@
-import { serve } from "@hono/node-server";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { env } from "./env.js";
-import { createApp } from "./app.js";
-import { discoverProjects, assertWithinRoot } from "./discovery/scan.js";
-import type { ProjectRecord } from "./discovery/scan.js";
-import { runBeansGraphql } from "./beans/executor.js";
-import { globalSearch } from "./aggregate/search.js";
+import { fileURLToPath } from "node:url";
+
+import { serve } from "@hono/node-server";
+
 import { buildAnalytics } from "./aggregate/analytics.js";
-import { BeansWatcher } from "./watch/watcher.js";
+import { globalSearch } from "./aggregate/search.js";
+import { createApp } from "./app.js";
+import { runBeansGraphql } from "./beans/executor.js";
+import { discoverProjects, assertWithinRoot } from "./discovery/scan.js";
+import { env } from "./env.js";
 import { registerStatic } from "./routes/static.js";
+import { BeansWatcher } from "./watch/watcher.js";
+
+import type { ProjectRecord } from "./discovery/scan.js";
 
 // Discovery spawns one `beans` process per project, so serve requests from a
 // short-lived cache instead of re-scanning on every /search and /analytics call.
@@ -64,9 +67,9 @@ const refresh = setInterval(() => {
 }, REFRESH_INTERVAL_MS);
 refresh.unref();
 
-const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) =>
-  console.log(`beans-frontend server on http://${env.HOST}:${info.port}`),
-);
+const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
+  console.info(`beans-frontend server on http://${env.HOST}:${String(info.port)}`);
+});
 
 function shutdown(): void {
   clearInterval(refresh);

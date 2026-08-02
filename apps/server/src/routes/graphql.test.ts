@@ -1,9 +1,12 @@
 import { EventEmitter } from "node:events";
+
 import { describe, expect, it, vi } from "vitest";
+
 import { createApp } from "../app.js";
-import type { AppDeps } from "../app.js";
 import { BeansError } from "../beans/executor.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
+
+import type { AppDeps } from "../app.js";
 
 const project = fakeProject("proj-a");
 
@@ -11,10 +14,10 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
     roots: ["/root"],
     scanDepth: 4,
-    listProjects: vi.fn(async () => [project]),
-    runGraphql: vi.fn(async () => ({ beans: [{ id: "x-1" }] })),
-    search: vi.fn(async () => ({ hits: [], failures: [] })),
-    analytics: vi.fn(async () => fakeAnalytics()),
+    listProjects: vi.fn(() => Promise.resolve([project])),
+    runGraphql: vi.fn(() => Promise.resolve({ beans: [{ id: "x-1" }] })),
+    search: vi.fn(() => Promise.resolve({ hits: [], failures: [] })),
+    analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
     ...overrides,
@@ -63,9 +66,7 @@ describe("POST /api/projects/:name/graphql", () => {
 
   it("returns 400 with error messages when beans rejects", async () => {
     const d = deps({
-      runGraphql: vi.fn(async () => {
-        throw new BeansError("bad parent", ["bad parent"]);
-      }),
+      runGraphql: vi.fn(() => Promise.reject(new BeansError("bad parent", ["bad parent"]))),
     });
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
@@ -79,9 +80,7 @@ describe("POST /api/projects/:name/graphql", () => {
 
   it("re-throws (500) when runGraphql rejects with a plain Error", async () => {
     const d = deps({
-      runGraphql: vi.fn(async () => {
-        throw new Error("unexpected failure");
-      }),
+      runGraphql: vi.fn(() => Promise.reject(new Error("unexpected failure"))),
     });
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
@@ -94,7 +93,7 @@ describe("POST /api/projects/:name/graphql", () => {
 
   it("returns 404 when the resolved project's root isn't one of the configured roots", async () => {
     const rogueProject = { ...project, root: "/somewhere/else" };
-    const app = createApp(deps({ listProjects: vi.fn(async () => [rogueProject]) }));
+    const app = createApp(deps({ listProjects: vi.fn(() => Promise.resolve([rogueProject])) }));
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
       headers: { "content-type": "application/json" },
