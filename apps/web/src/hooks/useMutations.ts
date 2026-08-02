@@ -171,7 +171,12 @@ function useLinkMutation(
       });
       return data[resultKey];
     },
-    onSuccess: (_data, v) => invalidateBean(qc, project, v.id),
+    // A link touches both ends, and for an inbound removal `v.id` is the other
+    // bean, so invalidating only it would leave the page you are on stale.
+    onSuccess: (_data, v) => {
+      invalidateBean(qc, project, v.id);
+      invalidateBean(qc, project, v.targetId);
+    },
   });
 }
 

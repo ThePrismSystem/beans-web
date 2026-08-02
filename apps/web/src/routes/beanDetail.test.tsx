@@ -90,8 +90,8 @@ const bean: BeanDetail = {
   blockedByIds: [],
   parent: { id: "m1", title: "Parent Milestone", type: "milestone", status: "todo" },
   children: [{ id: "c1", title: "Child Task", type: "task", status: "todo" }],
-  blocking: [],
   blockedBy: [],
+  blocksInbound: [],
 };
 
 const otherMilestone: Bean = {
@@ -616,6 +616,35 @@ describe("BeanDetailPage", () => {
     await user.click(screen.getByLabelText("Select New Candidate"));
     await user.click(screen.getByRole("button", { name: /Add 1/ }));
     expect(addBlockedByMutate).toHaveBeenCalledWith({ id: "t1", targetId: "new1" });
+  });
+
+  it("removes an edge declared on the other bean by mutating that bean instead", async () => {
+    // beans stores each blocking edge on one side only. Calling removeBlocking on
+    // this bean for an edge declared elsewhere reports success and changes nothing,
+    // so both of these must go out as the inverse mutation against the other bean.
+    useBeanMock.mockReturnValue({
+      data: {
+        ...bean,
+        blocksInbound: [{ id: "inb1", title: "Inbound Blocked", type: "task", status: "todo" }],
+        blockedBy: [{ id: "inb2", title: "Inbound Blocker", type: "task", status: "todo" }],
+      },
+      isPending: false,
+      isError: false,
+    });
+    useBeansMock.mockReturnValue({ data: [otherMilestone], isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderBeanDetail();
+    await screen.findByText("Task One");
+
+    await user.click(screen.getByRole("button", { name: "Remove Inbound Blocked from blocks" }));
+    expect(removeBlockedByMutate).toHaveBeenCalledWith({ id: "inb1", targetId: "t1" });
+    expect(removeBlockingMutate).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: "Remove Inbound Blocker from blocked by" }),
+    );
+    expect(removeBlockingMutate).toHaveBeenCalledWith({ id: "inb2", targetId: "t1" });
   });
 
   it("does not show a stale error once a later mutation succeeds", async () => {

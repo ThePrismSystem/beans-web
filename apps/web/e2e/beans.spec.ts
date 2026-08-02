@@ -36,11 +36,10 @@ test("core client-visible contract", async ({ page }) => {
   await test.step("open the feature bean's detail page", async () => {
     await page.getByText(featureTitle).click();
     await expect(page.locator("button.bean-detail-title")).toHaveText(featureTitle);
-    // No parent/children exist yet at this point, so the panel renders empty
-    // (zero-size, not "visible" in Playwright's strict sense) — just confirm
-    // it's mounted here; the real, populated check comes after the child
-    // bean below is created.
-    await expect(page.getByTestId("linked-beans")).toBeAttached();
+    // No parent/children exist yet at this point, so the lists render empty —
+    // just confirm the panel is mounted here; the real, populated check comes
+    // after the child bean below is created.
+    await expect(page.getByTestId("relations")).toBeAttached();
   });
 
   const editedTitle = `${featureTitle} (edited)`;
@@ -90,10 +89,10 @@ test("core client-visible contract", async ({ page }) => {
     await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);
   });
 
-  await test.step("linked beans show the real parent/child relationship", async () => {
-    const linkedBeans = page.getByTestId("linked-beans");
-    await expect(linkedBeans.getByText("Parent")).toBeVisible();
-    await expect(linkedBeans.getByRole("link", { name: editedTitle })).toBeVisible();
+  await test.step("relationships show the real parent/child relationship", async () => {
+    const relations = page.getByTestId("relations");
+    await expect(relations.getByText("Parent", { exact: true })).toBeVisible();
+    await expect(relations.getByRole("link", { name: editedTitle })).toBeVisible();
   });
 
   await test.step("scrap the child bean", async () => {

@@ -4,10 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { projectGraphql } from "../api/client.js";
 
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { BeanDetail } from "@beans-frontend/shared";
+import type { BeanDetail, LinkedBean } from "@beans-frontend/shared";
 
 interface BeanDetailQueryResult {
-  bean: BeanDetail | null;
+  // `blocksInbound` is a sibling of `bean` in the document, not a field on it,
+  // because it comes from a separate top-level `beans(filter:)` call.
+  bean: Omit<BeanDetail, "blocksInbound"> | null;
+  blocksInbound: LinkedBean[];
 }
 
 export function useBean(project: string, id: string): UseQueryResult<BeanDetail> {
@@ -16,11 +19,12 @@ export function useBean(project: string, id: string): UseQueryResult<BeanDetail>
     queryFn: async () => {
       const data = await projectGraphql<BeanDetailQueryResult>(project, BEAN_DETAIL_QUERY, {
         id,
+        idStr: id,
       });
       if (!data.bean) {
         throw new Error(`bean not found: ${id}`);
       }
-      return data.bean;
+      return { ...data.bean, blocksInbound: data.blocksInbound };
     },
   });
 }

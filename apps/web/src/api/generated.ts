@@ -89,9 +89,11 @@ export type UpdateBeanInput = {
 
 export type BeanDetailQueryVariables = Exact<{
   id: string;
+  idStr: string;
 }>;
 
 export type BeanDetailQuery = {
+  blocksInbound: Array<{ id: string; title: string; type: string; status: string }>;
   bean: {
     id: string;
     slug: string | null;
@@ -110,7 +112,6 @@ export type BeanDetailQuery = {
     blockedByIds: Array<string>;
     parent: { id: string; title: string; type: string; status: string } | null;
     children: Array<{ id: string; title: string; type: string; status: string }>;
-    blocking: Array<{ id: string; title: string; type: string; status: string }>;
     blockedBy: Array<{ id: string; title: string; type: string; status: string }>;
   } | null;
 };

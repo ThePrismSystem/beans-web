@@ -562,51 +562,6 @@ a {
   margin-top: 0;
 }
 
-/* Linked beans */
-
-.linked-beans {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.linked-beans-group-label {
-  margin: 0 0 0.5rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.linked-beans-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--hairline);
-}
-
-.linked-bean-item {
-  border-bottom: 1px solid var(--hairline);
-}
-
-.linked-bean-link {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.linked-bean-link:hover {
-  background: var(--paper-raised);
-}
-
-.linked-bean-title {
-  font-family: var(--font-serif);
-}
-
 /* Bean detail: inline editing affordances */
 
 .bean-detail-title,
@@ -795,6 +750,29 @@ a {
   gap: 0.5rem;
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--hairline);
+}
+
+.relation-editor-link {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: -0.15rem -0.3rem;
+  padding: 0.15rem 0.3rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.relation-editor-link:hover {
+  background: var(--paper-raised);
+}
+
+.relation-editor-title {
+  font-family: var(--font-serif);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .relation-editor-remove {
@@ -1010,7 +988,7 @@ a {
 .hierarchy-caret:focus-visible,
 .side-item:focus-visible,
 .bean-row:focus-visible,
-.linked-bean-link:focus-visible,
+.relation-editor-link:focus-visible,
 .header-search-input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1021,7 +999,7 @@ a {
 @media (pointer: coarse) {
   .side-item,
   .bean-row,
-  .linked-bean-link,
+  .relation-editor-link,
   .view-toggle button,
   .nav-toggle,
   .filter-toggle,
@@ -1153,7 +1131,7 @@ a {
 @media (max-width: 768px) {
   .side-item,
   .bean-row,
-  .linked-bean-link,
+  .relation-editor-link,
   .view-toggle button,
   .checkbox-menu-trigger,
   .inline-edit-pencil,

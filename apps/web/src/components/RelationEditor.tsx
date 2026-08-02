@@ -1,56 +1,148 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { canParent, validParentTypes } from "@beans-frontend/shared";
 
 import { BeanPicker } from "./BeanPicker.js";
+import { BeanTypeTag } from "./BeanTypeTag.js";
 
-import type { Bean, BeanListItem } from "@beans-frontend/shared";
+import type { BeanDetail, BeanListItem, LinkedBean } from "@beans-frontend/shared";
+
+/**
+ * Which bean's file declares an edge. beans stores a blocking link on whichever
+ * side wrote it and never resolves the inverse, so removing an `inbound` edge
+ * means mutating the *other* bean — see `RelationEditorProps.onChange`.
+ */
+export type RelationOrigin = "own" | "inbound";
 
 export type RelationChange =
   | { kind: "setParent"; parentId: string | null }
   | { kind: "addBlocking"; targetId: string }
-  | { kind: "removeBlocking"; targetId: string }
+  | { kind: "removeBlocking"; targetId: string; origin: RelationOrigin }
   | { kind: "addBlockedBy"; targetId: string }
-  | { kind: "removeBlockedBy"; targetId: string };
+  | { kind: "removeBlockedBy"; targetId: string; origin: RelationOrigin };
 
 export interface RelationEditorProps {
-  bean: Bean;
+  project: string;
+  bean: BeanDetail;
   candidates: BeanListItem[];
+  /**
+   * Removals carry the edge's `origin`. An `own` removal targets this bean's own
+   * list; an `inbound` one only takes effect against the bean that declared it,
+   * through the opposite mutation.
+   */
   onChange: (change: RelationChange) => void;
 }
 
-function titleFor(candidates: BeanListItem[], id: string): string {
-  return candidates.find((candidate) => candidate.id === id)?.title ?? id;
+/** A row in one of the relation lists, tagged with the side that declared it. */
+interface RelationRow {
+  id: string;
+  title: string;
+  origin: RelationOrigin;
+  /** null when the id names a bean no longer in the project (dangling link). */
+  bean: LinkedBean | null;
+}
+
+function toRow(bean: LinkedBean, origin: RelationOrigin): RelationRow {
+  return { id: bean.id, title: bean.title, origin, bean };
+}
+
+/**
+ * Both halves of one relation as a single list. An edge declared on both sides
+ * appears once, as `own`, so its Remove uses the mutation that acts on this bean.
+ */
+function union(own: RelationRow[], inbound: LinkedBean[]): RelationRow[] {
+  const seen = new Set(own.map((row) => row.id));
+  return [...own, ...inbound.filter((b) => !seen.has(b.id)).map((b) => toRow(b, "inbound"))];
+}
+
+/** Resolves ids held only as strings against the project's bean list. */
+function ownRowsFromIds(candidates: BeanListItem[], ids: string[]): RelationRow[] {
+  return ids.map((id) => {
+    const match = candidates.find((candidate) => candidate.id === id);
+    return match
+      ? toRow({ id, title: match.title, type: match.type, status: match.status }, "own")
+      : { id, title: id, origin: "own" as const, bean: null };
+  });
+}
+
+function RelationRowItem({
+  project,
+  row,
+  removeLabel,
+  onRemove,
+}: {
+  project: string;
+  row: RelationRow;
+  removeLabel?: string;
+  onRemove?: () => void;
+}) {
+  return (
+    <li className="relation-editor-item">
+      {row.bean ? (
+        <Link
+          to="/p/$project/$beanId"
+          params={{ project, beanId: row.id }}
+          className="relation-editor-link"
+        >
+          <BeanTypeTag type={row.bean.type} />
+          <span className="relation-editor-title">{row.title}</span>
+        </Link>
+      ) : (
+        <span className="relation-editor-title">{row.title}</span>
+      )}
+      {onRemove && removeLabel && (
+        <button
+          type="button"
+          className="relation-editor-remove"
+          aria-label={removeLabel}
+          onClick={onRemove}
+        >
+          Remove
+        </button>
+      )}
+    </li>
+  );
 }
 
 type Picker = null | "parent" | "blocking" | "blockedBy";
 
-export function RelationEditor({ bean, candidates, onChange }: RelationEditorProps) {
+export function RelationEditor({ project, bean, candidates, onChange }: RelationEditorProps) {
   const [picker, setPicker] = useState<Picker>(null);
   const parentTypes = validParentTypes(bean.type);
 
   const parentOptions = candidates.filter(
     (candidate) => candidate.id !== bean.id && canParent(bean.type, candidate.type),
   );
+
+  // Each direction is this bean's own id list matched against the project, plus
+  // the half the server resolved from the beans that declared the edge instead.
+  const blocksRows = union(ownRowsFromIds(candidates, bean.blockingIds), bean.blocksInbound);
+  const blockedByRows = union(ownRowsFromIds(candidates, bean.blockedByIds), bean.blockedBy);
+
+  const blockedIds = new Set(blocksRows.map((row) => row.id));
+  const blockerIds = new Set(blockedByRows.map((row) => row.id));
   const blockingOptions = candidates.filter(
-    (candidate) => candidate.id !== bean.id && !bean.blockingIds.includes(candidate.id),
+    (candidate) => candidate.id !== bean.id && !blockedIds.has(candidate.id),
   );
   const blockedByOptions = candidates.filter(
-    (candidate) => candidate.id !== bean.id && !bean.blockedByIds.includes(candidate.id),
+    (candidate) => candidate.id !== bean.id && !blockerIds.has(candidate.id),
   );
 
   return (
-    <div className="relation-editor">
+    <div className="relation-editor" data-testid="relations">
       {parentTypes !== null && (
         <div className="relation-editor-section">
           <h3 className="relation-editor-label">Parent</h3>
-          <div className="relation-editor-current">
-            {bean.parentId ? (
-              titleFor(candidates, bean.parentId)
+          <ul className="relation-editor-list">
+            {bean.parent ? (
+              <RelationRowItem project={project} row={toRow(bean.parent, "own")} />
             ) : (
-              <span className="muted">(none)</span>
+              <li className="relation-editor-item">
+                <span className="muted">(none)</span>
+              </li>
             )}
-          </div>
+          </ul>
           <button type="button" onClick={() => setPicker("parent")}>
             Set parent
           </button>
@@ -72,18 +164,16 @@ export function RelationEditor({ bean, candidates, onChange }: RelationEditorPro
       <div className="relation-editor-section">
         <h3 className="relation-editor-label">Blocks</h3>
         <ul className="relation-editor-list">
-          {bean.blockingIds.map((id) => (
-            <li key={id} className="relation-editor-item">
-              <span>{titleFor(candidates, id)}</span>
-              <button
-                type="button"
-                className="relation-editor-remove"
-                aria-label={`Remove ${titleFor(candidates, id)} from blocks`}
-                onClick={() => onChange({ kind: "removeBlocking", targetId: id })}
-              >
-                Remove
-              </button>
-            </li>
+          {blocksRows.map((row) => (
+            <RelationRowItem
+              key={row.id}
+              project={project}
+              row={row}
+              removeLabel={`Remove ${row.title} from blocks`}
+              onRemove={() =>
+                onChange({ kind: "removeBlocking", targetId: row.id, origin: row.origin })
+              }
+            />
           ))}
         </ul>
         <button type="button" onClick={() => setPicker("blocking")}>
@@ -105,18 +195,16 @@ export function RelationEditor({ bean, candidates, onChange }: RelationEditorPro
       <div className="relation-editor-section">
         <h3 className="relation-editor-label">Blocked by</h3>
         <ul className="relation-editor-list">
-          {bean.blockedByIds.map((id) => (
-            <li key={id} className="relation-editor-item">
-              <span>{titleFor(candidates, id)}</span>
-              <button
-                type="button"
-                className="relation-editor-remove"
-                aria-label={`Remove ${titleFor(candidates, id)} from blocked by`}
-                onClick={() => onChange({ kind: "removeBlockedBy", targetId: id })}
-              >
-                Remove
-              </button>
-            </li>
+          {blockedByRows.map((row) => (
+            <RelationRowItem
+              key={row.id}
+              project={project}
+              row={row}
+              removeLabel={`Remove ${row.title} from blocked by`}
+              onRemove={() =>
+                onChange({ kind: "removeBlockedBy", targetId: row.id, origin: row.origin })
+              }
+            />
           ))}
         </ul>
         <button type="button" onClick={() => setPicker("blockedBy")}>
@@ -134,6 +222,17 @@ export function RelationEditor({ bean, candidates, onChange }: RelationEditorPro
           }}
         />
       </div>
+
+      {bean.children.length > 0 && (
+        <div className="relation-editor-section">
+          <h3 className="relation-editor-label">Children</h3>
+          <ul className="relation-editor-list">
+            {bean.children.map((child) => (
+              <RelationRowItem key={child.id} project={project} row={toRow(child, "own")} />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

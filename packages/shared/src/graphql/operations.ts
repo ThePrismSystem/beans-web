@@ -1,5 +1,14 @@
+// `bean(id:)` takes an ID! while `BeanFilter.blockedById` takes a String, so the
+// same bean id has to be declared twice. `blocksInbound` is the half of "blocks"
+// that `blocking` cannot see: beans whose own `blocked_by` names this one.
 export const BEAN_DETAIL_QUERY = /* GraphQL */ `
-  query BeanDetail($id: ID!) {
+  query BeanDetail($id: ID!, $idStr: String!) {
+    blocksInbound: beans(filter: { blockedById: $idStr }) {
+      id
+      title
+      type
+      status
+    }
     bean(id: $id) {
       id
       slug
@@ -23,12 +32,6 @@ export const BEAN_DETAIL_QUERY = /* GraphQL */ `
         status
       }
       children {
-        id
-        title
-        type
-        status
-      }
-      blocking {
         id
         title
         type
