@@ -181,7 +181,8 @@ export default tseslint.config(
     extends: [...tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: ["./apps/web/tsconfig.eslint.json"],
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {
