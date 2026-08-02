@@ -86,6 +86,32 @@ function runA11ySuite() {
     expect((await scan(page)).violations).toEqual([]);
   });
 
+  // The bean's title is the page's <h1>, and that heading takes its accessible
+  // name from the edit button inside it. An aria-label on that button once made
+  // the whole heading announce as "Edit title: …", so heading-list navigation
+  // led with the action instead of the bean.
+  test("the bean detail heading is named after the bean", async ({ page }) => {
+    const { featureTitle } = readSeedState();
+    await gotoBean(page);
+
+    await expect(page.getByRole("heading", { level: 1, name: featureTitle })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `Edit title: ${featureTitle}` })).toHaveCount(0);
+  });
+
+  test("the create-bean form reports a missing title accessibly", async ({ page }) => {
+    await gotoBean(page);
+    await page.getByRole("button", { name: "+ New bean" }).click();
+    const title = page.getByLabel("Title (required)");
+    await expect(title).toBeVisible();
+
+    await page.getByRole("button", { name: "Create bean" }).click();
+
+    await expect(page.getByRole("alert")).toHaveText("Title is required.");
+    await expect(title).toHaveAttribute("aria-invalid", "true");
+    await expect(title).toBeFocused();
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
   test("an open filter menu has no violations", async ({ page }) => {
     const { projectName } = readSeedState();
     await page.goto("/");

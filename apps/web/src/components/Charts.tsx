@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   Area,
   AreaChart,
@@ -50,10 +51,11 @@ interface TableSpec {
  * a table that only assistive tech reads, so nothing is conveyed by the SVG
  * alone.
  */
-function ChartTable({ title, spec }: { title: string; spec: TableSpec }) {
+function ChartTable({ labelledBy, spec }: { labelledBy: string; spec: TableSpec }) {
   return (
-    <table className="chart-table visually-hidden">
-      <caption>{title}</caption>
+    // Named by the section's own heading rather than a <caption> repeating it,
+    // which made screen readers announce the title twice in a row.
+    <table className="chart-table visually-hidden" aria-labelledby={labelledBy}>
       <thead>
         <tr>
           {spec.columns.map((column) => (
@@ -102,11 +104,12 @@ function ChartSection({
   legend?: { label: string; className: string }[];
   children: ReactNode;
 }) {
+  const headingId = useId();
   return (
-    <section className="chart-section">
-      <h2>{title}</h2>
+    <section className="chart-section" aria-labelledby={headingId}>
+      <h2 id={headingId}>{title}</h2>
       {legend && <ChartLegend items={legend} />}
-      <ChartTable title={title} spec={table} />
+      <ChartTable labelledBy={headingId} spec={table} />
       <div aria-hidden="true">
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
           {children}

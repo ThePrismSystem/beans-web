@@ -56,7 +56,7 @@ describe("CreateBeanForm", () => {
     const onSubmit = vi.fn();
     render(<CreateBeanForm candidates={candidates} onSubmit={onSubmit} />);
 
-    await user.type(screen.getByLabelText("Title"), "New epic");
+    await user.type(screen.getByLabelText("Title (required)"), "New epic");
     await user.selectOptions(screen.getByLabelText("Type"), "epic");
     await user.selectOptions(screen.getByLabelText("Parent"), "m1");
     await user.selectOptions(screen.getByLabelText("Priority"), "high");
@@ -84,7 +84,7 @@ describe("CreateBeanForm", () => {
     expect(screen.getByLabelText("Type")).toHaveValue("epic");
     expect(screen.getByLabelText("Parent")).toHaveValue("m1");
 
-    await user.type(screen.getByLabelText("Title"), "Child epic");
+    await user.type(screen.getByLabelText("Title (required)"), "Child epic");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ type: "epic", parent: "m1" }));
@@ -104,7 +104,7 @@ describe("CreateBeanForm", () => {
     expect(screen.getByLabelText("Type")).toHaveValue("task");
     expect(screen.getByLabelText("Parent")).toHaveValue("");
 
-    await user.type(screen.getByLabelText("Title"), "Sibling task");
+    await user.type(screen.getByLabelText("Title (required)"), "Sibling task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ parent: null }));
@@ -124,7 +124,7 @@ describe("CreateBeanForm", () => {
     expect(screen.getByLabelText("Type")).toHaveValue("task");
     expect(screen.getByLabelText("Parent")).toHaveValue("");
 
-    await user.type(screen.getByLabelText("Title"), "Orphan task");
+    await user.type(screen.getByLabelText("Title (required)"), "Orphan task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ parent: null }));
@@ -150,7 +150,7 @@ describe("CreateBeanForm", () => {
     render(<CreateBeanForm candidates={candidates} onSubmit={onSubmit} />);
 
     await user.selectOptions(screen.getByLabelText("Status"), "in-progress");
-    await user.type(screen.getByLabelText("Title"), "In progress task");
+    await user.type(screen.getByLabelText("Title (required)"), "In progress task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ status: "in-progress" }));
@@ -174,5 +174,61 @@ describe("CreateBeanForm", () => {
     const parent = screen.getByLabelText("Parent");
     expect(parent).toBeInTheDocument();
     expect(parent).toHaveTextContent("(none)");
+  });
+
+  describe("required-title error reporting", () => {
+    function renderForm() {
+      const onSubmit = vi.fn();
+      render(<CreateBeanForm candidates={[]} onSubmit={onSubmit} />);
+      return { onSubmit, user: userEvent.setup() };
+    }
+
+    it("marks the title as required to assistive tech", () => {
+      renderForm();
+
+      expect(screen.getByLabelText("Title (required)")).toBeRequired();
+    });
+
+    it("announces the error and links it to the input on empty submit", async () => {
+      const { user, onSubmit } = renderForm();
+
+      await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("Title is required.");
+      const input = screen.getByLabelText("Title (required)");
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input).toHaveAccessibleDescription("Title is required.");
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("moves focus to the invalid input so the failure is not silent", async () => {
+      const { user } = renderForm();
+
+      await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+      expect(screen.getByLabelText("Title (required)")).toHaveFocus();
+    });
+
+    it("clears the error and its wiring once the user types", async () => {
+      const { user } = renderForm();
+      await user.click(screen.getByRole("button", { name: "Create bean" }));
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText("Title (required)"), "a");
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Title (required)")).not.toHaveAttribute("aria-invalid");
+    });
+
+    it("rejects a whitespace-only title", async () => {
+      const { user, onSubmit } = renderForm();
+
+      await user.type(screen.getByLabelText("Title (required)"), "   ");
+      await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
   });
 });

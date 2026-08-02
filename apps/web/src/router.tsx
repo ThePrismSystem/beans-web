@@ -2,7 +2,6 @@ import { createRootRoute, createRoute, createRouter } from "@tanstack/react-rout
 import { lazy } from "react";
 
 import { AppShell } from "./components/AppShell.js";
-import { BeanDetailPage } from "./routes/beanDetail.js";
 import { Overview } from "./routes/overview.js";
 import { ProjectList, validateProjectSearch } from "./routes/projectList.js";
 import { SearchPage, validateSearchPageSearch } from "./routes/search.js";
@@ -11,6 +10,13 @@ import { SearchPage, validateSearchPageSearch } from "./routes/search.js";
 // initial bundle. Rendered under the Suspense boundary in AppShell.
 const AnalyticsPage = lazy(() =>
   import("./routes/analytics.js").then((m) => ({ default: m.AnalyticsPage })),
+);
+
+// Bean detail is the only consumer of the markdown renderer (marked +
+// DOMPurify, ~60kB). Splitting the route keeps that out of the entry chunk, so
+// the overview and project list don't pay to parse a renderer they never call.
+const BeanDetailPage = lazy(() =>
+  import("./routes/beanDetail.js").then((m) => ({ default: m.BeanDetailPage })),
 );
 
 const rootRoute = createRootRoute({ component: AppShell });

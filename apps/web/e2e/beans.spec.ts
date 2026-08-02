@@ -82,7 +82,7 @@ test("core client-visible contract", async ({ page }) => {
     // The feature bean should be pre-selected as parent, since a task can
     // validly nest under a feature.
     await expect(createForm.getByLabel("Parent")).toHaveValue(/.+/);
-    await createForm.getByLabel("Title", { exact: true }).fill(childTitle);
+    await createForm.getByLabel("Title (required)", { exact: true }).fill(childTitle);
     await createForm.getByRole("button", { name: "Create bean" }).click();
 
     // Successful creation navigates to the new child's detail page.

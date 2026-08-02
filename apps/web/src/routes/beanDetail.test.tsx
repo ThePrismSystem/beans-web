@@ -407,7 +407,7 @@ describe("BeanDetailPage", () => {
     const { router } = renderBeanDetail();
 
     await user.click(await screen.findByRole("button", { name: "+ New bean" }));
-    await user.type(screen.getByLabelText("Title"), "Sibling task");
+    await user.type(screen.getByLabelText("Title (required)"), "Sibling task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     await waitFor(() => {
@@ -431,7 +431,7 @@ describe("BeanDetailPage", () => {
     renderBeanDetail();
 
     await user.click(await screen.findByRole("button", { name: "+ New bean" }));
-    await user.type(screen.getByLabelText("Title"), "Sibling task");
+    await user.type(screen.getByLabelText("Title (required)"), "Sibling task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     expect(createBeanMutate).toHaveBeenCalledTimes(1);
@@ -456,7 +456,7 @@ describe("BeanDetailPage", () => {
     renderBeanDetail("/p/demo/ms1");
 
     await user.click(await screen.findByRole("button", { name: "+ New bean" }));
-    await user.type(screen.getByLabelText("Title"), "Child epic");
+    await user.type(screen.getByLabelText("Title (required)"), "Child epic");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
 
     expect(createBeanMutate).toHaveBeenCalledTimes(1);

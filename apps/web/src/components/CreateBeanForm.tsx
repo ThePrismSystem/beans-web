@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   BEAN_PRIORITIES,
@@ -13,6 +13,8 @@ import { EnumSelect } from "./EnumSelect.js";
 import type { CreateBeanInput } from "../api/generated.js";
 import type { ChangeEvent, FormEvent } from "react";
 import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+
+const TITLE_ERROR_ID = "create-bean-title-error";
 
 export interface CreateBeanFormProps {
   candidates: BeanListItem[];
@@ -61,6 +63,7 @@ export function CreateBeanForm({
   const [tags, setTags] = useState("");
   const [body, setBody] = useState("");
   const [titleError, setTitleError] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const parentOptions = candidates.filter((candidate) => canParent(type, candidate.type));
   // Show the parent control iff the selected type can have a parent at all
@@ -99,6 +102,9 @@ export function CreateBeanForm({
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
       setTitleError(true);
+      // Without this, focus stays on the submit button and a screen reader
+      // user is left at a control that appears to have done nothing.
+      titleRef.current?.focus();
       return;
     }
     const tagList = tags
@@ -118,19 +124,30 @@ export function CreateBeanForm({
   }
 
   return (
-    <form className="create-bean-form" onSubmit={handleSubmit}>
+    // noValidate hands validation to handleSubmit: `required` below still tells
+    // assistive tech the field is mandatory, but the browser's own bubble would
+    // take over before the in-page error message is ever rendered or announced.
+    <form className="create-bean-form" onSubmit={handleSubmit} noValidate>
       <div className="create-bean-field">
-        <label htmlFor="create-bean-title">Title</label>
+        <label htmlFor="create-bean-title">Title (required)</label>
         <input
           id="create-bean-title"
+          ref={titleRef}
           type="text"
+          required
+          aria-invalid={titleError || undefined}
+          aria-describedby={titleError ? TITLE_ERROR_ID : undefined}
           value={title}
           onChange={(event) => {
             setTitle(event.target.value);
             setTitleError(false);
           }}
         />
-        {titleError && <p className="create-bean-error">Title is required.</p>}
+        {titleError && (
+          <p className="create-bean-error" id={TITLE_ERROR_ID} role="alert">
+            Title is required.
+          </p>
+        )}
       </div>
 
       <div className="create-bean-field">

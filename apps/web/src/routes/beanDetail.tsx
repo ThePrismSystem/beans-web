@@ -100,11 +100,15 @@ function BeanDetailHeader({
             }}
           />
         ) : (
+          // No aria-label: the <h1> takes its accessible name from this
+          // button's, so an "Edit title: …" label made heading-list navigation
+          // announce the action instead of the bean. The button role already
+          // conveys that it does something; `title` carries the hint visually.
           <button
             type="button"
             className="bean-detail-title"
             onClick={onStartEditingTitle}
-            aria-label={`Edit title: ${bean.title}`}
+            title="Edit title"
           >
             {bean.title}
           </button>
