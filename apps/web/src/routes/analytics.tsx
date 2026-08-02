@@ -1,5 +1,6 @@
 import { Charts } from "../components/Charts.js";
 import { useAnalytics } from "../hooks/useAnalytics.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 
 import type { Analytics } from "@beans-frontend/shared";
 
@@ -12,17 +13,30 @@ function totals(analytics: Analytics): { total: number; open: number } {
 
 export function AnalyticsPage() {
   const { data: analytics, isPending, isError } = useAnalytics();
+  useDocumentTitle("Analytics");
 
   if (isPending) {
-    return <p className="muted">Loading analytics…</p>;
+    return (
+      <p className="muted" role="status">
+        Loading analytics…
+      </p>
+    );
   }
 
   if (isError) {
-    return <p className="muted">Failed to load analytics.</p>;
+    return (
+      <p className="muted" role="alert">
+        Failed to load analytics.
+      </p>
+    );
   }
 
   if (analytics.perProject.length === 0) {
-    return <p className="muted">No analytics data yet.</p>;
+    return (
+      <p className="muted" role="status">
+        No analytics data yet.
+      </p>
+    );
   }
 
   const { total, open } = totals(analytics);

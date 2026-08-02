@@ -69,6 +69,8 @@ words:
   - realpath
   - nosniff
   - clickjacking
+  - noopener
+  - noreferrer
 ignorePaths:
   - node_modules
   - dist

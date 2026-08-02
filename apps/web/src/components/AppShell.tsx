@@ -1,4 +1,4 @@
-import { Outlet, useParams } from "@tanstack/react-router";
+import { Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { Suspense, useEffect, useRef, useState } from "react";
 
 import { useEvents } from "../hooks/useEvents.js";
@@ -23,7 +23,24 @@ export function AppShell() {
   const isDrawer = useMediaQuery(DRAWER_BREAKPOINT);
   const navToggleRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isFirstRouteRef = useRef(true);
+
+  // Navigating in a single-page app leaves focus wherever the click landed —
+  // or on <body> once the old page unmounts — so keyboard and screen-reader
+  // users are dropped at the top of the document with nothing announced.
+  // Moving focus into <main> puts them at the start of the new view and makes
+  // the reader announce it (WCAG 2.4.3). Skipped on first paint, where there
+  // is no previous view to have navigated away from.
+  useEffect(() => {
+    if (isFirstRouteRef.current) {
+      isFirstRouteRef.current = false;
+      return;
+    }
+    mainRef.current?.focus();
+  }, [pathname]);
 
   useEffect(() => {
     if (!lastEvent) {
@@ -109,8 +126,14 @@ export function AppShell() {
           )}
           <HeaderSearch />
         </header>
-        <main className="app-content" id="main-content" tabIndex={-1}>
-          <Suspense fallback={<p className="muted">Loading…</p>}>
+        <main className="app-content" id="main-content" ref={mainRef} tabIndex={-1}>
+          <Suspense
+            fallback={
+              <p className="muted" role="status">
+                Loading…
+              </p>
+            }
+          >
             <Outlet />
           </Suspense>
         </main>

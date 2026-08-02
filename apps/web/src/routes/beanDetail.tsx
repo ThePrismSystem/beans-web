@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 
@@ -12,6 +12,7 @@ import { RelationEditor } from "../components/RelationEditor.js";
 import { StatusDot } from "../components/StatusDot.js";
 
 import { useBean } from "../hooks/useBean.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useProjectBeans } from "../hooks/useBeans.js";
 import {
   describeMutationError,
@@ -77,6 +78,7 @@ function BeanDetailHeader({
   onSavePriority,
   onSaveTags,
 }: BeanDetailHeaderProps) {
+  const titleHintId = useId();
   return (
     <header className="bean-detail-header">
       {/* The bean's title is the page's top-level heading, so it stays an <h1>
@@ -102,18 +104,22 @@ function BeanDetailHeader({
         ) : (
           // No aria-label: the <h1> takes its accessible name from this
           // button's, so an "Edit title: …" label made heading-list navigation
-          // announce the action instead of the bean. The button role already
-          // conveys that it does something; `title` carries the hint visually.
+          // announce the action instead of the bean. The hint moves to a
+          // description, which is announced without touching the name — and
+          // unlike a `title` tooltip, reaches keyboard and touch users too.
           <button
             type="button"
             className="bean-detail-title"
             onClick={onStartEditingTitle}
-            title="Edit title"
+            aria-describedby={titleHintId}
           >
             {bean.title}
           </button>
         )}
       </h1>
+      <span id={titleHintId} className="visually-hidden">
+        Activate to edit the title
+      </span>
 
       <div className="bean-detail-inline-rows">
         <InlineEditRow
@@ -640,13 +646,24 @@ export function BeanDetailPage() {
   const navigate = useNavigate({ from: "/p/$project/$beanId" });
   const { data: bean, isPending, isError, refetch } = useBean(project, beanId);
   const { data: allBeans } = useProjectBeans(project, "");
+  // Called before the early returns below, so the title still updates while
+  // the bean is loading — the id is a better placeholder than the app name.
+  useDocumentTitle(bean?.title ?? beanId);
 
   if (isPending) {
-    return <p className="muted">Loading bean…</p>;
+    return (
+      <p className="muted" role="status">
+        Loading bean…
+      </p>
+    );
   }
 
   if (isError) {
-    return <p className="muted">Failed to load bean.</p>;
+    return (
+      <p className="muted" role="alert">
+        Failed to load bean.
+      </p>
+    );
   }
 
   const candidates = (allBeans ?? []).filter((candidate) => candidate.id !== bean.id);

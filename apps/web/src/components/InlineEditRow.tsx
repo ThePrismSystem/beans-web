@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ReactNode } from "react";
+
+const EDITOR_SELECTOR = "select, input, textarea";
 
 export interface InlineEditRowProps {
   label: string;
@@ -19,6 +21,23 @@ export function InlineEditRow({
 }: InlineEditRowProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
+  const valueRef = useRef<HTMLSpanElement>(null);
+  const pencilRef = useRef<HTMLButtonElement>(null);
+  const wasEditingRef = useRef(false);
+
+  // Entering and leaving edit mode swaps the controls out of the DOM, which
+  // drops focus onto <body> — a keyboard user loses their place in the page on
+  // every edit, on the view where most editing happens. Focus follows the swap
+  // instead: into the editor on open, back to the pencil on save or cancel
+  // (WCAG 2.4.3).
+  useEffect(() => {
+    if (editing) {
+      valueRef.current?.querySelector<HTMLElement>(EDITOR_SELECTOR)?.focus();
+    } else if (wasEditingRef.current) {
+      pencilRef.current?.focus();
+    }
+    wasEditingRef.current = editing;
+  }, [editing]);
 
   function startEdit() {
     setValue(initialValue);
@@ -42,7 +61,7 @@ export function InlineEditRow({
   return (
     <div className="inline-edit-row">
       <span className="inline-edit-label">{label}</span>
-      <span className="inline-edit-value">
+      <span className="inline-edit-value" ref={valueRef}>
         {editing ? (
           <>
             {editor({ value, onValue: setValue })}
@@ -70,6 +89,7 @@ export function InlineEditRow({
             {display}
             <button
               type="button"
+              ref={pencilRef}
               className="inline-edit-pencil"
               aria-label={`Edit ${label}`}
               onClick={startEdit}

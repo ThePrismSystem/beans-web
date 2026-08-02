@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useProjects } from "../hooks/useProjects.js";
 
 import { BEAN_TYPES } from "@beans-frontend/shared";
@@ -37,9 +38,20 @@ function ProjectRow({ project }: { project: Project }) {
 
 export function Overview() {
   const { data: projects, isPending, isError } = useProjects();
+  useDocumentTitle("Overview");
 
-  if (isPending) return <p className="muted">Loading projects…</p>;
-  if (isError) return <p className="muted">Failed to load projects.</p>;
+  if (isPending)
+    return (
+      <p className="muted" role="status">
+        Loading projects…
+      </p>
+    );
+  if (isError)
+    return (
+      <p className="muted" role="alert">
+        Failed to load projects.
+      </p>
+    );
   if (projects.length === 0) return <p className="muted">No projects found.</p>;
 
   return (

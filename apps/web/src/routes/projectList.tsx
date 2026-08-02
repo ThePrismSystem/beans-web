@@ -6,6 +6,7 @@ import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
 
 import { useProjectBeans } from "../hooks/useBeans.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { usePersistedProjectState } from "../hooks/usePersistedState.js";
 import { applyFilter, DEFAULT_BEAN_FILTER } from "../lib/filter.js";
 import { withAncestors } from "../lib/hierarchy.js";
@@ -89,6 +90,7 @@ export function ProjectList() {
   const { project } = useParams({ from: "/p/$project" });
   const search = useSearch({ from: "/p/$project" });
   const navigate = useNavigate({ from: "/p/$project" });
+  useDocumentTitle(project);
   const [view, setView] = usePersistedProjectState<ViewMode>(
     project,
     "view",
@@ -188,10 +190,18 @@ export function ProjectList() {
 
   function renderList() {
     if (isPending) {
-      return <p className="muted">Loading beans…</p>;
+      return (
+        <p className="muted" role="status">
+          Loading beans…
+        </p>
+      );
     }
     if (isError) {
-      return <p className="muted">Failed to load beans.</p>;
+      return (
+        <p className="muted" role="alert">
+          Failed to load beans.
+        </p>
+      );
     }
     if (view === "flat") {
       if (flatBeans.length === 0) {
