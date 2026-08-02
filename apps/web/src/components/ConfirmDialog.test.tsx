@@ -93,4 +93,82 @@ describe("ConfirmDialog", () => {
 
     expect(screen.getByRole("button", { name: "Confirm" })).toHaveFocus();
   });
+
+  describe("with a reason field", () => {
+    function renderWithReason() {
+      const onConfirm = vi.fn();
+      const onCancel = vi.fn();
+      render(
+        <ConfirmDialog
+          open
+          title="Scrap this bean?"
+          reasonLabel="Reason"
+          confirmLabel="Scrap"
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />,
+      );
+      return { onConfirm, onCancel, user: userEvent.setup() };
+    }
+
+    it("hands the typed reason to onConfirm", async () => {
+      const { user, onConfirm } = renderWithReason();
+
+      await user.type(screen.getByLabelText("Reason"), "no longer needed");
+      await user.click(screen.getByRole("button", { name: "Scrap" }));
+
+      expect(onConfirm).toHaveBeenCalledWith("no longer needed");
+    });
+
+    it("focuses the reason field on open", () => {
+      renderWithReason();
+
+      expect(screen.getByLabelText("Reason")).toHaveFocus();
+    });
+
+    it("closes on a backdrop click while the reason is empty", async () => {
+      const { user, onCancel } = renderWithReason();
+
+      await user.click(document.querySelector(".confirm-dialog-backdrop")!);
+
+      expect(onCancel).toHaveBeenCalled();
+    });
+
+    it("ignores a backdrop click once a reason has been typed", async () => {
+      const { user, onCancel } = renderWithReason();
+      await user.type(screen.getByLabelText("Reason"), "careful work");
+
+      await user.click(document.querySelector(".confirm-dialog-backdrop")!);
+
+      // Discarding typed text on a stray click, with no warning, loses work.
+      expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it("still closes via the explicit Cancel button with a reason typed", async () => {
+      const { user, onCancel } = renderWithReason();
+      await user.type(screen.getByLabelText("Reason"), "careful work");
+
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(onCancel).toHaveBeenCalled();
+    });
+
+    it("starts from an empty field on each opening", async () => {
+      const user = userEvent.setup();
+      const props = {
+        title: "Scrap this bean?",
+        reasonLabel: "Reason",
+        confirmLabel: "Scrap",
+        onConfirm: vi.fn(),
+        onCancel: vi.fn(),
+      };
+      const { rerender } = render(<ConfirmDialog open {...props} />);
+      await user.type(screen.getByLabelText("Reason"), "first attempt");
+
+      rerender(<ConfirmDialog open={false} {...props} />);
+      rerender(<ConfirmDialog open {...props} />);
+
+      expect(screen.getByLabelText("Reason")).toHaveValue("");
+    });
+  });
 });

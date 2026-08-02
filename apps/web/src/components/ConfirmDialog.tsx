@@ -91,8 +91,18 @@ export function ConfirmDialog({
     }
   }
 
+  // Dismissing on a stray backdrop click is fine for a bare confirm, but it
+  // would throw away typed text without a word. With a reason entered, closing
+  // has to be deliberate.
+  function handleBackdropClick() {
+    if (reasonLabel && reason.trim().length > 0) {
+      return;
+    }
+    onCancel();
+  }
+
   return (
-    <div className="confirm-dialog-backdrop" onClick={onCancel}>
+    <div className="confirm-dialog-backdrop" onClick={handleBackdropClick}>
       <div
         ref={dialogRef}
         className="confirm-dialog"

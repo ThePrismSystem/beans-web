@@ -58,4 +58,84 @@ describe("CheckboxMenu", () => {
 
     expect(trigger).toHaveFocus();
   });
+
+  describe("keyboard navigation", () => {
+    async function openMenu() {
+      const user = userEvent.setup();
+      render(
+        <CheckboxMenu
+          label="Status"
+          options={[
+            { value: "todo", label: "todo" },
+            { value: "doing", label: "doing" },
+            { value: "done", label: "done" },
+          ]}
+          selected={[]}
+          onChange={vi.fn()}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: /Status/ }));
+      return { user, boxes: screen.getAllByRole("checkbox") };
+    }
+
+    it("is a disclosure, not a menu", async () => {
+      await openMenu();
+
+      const trigger = screen.getByRole("button", { name: /Status/ });
+      // aria-haspopup="true" means "menu"; this popup is a group of checkboxes.
+      expect(trigger).not.toHaveAttribute("aria-haspopup");
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+      expect(trigger).toHaveAttribute("aria-controls", screen.getByRole("group").id);
+    });
+
+    it("moves down the options with ArrowDown and wraps at the end", async () => {
+      const { user, boxes } = await openMenu();
+      boxes[0]!.focus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(boxes[1]).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+      expect(boxes[0]).toHaveFocus();
+    });
+
+    it("moves up with ArrowUp and wraps to the last option", async () => {
+      const { user, boxes } = await openMenu();
+      boxes[0]!.focus();
+
+      await user.keyboard("{ArrowUp}");
+
+      expect(boxes[2]).toHaveFocus();
+    });
+
+    it("jumps to the first and last options with Home and End", async () => {
+      const { user, boxes } = await openMenu();
+      boxes[1]!.focus();
+
+      await user.keyboard("{End}");
+      expect(boxes[2]).toHaveFocus();
+
+      await user.keyboard("{Home}");
+      expect(boxes[0]).toHaveFocus();
+    });
+
+    it("still toggles with Space", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <CheckboxMenu
+          label="Status"
+          options={[{ value: "todo", label: "todo" }]}
+          selected={[]}
+          onChange={onChange}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: /Status/ }));
+      screen.getByRole("checkbox").focus();
+
+      await user.keyboard(" ");
+
+      expect(onChange).toHaveBeenCalledWith(["todo"]);
+    });
+  });
 });

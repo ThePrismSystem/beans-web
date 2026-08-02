@@ -257,7 +257,7 @@ textarea:focus-visible,
   z-index: 60;
   left: 0;
   right: 0;
-  margin-top: 0.35rem;
+  margin-top: var(--sp-2);
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   background: var(--paper);
@@ -272,7 +272,7 @@ textarea:focus-visible,
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: 0.55rem 0.7rem;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--hairline);
   color: var(--ink);
   text-decoration: none;
@@ -405,7 +405,7 @@ textarea:focus-visible,
 }
 
 .view-toggle button {
-  padding: 0.35rem 0.9rem;
+  padding: var(--sp-2) 0.9rem;
   border: none;
   border-radius: 0;
   background: var(--paper-raised);
@@ -561,7 +561,7 @@ textarea:focus-visible,
 .hierarchy-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--sp-2);
 }
 
 .hierarchy-caret {
@@ -715,7 +715,7 @@ textarea:focus-visible,
   justify-content: center;
   min-width: 2.5rem;
   border-radius: var(--r-md);
-  padding: var(--sp-2) 0.7rem;
+  padding: var(--sp-2) var(--sp-4);
   line-height: 1;
   font-size: var(--fs-6);
   color: var(--muted);
@@ -840,7 +840,7 @@ textarea:focus-visible,
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-2);
-  padding: 0.35rem 0;
+  padding: var(--sp-2) 0;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -850,8 +850,10 @@ textarea:focus-visible,
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
-  margin: -0.15rem -0.3rem;
-  padding: 0.15rem 0.3rem;
+  /* Negative margin cancels the padding below so the hover surface bleeds past
+     the text without shifting it; the two must stay in step. */
+  margin: calc(var(--sp-0) * -1) calc(var(--sp-1) * -1);
+  padding: var(--sp-0) var(--sp-1);
   color: var(--ink);
   text-decoration: none;
 }
@@ -980,7 +982,7 @@ textarea:focus-visible,
 }
 
 .picker-search {
-  padding: var(--sp-2) 0.7rem;
+  padding: var(--sp-2) var(--sp-4);
   border: 1px solid var(--hairline);
   border-radius: var(--r-sm);
   background: var(--paper-raised);
@@ -998,7 +1000,7 @@ textarea:focus-visible,
 .picker-list {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--sp-0);
   max-height: 60vh;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1063,7 +1065,7 @@ textarea:focus-visible,
 .create-bean-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--sp-1);
 }
 
 .create-bean-field label {
@@ -1258,7 +1260,7 @@ textarea:focus-visible,
   display: inline-block;
 }
 .checkbox-menu-trigger {
-  padding: var(--sp-2) 0.7rem;
+  padding: var(--sp-2) var(--sp-4);
   border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
   background: var(--paper-raised);
@@ -1273,7 +1275,7 @@ textarea:focus-visible,
 .checkbox-menu-list {
   position: absolute;
   z-index: 50;
-  margin-top: 0.35rem;
+  margin-top: var(--sp-2);
   min-width: 10rem;
   /* Never let the popup push past the viewport edge — the Prefix menu sits
      last in a wrapping row, so its natural left edge can be near the right
@@ -1286,7 +1288,7 @@ textarea:focus-visible,
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--sp-0);
 }
 .checkbox-menu-list--flip-right {
   right: 0;
@@ -1316,7 +1318,7 @@ textarea:focus-visible,
 .bean-row-orphan {
   border: 1px solid var(--warn);
   border-radius: var(--r-xs);
-  padding: 0 0.3rem;
+  padding: 0 var(--sp-1);
 }
 
 .bean-detail-orphan {
@@ -1339,7 +1341,7 @@ textarea:focus-visible,
 }
 
 .confirm-dialog-list li {
-  padding-block: 0.15rem;
+  padding-block: var(--sp-0);
 }
 
 /* Touch and narrow-viewport ergonomics: hit areas >= 44px (WCAG 2.5.5) and

@@ -64,7 +64,14 @@
   --shadow-lg: 0 0 40px rgb(35 33 29 / 26%);
 
   /* Spacing scale. A 1.5-ish ratio off a 0.25rem base; --indent is the
-     hierarchy step and shrinks on narrow viewports (see the query below). */
+     hierarchy step and shrinks on narrow viewports (see the query below).
+     --sp-0 is the optical inset used inside chips and tight list rows, where
+     a full step would be too much.
+
+     Four spacing values in global.css deliberately stay off-scale: the fluid
+     `clamp()` on .app-content, and three horizontal paddings (0.85rem/0.9rem)
+     whose nearest step would move them more than 0.05rem — enough to see. */
+  --sp-0: 0.15rem;
   --sp-1: 0.25rem;
   --sp-2: 0.4rem;
   --sp-3: 0.6rem;

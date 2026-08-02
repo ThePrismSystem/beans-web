@@ -1,5 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+
 export interface CheckboxMenuProps<T extends string> {
   label: string;
   options: { value: T; label: string }[];
@@ -54,14 +56,41 @@ export function CheckboxMenu<T extends string>({
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
   }
 
+  /** Up/Down/Home/End move between checkboxes once the popup is open. */
+  function handleListKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+    if (!keys.includes(event.key) || !listRef.current) {
+      return;
+    }
+    event.preventDefault();
+    const boxes = [...listRef.current.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+    const current = boxes.indexOf(document.activeElement as HTMLInputElement);
+    const last = boxes.length - 1;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? last
+          : event.key === "ArrowDown"
+            ? current >= last
+              ? 0
+              : current + 1
+            : current <= 0
+              ? last
+              : current - 1;
+    boxes[next]?.focus();
+  }
+
   return (
     <div className="checkbox-menu" ref={rootRef}>
+      {/* A disclosure, not a menu: aria-expanded plus aria-controls is the whole
+          contract. `aria-haspopup="true"` is a synonym for "menu" and would
+          promise a role this popup (a group of checkboxes) does not have. */}
       <button
         type="button"
         ref={triggerRef}
         className={`checkbox-menu-trigger ${selected.length > 0 ? "active" : ""}`}
         aria-expanded={open}
-        aria-haspopup="true"
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
       >
@@ -75,6 +104,7 @@ export function CheckboxMenu<T extends string>({
           className={`checkbox-menu-list ${flip ? "checkbox-menu-list--flip-right" : ""}`}
           role="group"
           aria-label={label}
+          onKeyDown={handleListKeyDown}
         >
           {options.map((option) => (
             <label key={option.value} className="checkbox-menu-item">

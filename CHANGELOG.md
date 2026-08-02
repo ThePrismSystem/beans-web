@@ -4,6 +4,49 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-08-02
+
+A second design-quality pass, covering one Level A defect the previous audit
+missed entirely and one regression the previous release introduced.
+
+### Fixed
+
+- The create-bean form reported a missing title with plain text that assistive
+  technology never saw: no `role="alert"`, no association with the input, and
+  focus left on the submit button. Submitting an empty form appeared to do
+  nothing at all. The error is now announced and linked to the field, the field
+  is marked required, and focus moves to it (WCAG 3.3.1, Level A).
+- The bean detail `<h1>` announced as "Edit title: …" rather than the bean's
+  title. A heading takes its accessible name from its contents, so the edit
+  button's `aria-label` became the heading's name and heading-list navigation
+  led with the action instead of the bean. Introduced in 0.1.2 while adding the
+  missing `<h1>`.
+- Clicking the dialog backdrop discarded a typed scrap reason without warning.
+- Filter menus advertised `aria-haspopup="true"`, which promises a menu; they
+  are a disclosure holding a group of checkboxes.
+- Screen readers announced each chart's title twice — once from the heading and
+  again from the table caption beneath it.
+
+### Added
+
+- Arrow-key, Home and End navigation between checkboxes in the filter menus.
+- Tests pinning both sides of the drawer breakpoint. The 768px value is
+  necessarily duplicated between the stylesheet and the code that decides when
+  the closed drawer becomes `inert`, and CSS variables cannot be used in media
+  queries — so the two drifting apart is now a test failure rather than a
+  silent one-sided break.
+
+### Changed
+
+- Bean detail is code-split. It is the only consumer of the markdown renderer,
+  so the entry chunk no longer carries `marked` and DOMPurify: **425.7 kB to
+  330.7 kB** (gzip 132.9 kB to 103.8 kB), a 22% reduction for anyone landing on
+  the overview or a project list.
+- Bean rows are memoized, so an expand, a filter keystroke or a live-update
+  flush no longer re-renders every row in the list.
+- Spacing literals moved onto the token scale — 16 off-scale declarations down
+  to 4, each of the survivors now documented as deliberate.
+
 ## [0.1.2] - 2026-08-02
 
 A design-quality pass over the web UI: accessibility, theming, responsive
@@ -95,6 +138,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.1.3]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.0
