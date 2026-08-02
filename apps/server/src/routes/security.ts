@@ -1,6 +1,32 @@
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 
 const JSON_CONTENT_TYPE = "application/json";
+
+/**
+ * Each proxy in a chain appends to `X-Forwarded-*`, so the first value is the one
+ * describing the original client. Returns `undefined` for a missing or empty
+ * header so the caller can fall back to the connection itself.
+ */
+function firstHop(raw: string | undefined): string | undefined {
+  const first = raw?.split(",")[0]?.trim();
+  return first !== undefined && first.length > 0 ? first : undefined;
+}
+
+/**
+ * The origin a browser should have sent. A TLS-terminating proxy talks to us over
+ * plain HTTP, so the connection's own scheme and host describe the internal hop
+ * rather than the public URL the browser used, and `X-Forwarded-*` carries the
+ * real one. Only an operator who knows a proxy is the only way in may trust those
+ * headers: anything that can reach the server directly can forge them, which
+ * would leave the guard checking a value the caller controls.
+ */
+function expectedOrigin(c: Context, trustProxy: boolean): string {
+  const url = new URL(c.req.url);
+  if (!trustProxy) return url.origin;
+  const proto = firstHop(c.req.header("x-forwarded-proto")) ?? url.protocol.slice(0, -1);
+  const host = firstHop(c.req.header("x-forwarded-host")) ?? url.host;
+  return `${proto}://${host}`;
+}
 
 /**
  * Guards state-changing (`/api/*`, non-GET/HEAD) requests against CSRF: it
@@ -9,7 +35,7 @@ const JSON_CONTENT_TYPE = "application/json";
  * server's own origin. GET/HEAD are left open: their responses are never
  * cross-origin readable, so they carry no CSRF risk.
  */
-export function registerSecurity(app: Hono): void {
+export function registerSecurity(app: Hono, trustProxy: boolean): void {
   app.use("/api/*", async (c, next) => {
     if (c.req.method === "GET" || c.req.method === "HEAD") return next();
 
@@ -19,8 +45,11 @@ export function registerSecurity(app: Hono): void {
     }
 
     const origin = c.req.header("origin");
-    if (origin !== undefined && origin !== new URL(c.req.url).origin) {
-      return c.json({ errors: [{ message: "cross-origin request rejected" }] }, 403);
+    if (origin !== undefined && origin !== expectedOrigin(c, trustProxy)) {
+      // Every write failing with an opaque 403 behind a proxy is hard to place,
+      // so name the setting that fixes it — but only when it isn't already on.
+      const hint = trustProxy ? "" : " (set TRUST_PROXY=true if behind a reverse proxy)";
+      return c.json({ errors: [{ message: `cross-origin request rejected${hint}` }] }, 403);
     }
 
     return next();

@@ -44,6 +44,7 @@ function deps(watcher: EventEmitter, overrides: Partial<AppDeps> = {}): AppDeps 
     search: vi.fn(async () => ({ hits: [], failures: [] })),
     analytics: vi.fn(async () => fakeAnalytics()),
     watcher,
+    trustProxy: false,
     ...overrides,
   };
 }

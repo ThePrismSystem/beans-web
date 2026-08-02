@@ -33,6 +33,7 @@ describe("server integration", () => {
       search: async () => ({ hits: [], failures: [] }),
       analytics: async () => fakeAnalytics(),
       watcher: new EventEmitter(),
+      trustProxy: false,
     });
     const res = await app.request("/api/projects");
     const body = (await res.json()) as { name: string }[];
@@ -48,6 +49,7 @@ describe("server integration", () => {
       search: async () => ({ hits: [], failures: [] }),
       analytics: async () => fakeAnalytics(),
       watcher: new EventEmitter(),
+      trustProxy: false,
     });
     const res = await app.request("/api/projects/demo/graphql", {
       method: "POST",

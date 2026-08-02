@@ -28,6 +28,7 @@ services:
       PORT: "4780"
       NODE_ENV: production
       BEANS_BIN: beans # the static beans binary baked into the image (on PATH)
+      TRUST_PROXY: "false" # set to "true" when a reverse proxy is the only ingress
 
     volumes:
       # READ-WRITE on purpose: the UI creates / edits / scraps beans, which

@@ -76,6 +76,14 @@ argument above.
   when an `Origin` header is present, it must match the server's own origin
   (`apps/server/src/routes/security.ts`). GET/HEAD reads are left open; their responses are never
   cross-origin readable.
+- **Proxy-aware origin comparison:** "the server's own origin" comes from the inbound connection,
+  which behind a TLS-terminating proxy is the internal plain-HTTP hop rather than the public URL the
+  browser used. `TRUST_PROXY=true` (`apps/server/src/env.ts`) switches the comparison to the first
+  value of `X-Forwarded-Proto` and `X-Forwarded-Host`, falling back to the connection when a header
+  is absent or empty. It defaults to `false`: a client that can reach the port directly can set
+  those headers to anything, so trusting them unconditionally would let that client satisfy the
+  check and the guard would stop meaning anything. Turning the flag on asserts that no such direct
+  path exists. Nothing else in the server reads forwarded headers.
 - **Security headers:** all responses carry `secureHeaders` defaults (`nosniff`, `X-Frame-Options`)
   plus a self-only Content-Security-Policy with `frame-ancestors 'none'` (`apps/server/src/app.ts`).
 - **Request body cap:** the graphql route rejects bodies over 256 KB with `413` before parsing.

@@ -23,6 +23,14 @@ export const env = createEnv({
     HOST: z.string().default("127.0.0.1"),
     BEANS_BIN: z.string().default("beans"),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    // Opt-in: only an operator who knows a proxy is the only way in may let
+    // `X-Forwarded-*` decide the origin the cross-origin guard compares against.
+    // Enumerated rather than coerced so a typo fails at boot instead of silently
+    // leaving every write behind a proxy rejected.
+    TRUST_PROXY: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
   },
   runtimeEnv: process.env,
 });

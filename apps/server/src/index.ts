@@ -42,6 +42,7 @@ const app = createApp({
   search: async (q) => globalSearch(await listProjects(), q, run),
   analytics: async () => buildAnalytics(await listProjects(), run),
   watcher,
+  trustProxy: env.TRUST_PROXY,
 });
 
 const here = dirname(fileURLToPath(import.meta.url));

@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-08-02
+
+### Fixed
+
+- The cross-origin guard rejected every state-changing request behind a
+  TLS-terminating reverse proxy. Because the web app sends GraphQL queries as
+  `POST`s, that broke reading too: the project list still loaded, but opening a
+  project showed nothing. The new `TRUST_PROXY=true` makes the guard derive the
+  expected origin from `X-Forwarded-Proto` and `X-Forwarded-Host`. It defaults to
+  `false`, so a directly exposed server keeps ignoring those headers, and the
+  `403` now names the setting.
+
 ## [0.1.0] - 2026-08-01
 
 First public release: a web UI for [`beans`](https://github.com/hmans/beans), the
@@ -29,4 +41,5 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.1.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.0
