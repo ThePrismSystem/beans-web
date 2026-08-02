@@ -60,7 +60,40 @@ describe("SearchPage", () => {
     renderWithRouter(<SearchPage />);
     await user.type(await screen.findByLabelText("Search beans"), "bell");
 
-    expect(await screen.findByText("Search failed.")).toBeInTheDocument();
+    // A screen-reader user who typed and got nothing back needs the failure
+    // announced; the message sat in a plain paragraph and said nothing.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Search failed.");
+  });
+
+  it("counts a single result in the singular", async () => {
+    useSearchMock.mockReturnValue({
+      data: { hits: [hit], failures: [] },
+      isPending: false,
+      isError: false,
+    });
+    const user = userEvent.setup();
+
+    renderWithRouter(<SearchPage />);
+    await user.type(await screen.findByLabelText("Search beans"), "bell");
+
+    expect(await screen.findByText("1 result")).toBeInTheDocument();
+  });
+
+  it("counts several results in the plural", async () => {
+    useSearchMock.mockReturnValue({
+      data: {
+        hits: [hit, { ...hit, bean: { ...hit.bean, id: "hh-2", title: "Stow the bell" } }],
+        failures: [],
+      },
+      isPending: false,
+      isError: false,
+    });
+    const user = userEvent.setup();
+
+    renderWithRouter(<SearchPage />);
+    await user.type(await screen.findByLabelText("Search beans"), "bell");
+
+    expect(await screen.findByText("2 results")).toBeInTheDocument();
   });
 
   it("shows an empty state when no beans match", async () => {

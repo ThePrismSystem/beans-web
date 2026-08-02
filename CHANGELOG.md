@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-08-02
+
+Gives the search page the styling it never had. A scoped audit scored it 11/20
+against 19/20 for the rest of the app, for one reason: `.search-page` and
+`.bean-list` had no CSS rules, and the search input took its appearance from
+`.filter-bar input` — a selector that only matches inside the filter bar.
+
+### Fixed
+
+- The search field rendered as a raw browser control: 185px wide at both 375px
+  and 1280px, a `2px inset` border, Arial, white background, square corners. It
+  is now styled by its own class, so it looks like every other control in the
+  app and fills the column it sits in.
+- Result rows had no separators and, on a phone, squeezed the title, project
+  and status onto one line — breaking "e2e-project" across two lines as "e2e-"
+  and "project". Rows now stack on narrow viewports and are ruled by hairlines.
+- Results ran the full width of a desktop window. The page is capped at 46rem,
+  so the list stays scannable.
+- "Search failed." was a plain paragraph, so a failed search was silent to a
+  screen reader. The 0.1.4 pass over this file replaced only the loading
+  branch; the error branch is now a live region (WCAG 4.1.3).
+- The search input used a 13.6px font on phones, which makes iOS Safari zoom
+  the viewport on focus and never zoom back out. It is 16px below 768px.
+
+### Added
+
+- The search page states its result count, visibly and announced, as the header
+  search dropdown already did.
+- Regression tests that read resolved style out of a real browser at both
+  viewports. The defect was a rule that silently failed to match, which no test
+  of the rendered markup could have caught.
+
 ## [0.1.4] - 2026-08-02
 
 Makes navigation and inline editing perceivable without sight. Three audits
@@ -181,6 +213,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.1.5]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.2
