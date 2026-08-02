@@ -1,20 +1,35 @@
 import { Link } from "@tanstack/react-router";
 
+import type { Ref } from "react";
 import type { Project } from "@beans-frontend/shared";
 
 export function Sidebar({
   projects,
   activeProject,
   open = false,
+  inert = false,
   onNavigate,
+  ref,
 }: {
   projects: Project[];
   activeProject: string | undefined;
   open?: boolean;
+  /**
+   * Set while the sidebar is an off-canvas drawer in its closed position. It
+   * is hidden by a transform alone, so without this its links stay in the tab
+   * order and keyboard focus lands on controls nobody can see.
+   */
+  inert?: boolean;
   onNavigate?: () => void;
+  ref?: Ref<HTMLElement>;
 }) {
   return (
-    <nav className={`sidebar ${open ? "sidebar--open" : ""}`} aria-label="Projects">
+    <nav
+      ref={ref}
+      className={`sidebar ${open ? "sidebar--open" : ""}`}
+      aria-label="Projects"
+      inert={inert}
+    >
       <Link to="/" className="side-item" onClick={onNavigate}>
         Overview
       </Link>

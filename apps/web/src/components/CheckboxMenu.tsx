@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 export interface CheckboxMenuProps<T extends string> {
   label: string;
@@ -14,8 +14,11 @@ export function CheckboxMenu<T extends string>({
   onChange,
 }: CheckboxMenuProps<T>) {
   const [open, setOpen] = useState(false);
+  const [flip, setFlip] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -25,7 +28,7 @@ export function CheckboxMenu<T extends string>({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
-        triggerRef.current!.focus();
+        triggerRef.current?.focus();
       }
     }
     document.addEventListener("mousedown", onDoc);
@@ -34,6 +37,17 @@ export function CheckboxMenu<T extends string>({
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
+  }, [open]);
+
+  // These menus sit in a wrapping row, so the last one can open near the right
+  // margin and run off-screen. Measure once per open and anchor right instead.
+  useLayoutEffect(() => {
+    if (!open || !listRef.current) {
+      setFlip(false);
+      return;
+    }
+    const { left, width } = listRef.current.getBoundingClientRect();
+    setFlip(width > 0 && left + width > document.documentElement.clientWidth);
   }, [open]);
 
   function toggle(value: T) {
@@ -47,13 +61,21 @@ export function CheckboxMenu<T extends string>({
         ref={triggerRef}
         className={`checkbox-menu-trigger ${selected.length > 0 ? "active" : ""}`}
         aria-expanded={open}
+        aria-haspopup="true"
+        aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
       >
         {label}
         {selected.length > 0 ? ` (${selected.length})` : ""} ▾
       </button>
       {open && (
-        <div className="checkbox-menu-list" role="group" aria-label={label}>
+        <div
+          ref={listRef}
+          id={listId}
+          className={`checkbox-menu-list ${flip ? "checkbox-menu-list--flip-right" : ""}`}
+          role="group"
+          aria-label={label}
+        >
           {options.map((option) => (
             <label key={option.value} className="checkbox-menu-item">
               <input

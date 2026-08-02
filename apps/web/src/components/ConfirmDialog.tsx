@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+
+const FOCUSABLE = 'button, input, select, textarea, [href], [tabindex]:not([tabindex="-1"])';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -8,9 +10,17 @@ export interface ConfirmDialogProps {
   message?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void;
+  /**
+   * When set, the dialog collects free text and hands it to `onConfirm`. Used
+   * for the scrap reason, which is appended to the bean body.
+   */
+  reasonLabel?: string;
+  reasonPlaceholder?: string;
+  onConfirm: (reason: string) => void;
   onCancel: () => void;
 }
+
+const REASON_ROWS = 4;
 
 export function ConfirmDialog({
   open,
@@ -18,23 +28,37 @@ export function ConfirmDialog({
   message,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
+  reasonLabel,
+  reasonPlaceholder,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const [reason, setReason] = useState("");
+  const titleId = useId();
+  const messageId = useId();
+  const reasonId = useId();
 
   useEffect(() => {
     if (!open) {
       return;
     }
     // Remember what had focus so it can be restored when the dialog closes,
-    // then move focus into the dialog (onto the non-destructive Cancel button).
+    // then move focus into the dialog — onto the reason field when there is
+    // one, otherwise the non-destructive Cancel button.
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
-    dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     return () => {
       restoreFocusRef.current?.focus();
     };
+  }, [open]);
+
+  // Each opening starts from an empty field rather than the last attempt's text.
+  useEffect(() => {
+    if (open) {
+      setReason("");
+    }
   }, [open]);
 
   if (!open) {
@@ -49,7 +73,7 @@ export function ConfirmDialog({
     if (event.key !== "Tab") {
       return;
     }
-    const focusable = dialogRef.current?.querySelectorAll<HTMLButtonElement>("button");
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
     if (!focusable || focusable.length === 0) {
       return;
     }
@@ -74,17 +98,37 @@ export function ConfirmDialog({
         className="confirm-dialog"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        aria-labelledby={titleId}
+        aria-describedby={message ? messageId : undefined}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <h2 id="confirm-dialog-title">{title}</h2>
-        {message && <div className="confirm-dialog-message">{message}</div>}
+        <h2 id={titleId}>{title}</h2>
+        {message && (
+          <div className="confirm-dialog-message" id={messageId}>
+            {message}
+          </div>
+        )}
+        {reasonLabel && (
+          <>
+            <label className="confirm-dialog-reason-label" htmlFor={reasonId}>
+              {reasonLabel}
+            </label>
+            <textarea
+              id={reasonId}
+              className="confirm-dialog-reason"
+              rows={REASON_ROWS}
+              placeholder={reasonPlaceholder}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </>
+        )}
         <div className="confirm-dialog-actions">
           <button type="button" onClick={onCancel}>
             {cancelLabel}
           </button>
-          <button type="button" className="confirm-dialog-danger" onClick={onConfirm}>
+          <button type="button" className="confirm-dialog-danger" onClick={() => onConfirm(reason)}>
             {confirmLabel}
           </button>
         </div>

@@ -13,9 +13,15 @@
   /* Per-theme so both meet WCAG AA: light darkened from #9a6b1f (3.20:1 on
      --paper), dark lightened from #9a6b1f (2.57:1 on dark --paper). */
   --accent: light-dark(#7b5619, #ba9a67);
-  /* Text color for controls with a saturated background fill (e.g. the
-     inline-edit save button) — same in both themes, unlike --ink. */
-  --on-accent: #fff;
+  /* Text on a saturated fill. Warm off-white / warm near-black rather than
+     #fff — pure white never appears elsewhere in this palette. Only legible
+     against --fill-strong, which inverts per theme to keep the pair at AA. */
+  --on-accent: light-dark(#faf6ec, #23211d);
+  /* Solid fill for the one committing control per view (inline-edit save).
+     Inverts per theme so --on-accent clears AA against it in both:
+     light #faf6ec on #3d5f3d = 6.70:1, dark #23211d on #8fb98f = 7.27:1.
+     The previous #fff on --s-completed was 4.16:1 light / 2.64:1 dark. */
+  --fill-strong: light-dark(#3d5f3d, #8fb98f);
   /* Type hues, per-theme for WCAG AA on --paper in both light and dark. */
   --t-milestone: light-dark(#5a4a8a, #a39abd);
   --t-epic: light-dark(#7b5619, #ba9a67);
@@ -30,14 +36,68 @@
   /* Light scrapped darkened from #8f6b63 (4.10:1) to meet WCAG AA. */
   --s-scrapped: light-dark(#86655d, #b08a80);
 
-  /* Orphaned-bean warning. Light #9a3f12 on --paper ≈ 5.92:1; dark #e0906a on
-     --paper ≈ 6.40:1 — both meet WCAG AA. */
+  /* Orphaned-bean warning, and any "partial data" banner. Light #9a3f12 on
+     --paper ≈ 5.92:1; dark #e0906a on --paper ≈ 6.40:1 — both meet WCAG AA. */
   --warn: light-dark(#9a3f12, #e0906a);
+
+  /* Chart series fills.
+     `--s-*` above are sized for status dots, which sit next to a text label
+     and are therefore decorative — they are exempt from WCAG 1.4.11. A chart
+     bar carries the meaning by itself, so it needs the real 3:1 non-text
+     minimum against --paper-raised (the .chart-section surface). --s-draft
+     (2.06:1) and --s-in-progress (2.41:1) fail that as fills, so the status
+     series get their own slightly deeper values. Every pair below is >= 3:1
+     in both themes; the type series reuse --t-* unchanged, which already are
+     (4.81:1 light / 5.52:1 dark at worst). */
+  --c-draft: light-dark(#7d776b, #a9a294);
+  --c-todo: light-dark(#3f6394, #8fb0de);
+  --c-in-progress: light-dark(#8a6a1a, #dcb25c);
+  --c-completed: light-dark(#3d6b4a, #7dba8d);
+  --c-scrapped: light-dark(#8f5442, #c99282);
+
+  /* Overlay scrims and shadows. Tinted with the dark-theme paper hue rather
+     than pure black, which would read cold against warm paper. */
+  --scrim: rgb(35 33 29 / 45%);
+  --scrim-strong: rgb(35 33 29 / 58%);
+  --shadow-sm: 0 6px 24px rgb(35 33 29 / 16%);
+  --shadow-md: 0 8px 28px rgb(35 33 29 / 18%);
+  --shadow-lg: 0 0 40px rgb(35 33 29 / 26%);
+
+  /* Spacing scale. A 1.5-ish ratio off a 0.25rem base; --indent is the
+     hierarchy step and shrinks on narrow viewports (see the query below). */
+  --sp-1: 0.25rem;
+  --sp-2: 0.4rem;
+  --sp-3: 0.6rem;
+  --sp-4: 0.75rem;
+  --sp-5: 1rem;
+  --sp-6: 1.25rem;
+  --sp-7: 1.5rem;
+  --sp-8: 2rem;
+  --indent: 1.25rem;
+
+  /* Radius scale. Replaces the ad-hoc 2/3/4/6/8/12px and 0.2/0.3rem mix. */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --r-pill: 999px;
+
+  /* Type scale. --fs-1..2 are the uppercase mono labels, --fs-3..4 UI text,
+     --fs-5 body, --fs-6+ display. */
+  --fs-1: 0.7rem;
+  --fs-2: 0.75rem;
+  --fs-3: 0.8rem;
+  --fs-4: 0.85rem;
+  --fs-5: 0.9rem;
+  --fs-6: 1rem;
+  --fs-7: 1.1rem;
+  --fs-8: 1.6rem;
+  --fs-9: 2rem;
 
   --font-serif: Georgia, "Times New Roman", serif;
   --font-sans: system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
-  --indent: 1.25rem;
 }
 
 :root[data-theme="light"] {

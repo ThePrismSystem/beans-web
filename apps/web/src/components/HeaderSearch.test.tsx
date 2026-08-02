@@ -99,4 +99,94 @@ describe("HeaderSearch", () => {
 
     expect(screen.queryByText("Ring bell")).not.toBeInTheDocument();
   });
+
+  describe("combobox keyboard support", () => {
+    const manyHits = [
+      { project: "hh", bean: { id: "hh-1", title: "Ring bell", type: "task", status: "todo" } },
+      { project: "hh", bean: { id: "hh-2", title: "Tune bell", type: "bug", status: "todo" } },
+      { project: "hh", bean: { id: "hh-3", title: "Cast bell", type: "task", status: "draft" } },
+    ];
+
+    async function openDropdown() {
+      useSearchMock.mockReturnValue({
+        data: { hits: manyHits, failures: [] },
+        isPending: false,
+        isError: false,
+      });
+      const user = userEvent.setup();
+      const rendered = renderWithRouter(<HeaderSearch />);
+      const search = await screen.findByRole("search", { name: "Global search" });
+      const input = search.querySelector("input")!;
+      await user.type(input, "bell");
+      await screen.findByText("Ring bell");
+      return { user, input, ...rendered };
+    }
+
+    it("exposes the input as a combobox wired to the listbox", async () => {
+      const { input } = await openDropdown();
+
+      expect(input).toHaveAttribute("role", "combobox");
+      expect(input).toHaveAttribute("aria-expanded", "true");
+      expect(input).toHaveAttribute("aria-controls", screen.getByRole("listbox").id);
+    });
+
+    it("moves the active option down and points aria-activedescendant at it", async () => {
+      const { user, input } = await openDropdown();
+
+      await user.keyboard("{ArrowDown}");
+
+      const options = screen.getAllByRole("option");
+      expect(options[0]).toHaveAttribute("aria-selected", "true");
+      expect(input).toHaveAttribute("aria-activedescendant", options[0]!.id);
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("wraps from the last option back to the first", async () => {
+      const { user } = await openDropdown();
+
+      await user.keyboard("{ArrowUp}");
+
+      // ArrowUp from nothing selected lands on the final option.
+      expect(screen.getAllByRole("option")[2]).toHaveAttribute("aria-selected", "true");
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("jumps to the first and last options with Home and End", async () => {
+      const { user } = await openDropdown();
+
+      await user.keyboard("{End}");
+      expect(screen.getAllByRole("option")[2]).toHaveAttribute("aria-selected", "true");
+
+      await user.keyboard("{Home}");
+      expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("opens the highlighted bean on Enter instead of running a full search", async () => {
+      const { user, router } = await openDropdown();
+
+      await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+      expect(router.state.location.pathname).toBe("/p/hh/hh-2");
+    });
+
+    it("clears the highlight when the query changes", async () => {
+      const { user, input } = await openDropdown();
+      await user.keyboard("{ArrowDown}");
+      expect(input).toHaveAttribute("aria-activedescendant");
+
+      await user.type(input, "s");
+
+      expect(input).not.toHaveAttribute("aria-activedescendant");
+    });
+
+    it("announces the result count in a live region", async () => {
+      await openDropdown();
+
+      expect(screen.getByRole("status")).toHaveTextContent("3 results");
+    });
+  });
 });
