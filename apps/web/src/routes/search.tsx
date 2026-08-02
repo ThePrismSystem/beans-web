@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
 import { StatusDot } from "../components/StatusDot.js";
 import { useDebouncedValue } from "../hooks/useDebouncedValue.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useSearch } from "../hooks/useSearch.js";
 
 import type { ChangeEvent } from "react";
@@ -33,6 +34,7 @@ function SearchResultRow({ hit }: { hit: SearchHit }) {
 export function SearchPage() {
   const routeSearch = useRouteSearch({ strict: false });
   const [query, setQuery] = useState(routeSearch.q ?? "");
+  useDocumentTitle(query.trim() ? `Search: ${query.trim()}` : "Search");
 
   // SearchPage never writes to the URL itself (only header-search Enter
   // does), so it's safe to resync from the route whenever ?q= changes while
@@ -58,7 +60,11 @@ export function SearchPage() {
       return <p className="muted">Search failed.</p>;
     }
     if (isPending || !data) {
-      return <p className="muted">Searching…</p>;
+      return (
+        <p className="muted" role="status">
+          Searching…
+        </p>
+      );
     }
     return (
       <>

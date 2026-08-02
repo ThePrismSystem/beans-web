@@ -93,9 +93,11 @@ export function ConfirmDialog({
 
   // Dismissing on a stray backdrop click is fine for a bare confirm, but it
   // would throw away typed text without a word. With a reason entered, closing
-  // has to be deliberate.
+  // has to be deliberate — and focus returns to the text so the refusal reads
+  // as "your work is still here" rather than as a dead click.
   function handleBackdropClick() {
     if (reasonLabel && reason.trim().length > 0) {
+      dialogRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
       return;
     }
     onCancel();

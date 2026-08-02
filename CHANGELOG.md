@@ -4,6 +4,49 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-08-02
+
+Makes navigation and inline editing perceivable without sight. Three audits
+reviewed what the app renders; these are the defects that only appear when you
+operate it.
+
+### Fixed
+
+- Every route was titled "beans-frontend". A single-page app keeps whatever
+  title the HTML shipped with, and a screen reader announces the document title
+  on navigation — so nothing ever signaled that the view had changed. Each
+  route now names itself, including the bean's own title on its detail page
+  (WCAG 2.4.2).
+- Navigating left focus on `<body>`, dropping keyboard and screen-reader users
+  at the top of the document with the new view unannounced. Focus now moves
+  into the main landmark, which both places them at the start of the content
+  and prompts a reader to announce it (WCAG 2.4.3).
+- Nine loading and error states rendered as plain text, so requesting a project
+  and having it fail was completely silent. They are now live regions, errors
+  announced assertively (WCAG 4.1.3).
+- Editing a bean's type, status, priority or tags destroyed keyboard focus:
+  clicking the pencil unmounted it and focus fell to `<body>`, so the user was
+  thrown back to the top of the page on the view where most editing happens.
+  Focus now follows the swap — into the editor on open, back to the pencil on
+  save or cancel (WCAG 2.4.3).
+- Bean bodies rendered their markdown headings verbatim, so a body opening with
+  `#` put a second `<h1>` on the page and one opening with `###` skipped a
+  level. Bodies are written by people and by coding agents, so this was live
+  content. Headings are demoted one level to nest under the bean's title
+  (WCAG 1.3.1).
+
+### Changed
+
+- External links in bean bodies open in a new tab, with the opener severed via
+  `rel`, so following one no longer navigates away from a half-finished edit.
+  They carry a hidden note that the tab will change (WCAG 3.2.5).
+- The bean title's "click to edit" hint moved from a `title` tooltip — which
+  keyboard and touch users never see — to a description that is announced
+  without altering the heading's name.
+- Clicking the dialog backdrop with a scrap reason typed now returns focus to
+  the text rather than doing nothing at all, so the refusal reads as "your work
+  is still here".
+
 ## [0.1.3] - 2026-08-02
 
 A second design-quality pass, covering one Level A defect the previous audit
@@ -138,6 +181,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.1.4]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.1
