@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
 describe("env SCAN_DEPTH", () => {

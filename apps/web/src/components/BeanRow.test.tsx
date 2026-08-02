@@ -1,9 +1,9 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { BeanRow } from "./BeanRow.js";
-
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { BeanRow } from "./BeanRow.js";
 
 import type { BeanListItem } from "@beans-frontend/shared";
 

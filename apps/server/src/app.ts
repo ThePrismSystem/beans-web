@@ -1,15 +1,17 @@
 import { EventEmitter } from "node:events";
+
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
-import type { Analytics, SearchResult } from "@beans-frontend/shared";
 
-import type { ProjectRecord } from "./discovery/scan.js";
 import { registerAnalytics } from "./routes/analytics.js";
 import { registerEvents } from "./routes/events.js";
 import { registerGraphql } from "./routes/graphql.js";
 import { registerProjects } from "./routes/projects.js";
 import { registerSearch } from "./routes/search.js";
 import { registerSecurity } from "./routes/security.js";
+
+import type { ProjectRecord } from "./discovery/scan.js";
+import type { Analytics, SearchResult } from "@beans-frontend/shared";
 
 export interface AppDeps {
   roots: string[];

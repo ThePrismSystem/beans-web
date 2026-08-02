@@ -13,10 +13,14 @@ export function useMediaQuery(query: string): boolean {
 
   useEffect(() => {
     const list = window.matchMedia(query);
-    const update = () => setMatches(list.matches);
+    const update = () => {
+      setMatches(list.matches);
+    };
     update();
     list.addEventListener("change", update);
-    return () => list.removeEventListener("change", update);
+    return () => {
+      list.removeEventListener("change", update);
+    };
   }, [query]);
 
   return matches;

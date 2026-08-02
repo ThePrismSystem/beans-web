@@ -32,7 +32,9 @@ function stubMatchMedia(initial: boolean) {
     set(matches: boolean) {
       list.matches = matches;
       act(() => {
-        listeners.forEach((listener) => listener());
+        listeners.forEach((listener) => {
+          listener();
+        });
       });
     },
     listenerCount: () => listeners.size,

@@ -1,7 +1,6 @@
+import { canParent, validParentTypes } from "@beans-frontend/shared";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-
-import { canParent, validParentTypes } from "@beans-frontend/shared";
 
 import { BeanPicker } from "./BeanPicker.js";
 import { BeanTypeTag } from "./BeanTypeTag.js";
@@ -143,7 +142,12 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
               </li>
             )}
           </ul>
-          <button type="button" onClick={() => setPicker("parent")}>
+          <button
+            type="button"
+            onClick={() => {
+              setPicker("parent");
+            }}
+          >
             Set parent
           </button>
           <BeanPicker
@@ -152,7 +156,9 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
             candidates={parentOptions}
             mode="single"
             allowNone
-            onClose={() => setPicker(null)}
+            onClose={() => {
+              setPicker(null);
+            }}
             onPick={(ids) => {
               setPicker(null);
               onChange({ kind: "setParent", parentId: ids[0] ?? null });
@@ -170,13 +176,18 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
               project={project}
               row={row}
               removeLabel={`Remove ${row.title} from blocks`}
-              onRemove={() =>
-                onChange({ kind: "removeBlocking", targetId: row.id, origin: row.origin })
-              }
+              onRemove={() => {
+                onChange({ kind: "removeBlocking", targetId: row.id, origin: row.origin });
+              }}
             />
           ))}
         </ul>
-        <button type="button" onClick={() => setPicker("blocking")}>
+        <button
+          type="button"
+          onClick={() => {
+            setPicker("blocking");
+          }}
+        >
           Add blocks
         </button>
         <BeanPicker
@@ -184,10 +195,14 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
           title="Add blocks"
           candidates={blockingOptions}
           mode="multi"
-          onClose={() => setPicker(null)}
+          onClose={() => {
+            setPicker(null);
+          }}
           onPick={(ids) => {
             setPicker(null);
-            ids.forEach((targetId) => onChange({ kind: "addBlocking", targetId }));
+            ids.forEach((targetId) => {
+              onChange({ kind: "addBlocking", targetId });
+            });
           }}
         />
       </div>
@@ -201,13 +216,18 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
               project={project}
               row={row}
               removeLabel={`Remove ${row.title} from blocked by`}
-              onRemove={() =>
-                onChange({ kind: "removeBlockedBy", targetId: row.id, origin: row.origin })
-              }
+              onRemove={() => {
+                onChange({ kind: "removeBlockedBy", targetId: row.id, origin: row.origin });
+              }}
             />
           ))}
         </ul>
-        <button type="button" onClick={() => setPicker("blockedBy")}>
+        <button
+          type="button"
+          onClick={() => {
+            setPicker("blockedBy");
+          }}
+        >
           Add blocked by
         </button>
         <BeanPicker
@@ -215,10 +235,14 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
           title="Add blocked by"
           candidates={blockedByOptions}
           mode="multi"
-          onClose={() => setPicker(null)}
+          onClose={() => {
+            setPicker(null);
+          }}
           onPick={(ids) => {
             setPicker(null);
-            ids.forEach((targetId) => onChange({ kind: "addBlockedBy", targetId }));
+            ids.forEach((targetId) => {
+              onChange({ kind: "addBlockedBy", targetId });
+            });
           }}
         />
       </div>

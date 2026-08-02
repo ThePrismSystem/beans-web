@@ -1,7 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
 
 interface FakeDirEntry {
@@ -126,7 +128,9 @@ beforeEach(() => {
   mkdirSync(join(root, "node_modules/pkg"), { recursive: true });
   writeFileSync(join(root, "node_modules/pkg/.beans.yml"), "beans:\n"); // must be ignored
 });
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
 
 describe("findProjectDirs", () => {
   it("finds top-level and nested projects, ignores node_modules", async () => {

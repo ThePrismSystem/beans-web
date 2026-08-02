@@ -2,9 +2,9 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { HierarchyList } from "./HierarchyList.js";
-
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { HierarchyList } from "./HierarchyList.js";
 
 import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
 

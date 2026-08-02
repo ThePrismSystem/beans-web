@@ -84,7 +84,9 @@ export function useUpdateBean(
       );
       return data.updateBean;
     },
-    onSuccess: (_data, v) => invalidateBean(qc, project, v.id),
+    onSuccess: (_data, v) => {
+      invalidateBean(qc, project, v.id);
+    },
   });
 }
 
@@ -127,7 +129,9 @@ export function useDeleteBean(
       });
       return data.deleteBean;
     },
-    onSuccess: (_data, v) => invalidateBean(qc, project, v.id),
+    onSuccess: (_data, v) => {
+      invalidateBean(qc, project, v.id);
+    },
   });
 }
 
@@ -148,7 +152,9 @@ export function useSetParent(
       });
       return data.setParent;
     },
-    onSuccess: (_data, v) => invalidateBean(qc, project, v.id),
+    onSuccess: (_data, v) => {
+      invalidateBean(qc, project, v.id);
+    },
   });
 }
 

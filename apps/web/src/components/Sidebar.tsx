@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-import type { Ref } from "react";
 import type { Project } from "@beans-frontend/shared";
+import type { Ref } from "react";
 
 export function Sidebar({
   projects,

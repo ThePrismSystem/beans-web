@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { UseQueryResult } from "@tanstack/react-query";
 import type { BeanDetail, LinkedBean } from "@beans-frontend/shared";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 interface BeanDetailQueryResult {
   // `blocksInbound` is a sibling of `bean` in the document, not a field on it,

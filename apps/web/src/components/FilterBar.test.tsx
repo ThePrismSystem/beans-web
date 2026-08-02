@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { FilterBar } from "./FilterBar.js";
-
 import { EMPTY_BEAN_FILTER } from "../lib/filter.js";
+
+import { FilterBar } from "./FilterBar.js";
 
 import type { BeanFilterInput } from "../lib/filter.js";
 

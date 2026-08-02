@@ -1,11 +1,12 @@
 import { join } from "node:path";
 
-import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
 import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-frontend/shared";
 
-import type { ProjectRecord } from "../discovery/scan.js";
 import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
+
 import type { RunFn } from "./search.js";
+import type { ProjectRecord } from "../discovery/scan.js";
+import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
 
 const QUERY = "{ beans { type status updatedAt } }";
 

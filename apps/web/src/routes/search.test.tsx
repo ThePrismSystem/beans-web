@@ -2,9 +2,9 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { SearchPage, validateSearchPageSearch } from "./search.js";
-
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { SearchPage, validateSearchPageSearch } from "./search.js";
 
 import type { SearchHit } from "@beans-frontend/shared";
 

@@ -1,11 +1,11 @@
-import { cloneElement } from "react";
 import { render, screen } from "@testing-library/react";
+import { cloneElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Charts } from "./Charts.js";
 
-import type { ComponentProps, ReactElement } from "react";
 import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { ComponentProps, ReactElement } from "react";
 
 // jsdom has no layout engine, so Recharts' ResponsiveContainer measures a 0x0
 // box and renders nothing. Give the wrapped chart an explicit size (mirroring

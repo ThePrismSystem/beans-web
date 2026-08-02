@@ -1,13 +1,13 @@
-import { cloneElement } from "react";
 import { screen } from "@testing-library/react";
+import { cloneElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-
-import { AnalyticsPage } from "./analytics.js";
 
 import { renderWithRouter } from "../test/renderWithRouter.js";
 
-import type { ReactElement } from "react";
+import { AnalyticsPage } from "./analytics.js";
+
 import type { Analytics } from "@beans-frontend/shared";
+import type { ReactElement } from "react";
 
 const { useAnalyticsMock } = vi.hoisted(() => ({ useAnalyticsMock: vi.fn() }));
 
