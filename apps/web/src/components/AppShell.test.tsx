@@ -7,7 +7,7 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./AppShell.js";
 
@@ -113,7 +113,9 @@ describe("AppShell", () => {
     renderAppShell();
 
     await screen.findByText("handbellhub");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // Targets the pill by name, not by role: HeaderSearch also owns a
+    // role="status" region (the search result count).
+    expect(screen.queryByText("Updated")).not.toBeInTheDocument();
   });
 
   describe("with a live-sync event", () => {
@@ -124,7 +126,7 @@ describe("AppShell", () => {
 
       renderAppShell();
 
-      expect(await screen.findByRole("status")).toHaveTextContent("Updated");
+      expect(await screen.findByText("Updated")).toBeInTheDocument();
     });
 
     it("fades the updated indicator out after a delay", async () => {
@@ -139,16 +141,94 @@ describe("AppShell", () => {
           await vi.advanceTimersByTimeAsync(0);
         });
 
-        expect(screen.getByRole("status")).toHaveTextContent("Updated");
+        expect(screen.getByText("Updated")).toBeInTheDocument();
 
         await act(async () => {
           await vi.advanceTimersByTimeAsync(2000);
         });
 
-        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+        expect(screen.queryByText("Updated")).not.toBeInTheDocument();
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  it("exposes a skip link to the main landmark", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+
+    renderAppShell();
+
+    const skip = await screen.findByRole("link", { name: "Skip to content" });
+    expect(skip).toHaveAttribute("href", "#main-content");
+    expect(document.querySelector("#main-content")).toBe(screen.getByRole("main"));
+  });
+
+  it("leaves both regions interactive on a desktop viewport", async () => {
+    useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+
+    renderAppShell();
+    await screen.findByText("handbellhub");
+
+    expect(screen.getByRole("navigation", { name: "Projects" })).not.toHaveAttribute("inert");
+    expect(document.querySelector(".app-main")).not.toHaveAttribute("inert");
+  });
+
+  describe("at drawer widths", () => {
+    beforeEach(() => {
+      // test-setup reports "no match" so components take their desktop branch;
+      // this flips the drawer breakpoint on for these cases only.
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }));
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("takes the closed drawer out of the tab order", async () => {
+      useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+
+      renderAppShell();
+      await screen.findByText("handbellhub");
+
+      // Closed, the drawer is only moved off-screen by a transform, so without
+      // `inert` its links stay focusable while invisible.
+      expect(screen.getByRole("navigation", { name: "Projects" })).toHaveAttribute("inert");
+      expect(document.querySelector(".app-main")).not.toHaveAttribute("inert");
+    });
+
+    it("makes the drawer interactive and the page behind it inert when opened", async () => {
+      useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+      const user = userEvent.setup();
+
+      renderAppShell();
+      await user.click(await screen.findByRole("button", { name: "Toggle project menu" }));
+
+      expect(screen.getByRole("navigation", { name: "Projects" })).not.toHaveAttribute("inert");
+      expect(document.querySelector(".app-main")).toHaveAttribute("inert");
+    });
+
+    it("moves focus into the drawer on open and back to the hamburger on close", async () => {
+      useProjectsMock.mockReturnValue({ data: [project], isPending: false, isError: false });
+      const user = userEvent.setup();
+
+      renderAppShell();
+      const toggle = await screen.findByRole("button", { name: "Toggle project menu" });
+
+      await user.click(toggle);
+      expect(screen.getByRole("link", { name: "Overview" })).toHaveFocus();
+
+      await user.keyboard("{Escape}");
+      expect(toggle).toHaveFocus();
     });
   });
 });

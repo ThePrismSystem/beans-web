@@ -5,7 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -19,59 +18,124 @@ import { STATUS_LABEL } from "./StatusDot.js";
 import type { ReactNode } from "react";
 import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
 
-/**
- * Editorial chart palette. Mirrors the per-type (`--t-*`) and per-status
- * (`--s-*`) hues in theme/tokens.css so charts read consistently with the
- * BeanTypeTag/StatusDot chips used elsewhere in the app. Muted, no neon or
- * rainbow defaults.
- */
-const CHART_TYPE_COLORS: Record<BeanType, string> = {
-  milestone: "#5a4a8a",
-  epic: "#9a6b1f",
-  feature: "#3f6b5f",
-  task: "#7a7f88",
-  bug: "#a5452f",
-};
-
-const CHART_STATUS_COLORS: Record<BeanStatus, string> = {
-  draft: "#8a857b",
-  todo: "#55707a",
-  "in-progress": "#9a6b1f",
-  completed: "#3f6b5f",
-  scrapped: "#a5452f",
-};
-
-const CHART_ACCENT = "#9a6b1f";
-const CHART_NEUTRAL = "#8a857b";
-const CHART_HAIRLINE = "#ddd5c4";
 const CHART_HEIGHT = 240;
 
-// recharts renders tick `fill` as an SVG attribute, where a CSS `var()` won't
-// resolve — use the literal muted hue that mirrors the `--muted` token.
-const AXIS_TICK = { fontSize: 12, fill: CHART_NEUTRAL };
+/**
+ * Series color is applied from the stylesheet, not from `fill`/`stroke`
+ * props. recharts writes those as SVG presentation attributes, where `var()`
+ * does not parse — which is why this file used to carry a parallel set of
+ * literal hexes that never followed the theme. A CSS rule outranks a
+ * presentation attribute, so `.chart-fill-*` in global.css can hand every mark
+ * a `light-dark()` token and dark mode just works. See `--c-*` in tokens.css
+ * for why the status series don't reuse the status-dot hues.
+ */
+const AXIS_TICK = { fontSize: 12 };
 
-function ChartSection({ title, children }: { title: string; children: ReactNode }) {
+const TOOLTIP_STYLE = {
+  background: "var(--paper)",
+  border: "1px solid var(--hairline)",
+  borderRadius: "var(--r-sm)",
+  color: "var(--ink)",
+};
+
+const TOOLTIP_CURSOR = { fill: "var(--hairline)", fillOpacity: 0.4 };
+
+interface TableSpec {
+  columns: string[];
+  rows: (string | number)[][];
+}
+
+/**
+ * A chart is non-text content (WCAG 1.1.1). Each one ships the same numbers as
+ * a table that only assistive tech reads, so nothing is conveyed by the SVG
+ * alone.
+ */
+function ChartTable({ title, spec }: { title: string; spec: TableSpec }) {
+  return (
+    <table className="chart-table visually-hidden">
+      <caption>{title}</caption>
+      <thead>
+        <tr>
+          {spec.columns.map((column) => (
+            <th key={column} scope="col">
+              {column}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {spec.rows.map((row) => (
+          <tr key={String(row[0])}>
+            <th scope="row">{row[0]}</th>
+            {row.slice(1).map((cell, index) => (
+              <td key={spec.columns[index + 1] ?? index}>{cell}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** HTML legend, so swatches take their color from the same tokens as the marks. */
+function ChartLegend({ items }: { items: { label: string; className: string }[] }) {
+  return (
+    <ul className="chart-legend">
+      {items.map((item) => (
+        <li key={item.label}>
+          <span className={`chart-swatch ${item.className}`} aria-hidden="true" />
+          {item.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ChartSection({
+  title,
+  table,
+  legend,
+  children,
+}: {
+  title: string;
+  table: TableSpec;
+  legend?: { label: string; className: string }[];
+  children: ReactNode;
+}) {
   return (
     <section className="chart-section">
-      <h3>{title}</h3>
-      <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-        {children}
-      </ResponsiveContainer>
+      <h2>{title}</h2>
+      {legend && <ChartLegend items={legend} />}
+      <ChartTable title={title} spec={table} />
+      <div aria-hidden="true">
+        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+          {children}
+        </ResponsiveContainer>
+      </div>
     </section>
   );
 }
 
 function BeansPerProjectChart({ data }: { data: Analytics["perProject"] }) {
   return (
-    <ChartSection title="Beans per project">
+    <ChartSection
+      title="Beans per project"
+      legend={[
+        { label: "Total", className: "chart-swatch-total" },
+        { label: "Open", className: "chart-swatch-open" },
+      ]}
+      table={{
+        columns: ["Project", "Total", "Open"],
+        rows: data.map((row) => [row.project, row.total, row.open]),
+      }}
+    >
       <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HAIRLINE} />
+        <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="project" tick={AXIS_TICK} />
         <YAxis allowDecimals={false} tick={AXIS_TICK} />
-        <Tooltip />
-        <Legend />
-        <Bar dataKey="total" name="Total" fill={CHART_ACCENT} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="open" name="Open" fill={CHART_NEUTRAL} radius={[4, 4, 0, 0]} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
+        <Bar dataKey="total" name="Total" className="chart-bar-total" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="open" name="Open" className="chart-bar-open" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ChartSection>
   );
@@ -79,19 +143,23 @@ function BeansPerProjectChart({ data }: { data: Analytics["perProject"] }) {
 
 function CompletedOverTimeChart({ data }: { data: Analytics["completedByMonth"] }) {
   return (
-    <ChartSection title="Completed over time">
+    <ChartSection
+      title="Completed over time"
+      table={{
+        columns: ["Month", "Completed"],
+        rows: data.map((row) => [row.month, row.count]),
+      }}
+    >
       <AreaChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HAIRLINE} />
+        <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="month" tick={AXIS_TICK} />
         <YAxis allowDecimals={false} tick={AXIS_TICK} />
-        <Tooltip />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
         <Area
           type="monotone"
           dataKey="count"
           name="Completed"
-          stroke={CHART_STATUS_COLORS.completed}
-          fill={CHART_STATUS_COLORS.completed}
-          fillOpacity={0.25}
+          className="chart-area-completed"
           strokeWidth={2}
         />
       </AreaChart>
@@ -106,15 +174,21 @@ function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
     count: data[status] ?? 0,
   }));
   return (
-    <ChartSection title="Beans by status">
+    <ChartSection
+      title="Beans by status"
+      table={{
+        columns: ["Status", "Beans"],
+        rows: rows.map((row) => [row.label, row.count]),
+      }}
+    >
       <BarChart data={rows} layout="vertical">
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HAIRLINE} />
+        <CartesianGrid strokeDasharray="3 3" />
         <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
         <YAxis type="category" dataKey="label" tick={AXIS_TICK} width={90} />
-        <Tooltip />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
         <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]}>
           {rows.map((row) => (
-            <Cell key={row.status} fill={CHART_STATUS_COLORS[row.status]} />
+            <Cell key={row.status} className={`chart-fill-${row.status}`} />
           ))}
         </Bar>
       </BarChart>
@@ -125,15 +199,21 @@ function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
 function ByTypeChart({ data }: { data: Record<BeanType, number> }) {
   const rows = BEAN_TYPES.map((type) => ({ type, count: data[type] ?? 0 }));
   return (
-    <ChartSection title="Beans by type">
+    <ChartSection
+      title="Beans by type"
+      table={{
+        columns: ["Type", "Beans"],
+        rows: rows.map((row) => [row.type, row.count]),
+      }}
+    >
       <BarChart data={rows} layout="vertical">
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_HAIRLINE} />
+        <CartesianGrid strokeDasharray="3 3" />
         <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
         <YAxis type="category" dataKey="type" tick={AXIS_TICK} width={90} />
-        <Tooltip />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
         <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]}>
           {rows.map((row) => (
-            <Cell key={row.type} fill={CHART_TYPE_COLORS[row.type]} />
+            <Cell key={row.type} className={`chart-fill-${row.type}`} />
           ))}
         </Bar>
       </BarChart>

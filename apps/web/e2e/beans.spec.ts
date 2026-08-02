@@ -96,17 +96,19 @@ test("core client-visible contract", async ({ page }) => {
   });
 
   await test.step("scrap the child bean", async () => {
-    page.once("dialog", (dialog) => {
-      void dialog.accept("no longer needed");
-    });
     await page.getByRole("button", { name: "Scrap", exact: true }).click();
+    const dialog = page.getByRole("alertdialog");
+    await dialog.getByLabel("Reason").fill("no longer needed");
+    await dialog.getByRole("button", { name: "Scrap", exact: true }).click();
     await expect(page.locator(".status-label")).toHaveText("Scrapped");
   });
 
   await test.step("header search shows a live dropdown hit", async () => {
     const headerSearch = page.getByRole("search", { name: "Global search" });
     await headerSearch.getByLabel("Search all beans").fill(childTitle);
-    const hit = page.locator(".header-search-dropdown").getByRole("link", { name: childTitle });
+    // Dropdown rows are listbox options, not plain links — the input is a
+    // combobox, so its results carry role="option".
+    const hit = page.locator(".header-search-dropdown").getByRole("option", { name: childTitle });
     await expect(hit).toBeVisible();
     await hit.click();
     await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);

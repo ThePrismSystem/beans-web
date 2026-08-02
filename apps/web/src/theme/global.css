@@ -36,11 +36,80 @@ p {
 hr {
   border: none;
   border-top: 1px solid var(--hairline);
-  margin: 1.5em 0;
+  margin: var(--sp-7) 0;
 }
 
 a {
   color: var(--accent);
+}
+
+/* Base control surface. Without this every plain <button> falls back to UA
+   chrome — a cold gray box against warm paper, and in dark mode a surface the
+   theme never accounts for. Components that draw their own surface (carets,
+   toggles, the title button) override via their class, which outranks this. */
+button {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-4);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--hairline);
+}
+
+button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* Every focusable surface gets the same ring, including link- and
+   borderless-styled controls that would otherwise rely on the UA default. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Bypass Blocks (WCAG 2.4.1): the sidebar repeats on every route. */
+.skip-link {
+  position: absolute;
+  z-index: 300;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--paper-raised);
+  color: var(--accent);
+  font-size: var(--fs-4);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
 }
 
 .bean-id {
@@ -77,7 +146,7 @@ a {
   flex-direction: column;
   flex-shrink: 0;
   width: 240px;
-  padding: 1.5rem 1rem;
+  padding: var(--sp-7) var(--sp-5);
   border-right: 1px solid var(--hairline);
   background: var(--paper-raised);
 }
@@ -86,9 +155,9 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 3px;
+  gap: var(--sp-2);
+  padding: 0.35rem var(--sp-2);
+  border-radius: var(--r-xs);
   color: var(--ink);
   text-decoration: none;
 }
@@ -103,11 +172,11 @@ a {
 }
 
 .side-label {
-  margin: 1.25rem 0 0.5rem;
-  padding: 0 0.5rem;
+  margin: var(--sp-6) 0 var(--sp-2);
+  padding: 0 var(--sp-2);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-1);
   letter-spacing: 0.06em;
 }
 
@@ -120,7 +189,7 @@ a {
 .side-projects .count {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: var(--fs-3);
 }
 
 .app-main {
@@ -134,18 +203,18 @@ a {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-7);
   border-bottom: 1px solid var(--hairline);
 }
 
 .updated-pill {
-  padding: 0.2rem 0.6rem;
+  padding: 0.2rem var(--sp-3);
   border: 1px solid var(--accent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--accent);
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: var(--fs-2);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   animation: updated-pill-fade 2000ms ease-out;
@@ -175,10 +244,10 @@ a {
 .header-search-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.9rem;
+  padding: 0.45rem var(--sp-4);
+  font-size: var(--fs-5);
   border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: var(--paper-raised);
   color: var(--ink);
 }
@@ -190,9 +259,9 @@ a {
   right: 0;
   margin-top: 0.35rem;
   border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: var(--paper);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
+  box-shadow: var(--shadow-md);
   max-height: 60vh;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -202,7 +271,7 @@ a {
 .header-search-hit {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--sp-3);
   padding: 0.55rem 0.7rem;
   border-bottom: 1px solid var(--hairline);
   color: var(--ink);
@@ -213,7 +282,8 @@ a {
   border-bottom: none;
 }
 
-.header-search-hit:hover {
+.header-search-hit:hover,
+.header-search-hit.active {
   background: var(--paper-raised);
 }
 
@@ -234,12 +304,12 @@ a {
 
 .project-ledger {
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 .project-row {
   display: block;
-  padding: 0.85rem 1rem;
+  padding: 0.85rem var(--sp-5);
   border-bottom: 1px solid var(--hairline);
   color: var(--ink);
   text-decoration: none;
@@ -254,16 +324,17 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: var(--sp-4);
 }
 .project-row-name {
+  margin: 0;
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: var(--fs-7);
 }
 .project-row-summary {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: var(--fs-3);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -272,9 +343,9 @@ a {
   font-size: 0.95rem;
 }
 .project-row-types {
-  margin-top: 0.4rem;
+  margin-top: var(--sp-2);
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
   line-height: 1.5;
 }
 .project-row-type b {
@@ -282,17 +353,17 @@ a {
 }
 .project-row-sep {
   color: var(--muted);
-  margin: 0 0.5rem;
+  margin: 0 var(--sp-2);
 }
 
 /* Bean type tag */
 
 .bean-type-tag {
-  padding: 0.05rem 0.4rem;
+  padding: 0.05rem var(--sp-2);
   border: 1px solid currentColor;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-1);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -302,7 +373,7 @@ a {
 .status-dot-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-2);
 }
 
 .status-dot {
@@ -313,7 +384,7 @@ a {
 
 .status-label {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 /* Project list */
@@ -322,24 +393,25 @@ a {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-6);
 }
 
 .view-toggle {
   display: inline-flex;
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   overflow: hidden;
 }
 
 .view-toggle button {
   padding: 0.35rem 0.9rem;
   border: none;
+  border-radius: 0;
   background: var(--paper-raised);
   color: var(--muted);
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
   cursor: pointer;
 }
 
@@ -358,19 +430,19 @@ a {
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-7);
 }
 
 .filter-bar input,
 .filter-bar select {
-  padding: 0.4rem 0.6rem;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--paper-raised);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 .filter-search {
@@ -399,43 +471,31 @@ a {
 .sort-control {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-7);
 }
 
 .sort-control label {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-2);
   color: var(--muted);
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 .sort-control select {
-  padding: 0.4rem 0.6rem;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--paper-raised);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 .sort-control button {
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
-  background: var(--paper-raised);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.sort-control button:disabled {
-  color: var(--muted);
-  cursor: not-allowed;
+  padding: 0.35rem var(--sp-3);
 }
 
 /* Bean row */
@@ -443,9 +503,9 @@ a {
 .bean-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem;
-  border-radius: 4px;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
   color: var(--ink);
   text-decoration: none;
 }
@@ -506,9 +566,11 @@ a {
 
 .hierarchy-caret {
   flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
+  width: var(--sp-8);
+  height: var(--sp-8);
+  padding: 0;
   border: none;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
   font-family: var(--font-mono);
@@ -523,30 +585,30 @@ a {
 }
 
 .bean-detail-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  margin-bottom: var(--sp-7);
+  padding-bottom: var(--sp-5);
   border-bottom: 1px solid var(--hairline);
 }
 
 .bean-detail-title {
   flex: 1;
   font-family: var(--font-serif);
-  font-size: 1.6rem;
+  font-size: var(--fs-8);
   line-height: 1.25;
 }
 
 .bean-detail-inline-rows {
-  margin-top: 0.75rem;
+  margin-top: var(--sp-4);
 }
 
 .bean-detail-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 .bean-detail-priority {
@@ -554,7 +616,7 @@ a {
 }
 
 .bean-detail-body {
-  margin-bottom: 2rem;
+  margin-bottom: var(--sp-8);
   line-height: 1.6;
 }
 
@@ -564,28 +626,53 @@ a {
 
 /* Bean detail: inline editing affordances */
 
-.bean-detail-title,
-.bean-detail-title-input {
+/* The title is an <h1> wrapping a button, so the button has to shed the base
+   control surface entirely and read as heading text that happens to be
+   clickable. */
+.bean-detail-title-heading {
+  margin: 0;
+}
+
+.bean-detail-title {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
   cursor: text;
+}
+
+.bean-detail-title:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 0.2em;
 }
 
 .bean-detail-title-input {
   flex: 1;
+  width: 100%;
   border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 0.1rem 0.4rem;
+  border-radius: var(--r-sm);
+  padding: 0.1rem var(--sp-2);
   font-family: var(--font-serif);
-  font-size: 1.6rem;
+  font-size: var(--fs-8);
+  font-weight: 600;
   line-height: 1.25;
   background: var(--paper);
   color: var(--ink);
+  cursor: text;
 }
 
 .inline-edit-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -596,7 +683,7 @@ a {
 .inline-edit-label {
   width: 5rem;
   flex: none;
-  font-size: 0.75rem;
+  font-size: var(--fs-2);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
@@ -606,18 +693,18 @@ a {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sp-2);
 }
 
 .inline-edit-value select,
 .inline-edit-value input {
-  padding: 0.3rem 0.5rem;
+  padding: 0.3rem var(--sp-2);
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--paper-raised);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: var(--fs-3);
 }
 
 .inline-edit-pencil,
@@ -627,48 +714,51 @@ a {
   align-items: center;
   justify-content: center;
   min-width: 2.5rem;
-  border: 1px solid var(--hairline);
-  background: var(--paper-raised);
-  border-radius: 6px;
-  padding: 0.4rem 0.7rem;
-  cursor: pointer;
+  border-radius: var(--r-md);
+  padding: var(--sp-2) 0.7rem;
   line-height: 1;
-  font-size: 1rem;
+  font-size: var(--fs-6);
   color: var(--muted);
 }
 
 .inline-edit-save {
-  background: var(--s-completed);
-  border-color: var(--s-completed);
+  background: var(--fill-strong);
+  border-color: var(--fill-strong);
   color: var(--on-accent);
 }
 
+.inline-edit-save:hover:not(:disabled) {
+  background: var(--fill-strong);
+  filter: brightness(1.08);
+}
+
 .bean-detail-section {
-  margin: 2rem 0;
-  padding-top: 1.5rem;
+  margin: var(--sp-8) 0;
+  padding-top: var(--sp-7);
   border-top: 1px solid var(--hairline);
 }
 
 .bean-detail-section-title {
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--sp-4);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-2);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .bean-detail-body-actions {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
 }
 
 .bean-detail-actions {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-7);
   border-top: 1px solid var(--hairline);
 }
 
@@ -683,40 +773,42 @@ a {
 .mutation-error {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  padding: 0.6rem 0.8rem;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-7);
+  padding: var(--sp-3) var(--sp-3);
   border: 1px solid var(--s-scrapped);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   color: var(--s-scrapped);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 .mutation-error p {
   margin: 0;
 }
 
+/* Partial-data banners. --warn rather than --s-in-progress, which is a dot
+   hue: as text it was 2.27:1 on light paper, well under WCAG AA. */
 .search-warning,
 .analytics-warning {
-  margin: 0 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--s-in-progress);
-  border-radius: 4px;
-  color: var(--s-in-progress);
-  font-size: 0.85rem;
+  margin: 0 0 var(--sp-5);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--warn);
+  border-radius: var(--r-sm);
+  color: var(--warn);
+  font-size: var(--fs-4);
 }
 
 /* Body editor */
 
 .body-editor-textarea {
   width: 100%;
-  padding: 0.6rem;
+  padding: var(--sp-3);
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--paper-raised);
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
   resize: vertical;
 }
 
@@ -725,20 +817,20 @@ a {
 .relation-editor {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--sp-6);
 }
 
 .relation-editor-label {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--sp-2);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-2);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .relation-editor-list {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--sp-2);
   padding: 0;
   list-style: none;
 }
@@ -747,7 +839,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--sp-2);
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--hairline);
 }
@@ -756,7 +848,7 @@ a {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--sp-3);
   min-width: 0;
   margin: -0.15rem -0.3rem;
   padding: 0.15rem 0.3rem;
@@ -776,8 +868,10 @@ a {
 }
 
 .relation-editor-remove {
-  font-size: 0.75rem;
+  font-size: var(--fs-2);
   color: var(--s-scrapped);
+  border-color: var(--s-scrapped);
+  background: transparent;
 }
 
 /* Confirm dialog */
@@ -788,14 +882,17 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(0 0 0 / 40%);
+  padding: var(--sp-5);
+  background: var(--scrim);
   z-index: 100;
 }
 
 .confirm-dialog {
-  max-width: 24rem;
-  padding: 1.25rem;
-  border-radius: 6px;
+  width: min(28rem, 100%);
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: var(--sp-6);
+  border-radius: var(--r-md);
   background: var(--paper);
   border: 1px solid var(--hairline);
 }
@@ -803,13 +900,37 @@ a {
 .confirm-dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 1rem;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
 }
 
 .confirm-dialog-danger {
   color: var(--s-scrapped);
   border-color: var(--s-scrapped);
+  background: transparent;
+}
+
+.confirm-dialog-reason-label {
+  display: block;
+  margin-top: var(--sp-5);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.confirm-dialog-reason {
+  width: 100%;
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-4);
+  resize: vertical;
 }
 
 /* Bean picker */
@@ -820,18 +941,18 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(0 0 0 / 40%);
+  background: var(--scrim);
   z-index: 100;
 }
 
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--sp-4);
   width: min(32rem, 92vw);
   max-height: 80vh;
-  padding: 1.25rem;
-  border-radius: 6px;
+  padding: var(--sp-6);
+  border-radius: var(--r-md);
   background: var(--paper);
   border: 1px solid var(--hairline);
   overflow: hidden;
@@ -842,7 +963,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--sp-4);
 }
 
 .picker-head h2 {
@@ -853,25 +974,25 @@ a {
   border: none;
   background: none;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: var(--fs-6);
   line-height: 1;
   cursor: pointer;
 }
 
 .picker-search {
-  padding: 0.5rem 0.7rem;
+  padding: var(--sp-2) 0.7rem;
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--paper-raised);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  font-size: var(--fs-5);
 }
 
 .picker-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--sp-2);
 }
 
 .picker-list {
@@ -886,14 +1007,14 @@ a {
 .picker-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  font-size: var(--fs-5);
   text-align: left;
   cursor: pointer;
 }
@@ -902,18 +1023,14 @@ a {
   background: var(--paper-raised);
 }
 
-.picker-row-title {
-  flex: 1;
-}
-
 .picker-none {
-  padding: 0.5rem 0.6rem;
+  padding: var(--sp-2) var(--sp-3);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  font-size: var(--fs-5);
   text-align: left;
   cursor: pointer;
 }
@@ -925,8 +1042,8 @@ a {
 .picker-foot {
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 0.5rem;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
 }
 
 .picker-add {
@@ -952,7 +1069,7 @@ a {
 .create-bean-field label {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-2);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -960,69 +1077,317 @@ a {
 .create-bean-field input,
 .create-bean-field select,
 .create-bean-field textarea {
-  padding: 0.4rem 0.6rem;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--hairline);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--paper-raised);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--fs-4);
 }
 
 .create-bean-error {
   margin: 0;
   color: var(--s-scrapped);
-  font-size: 0.8rem;
+  font-size: var(--fs-3);
 }
 
 .create-bean-actions {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 0.5rem;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
 }
 
-/* Keyboard focus visibility on custom (border-less / link) controls. */
-.nav-toggle:focus-visible,
-.filter-toggle:focus-visible,
-.view-toggle button:focus-visible,
-.hierarchy-caret:focus-visible,
-.side-item:focus-visible,
-.bean-row:focus-visible,
-.relation-editor-link:focus-visible,
-.header-search-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* Analytics */
+
+.analytics-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-7);
+  margin-bottom: var(--sp-7);
 }
 
-/* Touch devices: hit areas >= ~44px and >=16px form text (prevents iOS
-   focus-zoom). Keyed on pointer type so desktop density is untouched. */
-@media (pointer: coarse) {
+.analytics-total {
+  display: flex;
+  flex: 1 1 140px;
+  flex-direction: column;
+  padding: var(--sp-5) var(--sp-6);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--paper-raised);
+  min-width: 140px;
+}
+
+.analytics-total-value {
+  font-family: var(--font-serif);
+  font-size: var(--fs-9);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.analytics-total-label {
+  color: var(--muted);
+  font-size: var(--fs-4);
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-7);
+}
+
+.chart-section {
+  min-width: 0;
+  padding: var(--sp-5) var(--sp-6);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--paper-raised);
+}
+
+.chart-section h2 {
+  margin-bottom: var(--sp-4);
+  font-size: var(--fs-6);
+}
+
+/* Tabular equivalent of each chart, for screen readers and any client that
+   doesn't render the SVG (WCAG 1.1.1). */
+.chart-table caption {
+  text-align: left;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--fs-4);
+}
+
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.chart-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: var(--r-xs);
+  background: var(--muted);
+}
+
+.chart-swatch-total {
+  background: var(--accent);
+}
+
+.chart-swatch-open {
+  background: var(--muted);
+}
+
+/* recharts writes series colour as an SVG presentation attribute, which can't
+   take a var(). Any CSS rule outranks a presentation attribute, so the marks
+   are coloured here instead and follow light-dark() like everything else. */
+.recharts-cartesian-grid line {
+  stroke: var(--hairline);
+}
+
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: var(--hairline);
+}
+
+/* The class sits on the <text> itself, not an ancestor — recharts writes its
+   default fill="#666" there, which fails AA on paper in both themes. */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--muted);
+}
+
+.chart-bar-total .recharts-rectangle {
+  fill: var(--accent);
+}
+
+.chart-bar-open .recharts-rectangle {
+  fill: var(--muted);
+}
+
+.chart-area-completed .recharts-area-area {
+  fill: var(--c-completed);
+  fill-opacity: 0.25;
+}
+
+.chart-area-completed .recharts-area-curve {
+  stroke: var(--c-completed);
+}
+
+.chart-fill-draft {
+  fill: var(--c-draft);
+}
+.chart-fill-todo {
+  fill: var(--c-todo);
+}
+.chart-fill-in-progress {
+  fill: var(--c-in-progress);
+}
+.chart-fill-completed {
+  fill: var(--c-completed);
+}
+.chart-fill-scrapped {
+  fill: var(--c-scrapped);
+}
+.chart-fill-milestone {
+  fill: var(--t-milestone);
+}
+.chart-fill-epic {
+  fill: var(--t-epic);
+}
+.chart-fill-feature {
+  fill: var(--t-feature);
+}
+.chart-fill-task {
+  fill: var(--t-task);
+}
+.chart-fill-bug {
+  fill: var(--t-bug);
+}
+
+.checkbox-menu {
+  position: relative;
+  display: inline-block;
+}
+.checkbox-menu-trigger {
+  padding: var(--sp-2) 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--paper-raised);
+  color: var(--muted);
+  font-size: var(--fs-4);
+  cursor: pointer;
+}
+.checkbox-menu-trigger.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.checkbox-menu-list {
+  position: absolute;
+  z-index: 50;
+  margin-top: 0.35rem;
+  min-width: 10rem;
+  /* Never let the popup push past the viewport edge — the Prefix menu sits
+     last in a wrapping row, so its natural left edge can be near the right
+     margin on a narrow screen. */
+  max-width: min(16rem, calc(100vw - var(--sp-5)));
+  padding: var(--sp-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.checkbox-menu-list--flip-right {
+  right: 0;
+}
+.checkbox-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-5);
+  cursor: pointer;
+}
+.checkbox-menu-item:hover {
+  background: var(--paper-raised);
+}
+
+.bean-row-orphan,
+.hierarchy-orphan-count {
+  color: var(--warn);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.bean-row-orphan {
+  border: 1px solid var(--warn);
+  border-radius: var(--r-xs);
+  padding: 0 0.3rem;
+}
+
+.bean-detail-orphan {
+  align-items: center;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-sm);
+  color: var(--warn);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  justify-content: space-between;
+  margin-block: var(--sp-5);
+  padding: var(--sp-3) var(--sp-3);
+}
+
+.confirm-dialog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.confirm-dialog-list li {
+  padding-block: 0.15rem;
+}
+
+/* Touch and narrow-viewport ergonomics: hit areas >= 44px (WCAG 2.5.5) and
+   >= 16px form text so iOS doesn't focus-zoom. Keyed on coarse pointer OR
+   narrow width so both touch devices and small precise-pointer windows are
+   covered — previously two near-identical blocks. */
+@media (pointer: coarse), (max-width: 768px) {
   .side-item,
   .bean-row,
   .relation-editor-link,
+  .relation-editor-remove,
   .view-toggle button,
   .nav-toggle,
   .filter-toggle,
+  .checkbox-menu-trigger,
+  .checkbox-menu-item,
+  .inline-edit-pencil,
+  .inline-edit-save,
+  .inline-edit-cancel,
+  .picker-row,
+  .picker-add,
+  .picker-none,
+  .picker-head button,
+  .relation-editor-section > button,
+  .bean-detail-body-actions button,
+  .bean-detail-actions button,
+  .confirm-dialog-actions button,
   .sort-control button {
     min-height: 44px;
   }
 
   .hierarchy-caret {
     width: 2.25rem;
-  }
-
-  .hierarchy-caret {
     min-height: 44px;
   }
 
   .filter-bar input,
   .filter-bar select,
+  .filter-tags,
+  .header-search-input,
+  .picker-search,
   .sort-control select,
   .inline-edit-value select,
   .inline-edit-value input,
   .create-bean-field input,
   .create-bean-field select,
   .create-bean-field textarea,
+  .confirm-dialog-reason,
   .body-editor-textarea {
     font-size: 16px;
   }
@@ -1043,7 +1408,7 @@ a {
     height: 44px;
     padding: 0;
     border: 1px solid var(--hairline);
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     background: var(--paper-raised);
     color: var(--ink);
     font-size: 1.2rem;
@@ -1067,7 +1432,7 @@ a {
 
   .sidebar--open {
     transform: none;
-    box-shadow: 0 0 40px rgb(0 0 0 / 25%);
+    box-shadow: var(--shadow-lg);
   }
 
   .sidebar-backdrop {
@@ -1075,8 +1440,10 @@ a {
     position: fixed;
     inset: 0;
     z-index: 150;
+    padding: 0;
     border: none;
-    background: rgb(0 0 0 / 45%);
+    border-radius: 0;
+    background: var(--scrim-strong);
   }
 
   .project-list-header {
@@ -1088,11 +1455,11 @@ a {
     align-items: center;
     padding: 0 0.9rem;
     border: 1px solid var(--hairline);
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     background: var(--paper-raised);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 0.85rem;
+    font-size: var(--fs-4);
     cursor: pointer;
   }
 
@@ -1105,7 +1472,7 @@ a {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--sp-2);
     align-items: center;
   }
 
@@ -1120,60 +1487,8 @@ a {
     width: 100%;
     max-width: none;
     max-height: 85dvh;
-    border-radius: 12px 12px 0 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
     overflow-y: auto;
-  }
-}
-
-/* Same touch-target/zoom guarantees as the coarse-pointer block above, but
-   keyed on viewport width so narrow-but-precise-pointer devices (and the
-   controls added since that block was written) get them too. */
-@media (max-width: 768px) {
-  .side-item,
-  .bean-row,
-  .relation-editor-link,
-  .view-toggle button,
-  .checkbox-menu-trigger,
-  .inline-edit-pencil,
-  .inline-edit-save,
-  .inline-edit-cancel,
-  .picker-row,
-  .picker-add,
-  .picker-none,
-  .relation-editor-section > button,
-  .bean-detail-body-actions button,
-  .sort-control button {
-    min-height: 44px;
-  }
-
-  .hierarchy-caret {
-    width: 2.25rem;
-  }
-
-  .hierarchy-caret {
-    min-height: 44px;
-  }
-
-  .filter-bar input,
-  .filter-bar select,
-  .filter-tags,
-  .header-search-input,
-  .picker-search,
-  .sort-control select,
-  .checkbox-menu-item,
-  .inline-edit-value select,
-  .inline-edit-value input,
-  .create-bean-field input,
-  .create-bean-field select,
-  .create-bean-field textarea,
-  .body-editor-textarea {
-    font-size: 16px;
-  }
-}
-
-@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
-  .sidebar {
-    transition: none;
   }
 }
 
@@ -1185,132 +1500,19 @@ a {
   }
 }
 
-/* Analytics */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 
-.analytics-totals {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.analytics-total {
-  display: flex;
-  flex-direction: column;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
-  background: var(--paper-raised);
-  min-width: 140px;
-}
-
-.analytics-total-value {
-  font-family: var(--font-serif);
-  font-size: 2rem;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-.analytics-total-label {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 1.5rem;
-}
-
-.chart-section {
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
-  background: var(--paper-raised);
-}
-
-.chart-section h3 {
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
-}
-
-.checkbox-menu {
-  position: relative;
-  display: inline-block;
-}
-.checkbox-menu-trigger {
-  padding: 0.4rem 0.7rem;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: var(--paper-raised);
-  color: var(--muted);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.checkbox-menu-trigger.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.checkbox-menu-list {
-  position: absolute;
-  z-index: 50;
-  margin-top: 0.35rem;
-  min-width: 10rem;
-  padding: 0.4rem;
-  border: 1px solid var(--hairline);
-  border-radius: 6px;
-  background: var(--paper);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 15%);
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-.checkbox-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.checkbox-menu-item:hover {
-  background: var(--paper-raised);
-}
-
-.bean-row-orphan,
-.hierarchy-orphan-count {
-  color: var(--warn);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.bean-row-orphan {
-  border: 1px solid var(--warn);
-  border-radius: 0.2rem;
-  padding: 0 0.3rem;
-}
-
-.bean-detail-orphan {
-  align-items: center;
-  border: 1px solid var(--warn);
-  border-radius: 0.3rem;
-  color: var(--warn);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
-  margin-block: 1rem;
-  padding: 0.6rem 0.8rem;
-}
-
-.confirm-dialog-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.confirm-dialog-list li {
-  padding-block: 0.15rem;
+  /* The pill is a timed reveal, not decoration: keep it visible for its full
+     window instead of collapsing the fade to nothing. */
+  .updated-pill {
+    animation: none;
+  }
 }

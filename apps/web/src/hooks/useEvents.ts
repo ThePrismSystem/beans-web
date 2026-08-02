@@ -8,6 +8,9 @@ export interface UseEventsResult {
   lastEvent: ServerEvent | null;
 }
 
+/** How long events are collected before one batched invalidation is issued. */
+const INVALIDATE_WINDOW_MS = 150;
+
 function isServerEventKind(value: string): value is ServerEventKind {
   return value === "add" || value === "change" || value === "unlink";
 }
@@ -48,6 +51,31 @@ export function useEvents(client?: QueryClient): UseEventsResult {
     }
 
     const source = new EventSource("/api/events");
+    // One `.beans` write is one event, so anything touching several beans at
+    // once — an agent working through a list, `beans archive`, a branch switch
+    // — arrives as a burst. Invalidating per event would refetch every project
+    // list and re-run the cross-project analytics fan-out (which shells out to
+    // the `beans` binary once per project) for each file in that burst.
+    // Events inside a window are collected and flushed once instead. This is a
+    // trailing throttle rather than a debounce: the first event schedules the
+    // flush, so a continuous stream still refreshes every WINDOW ms instead of
+    // being starved indefinitely.
+    const pendingProjects = new Set<string>();
+    let pendingEvent: ServerEvent | null = null;
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function flush() {
+      flushTimer = undefined;
+      for (const project of pendingProjects) {
+        queryClient?.invalidateQueries({ queryKey: ["beans", project] });
+        queryClient?.invalidateQueries({ queryKey: ["bean", project] });
+      }
+      pendingProjects.clear();
+      queryClient?.invalidateQueries({ queryKey: ["projects"] });
+      queryClient?.invalidateQueries({ queryKey: ["analytics"] });
+      setLastEvent(pendingEvent);
+    }
+
     source.onmessage = (event: MessageEvent<string>) => {
       const parsed = parseServerEvent(event.data);
       if (!parsed) {
@@ -57,14 +85,15 @@ export function useEvents(client?: QueryClient): UseEventsResult {
         console.debug("useEvents: dropped unrecognized SSE payload", event.data);
         return;
       }
-      setLastEvent(parsed);
-      queryClient.invalidateQueries({ queryKey: ["beans", parsed.project] });
-      queryClient.invalidateQueries({ queryKey: ["bean", parsed.project] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      pendingProjects.add(parsed.project);
+      pendingEvent = parsed;
+      flushTimer ??= setTimeout(flush, INVALIDATE_WINDOW_MS);
     };
 
     return () => {
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+      }
       source.close();
     };
   }, [queryClient]);

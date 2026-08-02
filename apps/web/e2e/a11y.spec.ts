@@ -1,14 +1,17 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { scan } from "./fixtures/axe.js";
 import { readSeedState } from "./fixtures/seed.mjs";
 
 import type { Page } from "@playwright/test";
 
-const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
-async function scan(page: Page) {
-  return new AxeBuilder({ page }).withTags(WCAG).analyze();
+/** Opens the seeded project's first feature bean. */
+async function gotoBean(page: Page) {
+  const { projectName, featureTitle } = readSeedState();
+  await page.goto("/");
+  await page.locator(".project-row", { hasText: projectName }).click();
+  await page.getByText(featureTitle).first().click();
+  await expect(page.locator("button.bean-detail-title")).toBeVisible();
 }
 
 for (const scheme of ["light", "dark"] as const) {
@@ -57,6 +60,38 @@ function runA11ySuite() {
     const search = page.getByRole("search", { name: "Global search" });
     await search.getByLabel("Search all beans").fill(featureTitle);
     await expect(page.locator(".header-search-dropdown")).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
+  // Dialogs were previously never scanned: every surface above renders with
+  // them closed, so nothing inside one was ever checked.
+  test("the scrap dialog has no violations", async ({ page }) => {
+    await gotoBean(page);
+    await page.getByRole("button", { name: "Scrap", exact: true }).click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test("the delete dialog has no violations", async ({ page }) => {
+    await gotoBean(page);
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test("the relation picker has no violations", async ({ page }) => {
+    await gotoBean(page);
+    await page.getByRole("button", { name: "Add blocks" }).click();
+    await expect(page.getByRole("dialog", { name: "Add blocks" })).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test("an open filter menu has no violations", async ({ page }) => {
+    const { projectName } = readSeedState();
+    await page.goto("/");
+    await page.locator(".project-row", { hasText: projectName }).click();
+    await page.getByRole("button", { name: /^Status/ }).click();
+    await expect(page.getByRole("group", { name: "Status" })).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
   });
 }

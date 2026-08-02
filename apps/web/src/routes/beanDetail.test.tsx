@@ -304,14 +304,16 @@ describe("BeanDetailPage", () => {
     expect(screen.getByRole("button", { name: "Edit body" })).toBeInTheDocument();
   });
 
-  it("prompts for a reason and scraps the bean", async () => {
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("no longer needed");
+  it("collects a reason in a dialog and scraps the bean", async () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
     await user.click(await screen.findByRole("button", { name: "Scrap" }));
 
-    expect(promptSpy).toHaveBeenCalled();
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "no longer needed");
+    await user.click(within(dialog).getByRole("button", { name: "Scrap" }));
+
     expect(updateBeanMutate).toHaveBeenCalledWith({
       id: "t1",
       etag: "abc",
@@ -322,13 +324,25 @@ describe("BeanDetailPage", () => {
     });
   });
 
-  it("does not scrap when the prompt is cancelled", async () => {
-    vi.spyOn(window, "prompt").mockReturnValue(null);
+  it("opens the scrap dialog without mutating anything", async () => {
     const user = userEvent.setup();
     renderBeanDetail();
 
     await user.click(await screen.findByRole("button", { name: "Scrap" }));
 
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+    expect(updateBeanMutate).not.toHaveBeenCalled();
+  });
+
+  it("does not scrap when the dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    renderBeanDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Scrap" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(updateBeanMutate).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,60 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-08-02
+
+A design-quality pass over the web UI: accessibility, theming, responsive
+behavior, and live-update cost. No change to the interface's visual direction.
+
+### Fixed
+
+- Analytics charts ignored the color scheme entirely. Series colors were
+  hard-coded to light-palette hexes, so in dark mode the grid drew at 10:1
+  contrast while the bars fell to 1.9–2.8:1 — below the 3:1 minimum for a mark
+  that carries meaning on its own. Chart color now comes from theme tokens
+  applied through CSS, which the SVG `fill` attribute could not carry.
+- Chart axis labels failed WCAG AA in **both** schemes (3.40:1 light, 4.00:1
+  dark) and are now drawn in `--muted`. Automated scanning never caught this:
+  axe's contrast rule skips SVG text.
+- The inline-edit save button rendered white on green at 4.16:1 in light and
+  2.64:1 in dark. It now uses a fill that inverts per scheme, clearing AA in
+  both.
+- "Some projects failed to load" banners used the in-progress status hue as
+  text, at 2.27:1 on light paper. They now use the warning token.
+- The navigation drawer is hidden off-screen by a transform, which left its
+  links keyboard-focusable while invisible. The closed drawer is now `inert`,
+  and while it is open the page behind it is, so focus stays where it shows.
+- Plain buttons had no styling of their own and fell back to the browser's
+  chrome — a cold grey against warm paper, and a surface the dark theme never
+  accounted for.
+- The bean detail page had no `<h1>`: its title was a bare button, so the
+  document outline started at `<h2>`. Chart headings likewise skipped a level.
+- The analytics totals could overflow a 320px-wide viewport.
+
+### Added
+
+- A "skip to content" link (WCAG 2.4.1) — the sidebar repeats on every route.
+- Full combobox semantics on the header search: arrow-key, Home/End and Enter
+  navigation, `aria-activedescendant`, and a live region announcing the result
+  count. Previously the dropdown was unreachable and unannounced.
+- A tabular equivalent of every chart for assistive technology (WCAG 1.1.1).
+- Spacing, radius and type-size scales in `tokens.css`; radii previously mixed
+  seven pixel values with two rem values.
+- Accessibility scans now cover dialogs, the relation picker, open menus, and
+  the mobile layout, and enforce heading order — none of which were scanned
+  before. New tests assert chart contrast in a real browser in both schemes.
+
+### Changed
+
+- Scrapping a bean now asks for its reason in an in-app dialog rather than
+  `window.prompt()`, which cannot be themed and blocks the main thread.
+- Live-update invalidation is batched. One `.beans` write is one event, so a
+  bulk edit previously refetched every project list and re-ran the
+  cross-project analytics fan-out once per file.
+- Overlay scrims are tinted with the palette's ink rather than pure black, and
+  reduced-motion preferences are honored across the whole stylesheet rather
+  than for the drawer alone.
+
 ## [0.1.1] - 2026-08-02
 
 ### Fixed
@@ -41,5 +95,6 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.1.2]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.0

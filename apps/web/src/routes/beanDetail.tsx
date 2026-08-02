@@ -79,32 +79,37 @@ function BeanDetailHeader({
 }: BeanDetailHeaderProps) {
   return (
     <header className="bean-detail-header">
-      {isEditingTitle ? (
-        <input
-          aria-label="Title"
-          className="bean-detail-title-input"
-          value={titleDraft}
-          autoFocus
-          onChange={(event) => onTitleDraftChange(event.target.value)}
-          onBlur={onCommitTitle}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              onCommitTitle();
-            } else if (event.key === "Escape") {
-              onCancelEditingTitle();
-            }
-          }}
-        />
-      ) : (
-        <button
-          type="button"
-          className="bean-detail-title"
-          onClick={onStartEditingTitle}
-          aria-label={`Edit title: ${bean.title}`}
-        >
-          {bean.title}
-        </button>
-      )}
+      {/* The bean's title is the page's top-level heading, so it stays an <h1>
+          in both states — otherwise the document starts at <h2> and the
+          heading outline has no root. */}
+      <h1 className="bean-detail-title-heading">
+        {isEditingTitle ? (
+          <input
+            aria-label="Title"
+            className="bean-detail-title-input"
+            value={titleDraft}
+            autoFocus
+            onChange={(event) => onTitleDraftChange(event.target.value)}
+            onBlur={onCommitTitle}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                onCommitTitle();
+              } else if (event.key === "Escape") {
+                onCancelEditingTitle();
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="bean-detail-title"
+            onClick={onStartEditingTitle}
+            aria-label={`Edit title: ${bean.title}`}
+          >
+            {bean.title}
+          </button>
+        )}
+      </h1>
 
       <div className="bean-detail-inline-rows">
         <InlineEditRow
@@ -260,6 +265,9 @@ interface BeanDetailDialogsProps {
   isConfirmingReopen: boolean;
   onConfirmingReopenChange: (value: boolean) => void;
   onReopenConfirmed: () => void;
+  isConfirmingScrap: boolean;
+  onConfirmingScrapChange: (value: boolean) => void;
+  onScrapConfirmed: (reason: string) => void;
 }
 
 function BeanDetailDialogs({
@@ -271,6 +279,9 @@ function BeanDetailDialogs({
   isConfirmingReopen,
   onConfirmingReopenChange,
   onReopenConfirmed,
+  isConfirmingScrap,
+  onConfirmingScrapChange,
+  onScrapConfirmed,
 }: BeanDetailDialogsProps) {
   return (
     <>
@@ -281,6 +292,20 @@ function BeanDetailDialogs({
         confirmLabel="Delete"
         onConfirm={onDeleteConfirmed}
         onCancel={() => onConfirmingDeleteChange(false)}
+      />
+
+      {/* Replaces window.prompt(), which the browser draws itself: it ignores
+          the theme, cannot be styled, and blocks the main thread until it is
+          dismissed. */}
+      <ConfirmDialog
+        open={isConfirmingScrap}
+        title="Scrap this bean?"
+        message={`"${bean.title}" will be marked scrapped.`}
+        reasonLabel="Reason"
+        reasonPlaceholder="Why is this being scrapped?"
+        confirmLabel="Scrap"
+        onConfirm={onScrapConfirmed}
+        onCancel={() => onConfirmingScrapChange(false)}
       />
 
       <ConfirmDialog
@@ -341,6 +366,7 @@ function BeanDetailContent({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isConfirmingReopen, setIsConfirmingReopen] = useState(false);
+  const [isConfirmingScrap, setIsConfirmingScrap] = useState(false);
 
   // `candidates` is the full project dataset minus this bean, so it resolves
   // the parent chain — and orphan status is computed against all of it, never
@@ -456,11 +482,8 @@ function BeanDetailContent({
     }
   }
 
-  function handleScrap() {
-    const reason = window.prompt("Reason for scrapping this bean?");
-    if (reason === null) {
-      return;
-    }
+  function handleScrapConfirmed(reason: string) {
+    setIsConfirmingScrap(false);
     updateBean.mutate({
       id: bean.id,
       etag: bean.etag,
@@ -564,7 +587,7 @@ function BeanDetailContent({
         <button type="button" onClick={() => setIsCreating((v) => !v)}>
           + New bean
         </button>
-        <button type="button" onClick={handleScrap}>
+        <button type="button" onClick={() => setIsConfirmingScrap(true)}>
           Scrap
         </button>
         <button
@@ -600,6 +623,9 @@ function BeanDetailContent({
         isConfirmingReopen={isConfirmingReopen}
         onConfirmingReopenChange={setIsConfirmingReopen}
         onReopenConfirmed={handleReopenConfirmed}
+        isConfirmingScrap={isConfirmingScrap}
+        onConfirmingScrapChange={setIsConfirmingScrap}
+        onScrapConfirmed={handleScrapConfirmed}
       />
     </article>
   );
