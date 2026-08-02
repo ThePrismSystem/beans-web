@@ -33,7 +33,7 @@ describe("useProjects", () => {
   it("fetches and returns the project list", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify([project]), { status: 200 })),
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify([project]), { status: 200 }))),
     );
 
     const { result } = renderHook(() => useProjects(), { wrapper });

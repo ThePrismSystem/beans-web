@@ -1,4 +1,3 @@
-import { act, render } from "@testing-library/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -6,12 +5,13 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { act, render } from "@testing-library/react";
+import { useEffect, useState } from "react";
+
+import { Placeholder } from "./RouterPlaceholder.js";
 
 import type { RenderResult } from "@testing-library/react";
 import type { Dispatch, ReactElement, SetStateAction } from "react";
-
-const Placeholder = () => <div>placeholder</div>;
 
 function buildTestRouter(IndexComponent: () => ReactElement, initialLocation: string) {
   const rootRoute = createRootRoute();
@@ -73,10 +73,12 @@ export function renderWithRouter(
   router: TestRouter;
   rerender: (next: ReactElement) => void;
 } {
-  let setCurrent: Dispatch<SetStateAction<ReactElement>> | undefined;
+  const setCurrentRef: { current?: Dispatch<SetStateAction<ReactElement>> } = {};
   function Slot() {
     const [current, setter] = useState(ui);
-    setCurrent = setter;
+    useEffect(() => {
+      setCurrentRef.current = setter;
+    }, [setter]);
     return current;
   }
   const router = buildTestRouter(Slot, initialLocation);
@@ -86,7 +88,7 @@ export function renderWithRouter(
     router,
     rerender: (next: ReactElement) => {
       act(() => {
-        setCurrent?.(next);
+        setCurrentRef.current?.(next);
       });
     },
   };

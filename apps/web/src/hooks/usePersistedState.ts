@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 /**
  * Loads a project-scoped value from storage on mount and whenever `project`
@@ -19,11 +19,15 @@ export function usePersistedProjectState<T>(
   write: (key: string, value: T) => void,
 ): [T, (updater: T | ((current: T) => T)) => void] {
   const storageKey = `beans:${name}:${project}`;
+  const [loadedKey, setLoadedKey] = useState(storageKey);
   const [value, setValue] = useState<T>(() => read(storageKey));
 
-  useEffect(() => {
+  // Reload from storage when `storageKey` changes, without a `useEffect`
+  // round-trip: https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-when-a-prop-changes
+  if (storageKey !== loadedKey) {
+    setLoadedKey(storageKey);
     setValue(read(storageKey));
-  }, [project, storageKey, read]);
+  }
 
   function setPersisted(updater: T | ((current: T) => T)) {
     setValue((current) => {

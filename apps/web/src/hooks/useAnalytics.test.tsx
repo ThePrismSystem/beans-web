@@ -28,7 +28,7 @@ describe("useAnalytics", () => {
   it("fetches and returns the analytics payload", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify(analytics), { status: 200 })),
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(analytics), { status: 200 }))),
     );
 
     const { result } = renderHook(() => useAnalytics(), { wrapper });

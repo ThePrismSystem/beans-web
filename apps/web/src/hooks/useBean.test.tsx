@@ -38,11 +38,12 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe("useBean", () => {
   it("fetches a bean and its linked relationships", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
         new Response(JSON.stringify({ data: { bean: beanDetail, blocksInbound: [] } }), {
           status: 200,
         }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -64,14 +65,15 @@ describe("useBean", () => {
     const inbound = [
       { id: "i1", title: "Declares it is blocked by me", type: "task", status: "todo" },
     ];
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
         new Response(
           JSON.stringify({
             data: { bean: { ...beanDetail, blocksInbound: undefined }, blocksInbound: inbound },
           }),
           { status: 200 },
         ),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -82,16 +84,19 @@ describe("useBean", () => {
     });
 
     expect(result.current.data?.blocksInbound).toEqual(inbound);
-    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+    const rawBody = fetchMock.mock.calls[0]?.[1]?.body;
+    if (typeof rawBody !== "string") {
+      throw new Error("expected a string request body");
+    }
+    const body = JSON.parse(rawBody) as {
       variables: Record<string, unknown>;
     };
     expect(body.variables).toMatchObject({ id: "t1", idStr: "t1" });
   });
 
   it("errors when the bean is not found", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
-        new Response(JSON.stringify({ data: { bean: null } }), { status: 200 }),
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ data: { bean: null } }), { status: 200 })),
     );
     vi.stubGlobal("fetch", fetchMock);
 

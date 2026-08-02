@@ -21,6 +21,14 @@ import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());
 
+/** Parses a mocked fetch call's JSON body, narrowing away the non-string `BodyInit` cases. */
+function parsedRequestBody(body: BodyInit | null | undefined): unknown {
+  if (typeof body !== "string") {
+    throw new Error("expected a string request body");
+  }
+  return JSON.parse(body) as unknown;
+}
+
 function makeWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -32,11 +40,12 @@ function makeWrapper() {
 
 describe("useSetParent", () => {
   it("does not send ifMatch (beans' etag check is currently unreliable) and invalidates bean/beans/projects queries on success", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
         new Response(JSON.stringify({ data: { setParent: { id: "t1", etag: "new-etag" } } }), {
           status: 200,
         }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper, invalidateSpy } = makeWrapper();
@@ -45,11 +54,13 @@ describe("useSetParent", () => {
 
     result.current.mutate({ id: "t1", parentId: "m1" });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error("fetch was not called");
-    const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
+    const body = parsedRequestBody(call[1].body) as { variables: Record<string, unknown> };
     expect(body.variables).toEqual({ id: "t1", parentId: "m1" });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t1"] });
@@ -58,14 +69,15 @@ describe("useSetParent", () => {
   });
 
   it("surfaces an etag-conflict message when beans reports a mismatch", async () => {
-    const fetchMock = vi.fn(
-      async () =>
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
         new Response(
           JSON.stringify({
             errors: [{ message: "graphql: etag mismatch: provided old-etag, current is new-etag" }],
           }),
           { status: 200 },
         ),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper } = makeWrapper();
@@ -74,7 +86,9 @@ describe("useSetParent", () => {
 
     result.current.mutate({ id: "t1", parentId: "m1" });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
 
     expect(isEtagConflict(result.current.error)).toBe(true);
     expect(describeMutationError(result.current.error)).toBe(
@@ -85,11 +99,12 @@ describe("useSetParent", () => {
 
 describe("useUpdateBean", () => {
   it("sends only the input, not ifMatch (beans' etag check is currently unreliable)", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
         new Response(JSON.stringify({ data: { updateBean: { id: "t1", etag: "new-etag" } } }), {
           status: 200,
         }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper } = makeWrapper();
@@ -98,11 +113,13 @@ describe("useUpdateBean", () => {
 
     result.current.mutate({ id: "t1", etag: "old-etag", input: { title: "New title" } });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error("fetch was not called");
-    const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
+    const body = parsedRequestBody(call[1].body) as { variables: Record<string, unknown> };
     expect(body.variables).toEqual({
       id: "t1",
       input: { title: "New title" },
@@ -110,11 +127,12 @@ describe("useUpdateBean", () => {
   });
 
   it("surfaces the raw message for a non-conflict error", async () => {
-    const fetchMock = vi.fn(
-      async () =>
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
         new Response(JSON.stringify({ errors: [{ message: "invalid parent for type task" }] }), {
           status: 200,
         }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper } = makeWrapper();
@@ -123,7 +141,9 @@ describe("useUpdateBean", () => {
 
     result.current.mutate({ id: "t1", etag: "old-etag", input: { title: "x" } });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
 
     expect(isEtagConflict(result.current.error)).toBe(false);
     expect(describeMutationError(result.current.error)).toBe("invalid parent for type task");
@@ -139,11 +159,12 @@ describe("describeMutationError", () => {
 
 describe("useCreateBean", () => {
   it("sends the input and invalidates beans/projects but not a specific bean", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
         new Response(JSON.stringify({ data: { createBean: { id: "t2", etag: "e1" } } }), {
           status: 200,
         }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper, invalidateSpy } = makeWrapper();
@@ -152,11 +173,13 @@ describe("useCreateBean", () => {
 
     result.current.mutate({ title: "New bean", type: "task" });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error("fetch was not called");
-    const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
+    const body = parsedRequestBody(call[1].body) as { variables: Record<string, unknown> };
     expect(body.variables).toEqual({ input: { title: "New bean", type: "task" } });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["beans", "demo"] });
@@ -166,9 +189,10 @@ describe("useCreateBean", () => {
 
 describe("useDeleteBean", () => {
   it("deletes without ifMatch and invalidates bean/beans/projects", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init: RequestInit) =>
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
         new Response(JSON.stringify({ data: { deleteBean: true } }), { status: 200 }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper, invalidateSpy } = makeWrapper();
@@ -177,11 +201,13 @@ describe("useDeleteBean", () => {
 
     result.current.mutate({ id: "t1" });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error("fetch was not called");
-    const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
+    const body = parsedRequestBody(call[1].body) as { variables: Record<string, unknown> };
     expect(body.variables).toEqual({ id: "t1" });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t1"] });
@@ -204,11 +230,12 @@ describe("link mutations", () => {
 
   for (const { name, hook, resultKey } of cases) {
     it(`${name} does not send ifMatch (beans' etag check is currently unreliable) and invalidates bean/beans/projects on success`, async () => {
-      const fetchMock = vi.fn(
-        async (_url: string, _init: RequestInit) =>
+      const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+        Promise.resolve(
           new Response(JSON.stringify({ data: { [resultKey]: { id: "t1", etag: "new-etag" } } }), {
             status: 200,
           }),
+        ),
       );
       vi.stubGlobal("fetch", fetchMock);
       const { wrapper, invalidateSpy } = makeWrapper();
@@ -217,11 +244,13 @@ describe("link mutations", () => {
 
       result.current.mutate({ id: "t1", targetId: "t2" });
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
 
       const call = fetchMock.mock.calls[0];
       if (!call) throw new Error("fetch was not called");
-      const body = JSON.parse(String(call[1]?.body)) as { variables: Record<string, unknown> };
+      const body = parsedRequestBody(call[1].body) as { variables: Record<string, unknown> };
       expect(body.variables).toEqual({ id: "t1", targetId: "t2" });
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t1"] });
@@ -230,11 +259,12 @@ describe("link mutations", () => {
     });
 
     it(`${name} also invalidates the target, whose relation lists changed too`, async () => {
-      const fetchMock = vi.fn(
-        async (_url: string, _init: RequestInit) =>
+      const fetchMock = vi.fn(() =>
+        Promise.resolve(
           new Response(JSON.stringify({ data: { [resultKey]: { id: "t1", etag: "new-etag" } } }), {
             status: 200,
           }),
+        ),
       );
       vi.stubGlobal("fetch", fetchMock);
       const { wrapper, invalidateSpy } = makeWrapper();
@@ -243,7 +273,9 @@ describe("link mutations", () => {
 
       result.current.mutate({ id: "t1", targetId: "t2" });
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["bean", "demo", "t2"] });
     });
@@ -253,9 +285,7 @@ describe("link mutations", () => {
 describe("useReopenAncestors", () => {
   function mockGraphql(failOnId?: string) {
     const fetchMock = vi.fn((_url: string, init: RequestInit) => {
-      const body = JSON.parse(String(init.body)) as {
-        variables: { id: string };
-      };
+      const body = parsedRequestBody(init.body) as { variables: { id: string } };
       if (body.variables.id === failOnId) {
         return Promise.resolve(
           new Response(JSON.stringify({ errors: [{ message: "write failed" }] }), {
@@ -280,10 +310,12 @@ describe("useReopenAncestors", () => {
     const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
 
     result.current.mutate({ ancestorIds: ["e-1", "m-1"], status: "in-progress" });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     const sent = fetchMock.mock.calls.map((call) => {
-      const parsed = JSON.parse(String(call[1].body)) as {
+      const parsed = parsedRequestBody(call[1].body) as {
         variables: { id: string; input: { status: string } };
       };
       return parsed.variables;
@@ -301,7 +333,9 @@ describe("useReopenAncestors", () => {
     const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
 
     result.current.mutate({ ancestorIds: ["e-1", "m-1", "m-0"], status: "todo" });
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
 
     // Third ancestor never attempted.
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -311,19 +345,26 @@ describe("useReopenAncestors", () => {
     expect(describeMutationError(error)).toContain("e-1");
   });
 
-  it("reports a generic failure with no reopened ids when the very first ancestor fails with a non-Error cause", async () => {
-    const fetchMock = vi.fn(() => Promise.reject("network exploded"));
+  it("reports a generic failure with no reopened ids when the very first ancestor fails", async () => {
+    const fetchMock = vi.fn(() => Promise.reject(new Error("network exploded")));
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper } = makeWrapper();
 
     const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
 
     result.current.mutate({ ancestorIds: ["e-1"], status: "todo" });
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
 
     const error = result.current.error;
     expect(error).toBeInstanceOf(ReopenPartialFailure);
     expect((error as ReopenPartialFailure).reopenedIds).toEqual([]);
     expect(describeMutationError(error)).toBe("Re-open failed: network exploded");
+  });
+
+  it("falls back to String(cause) in the message when the underlying cause is not an Error", () => {
+    const failure = new ReopenPartialFailure(["e-1"], "network exploded");
+    expect(describeMutationError(failure)).toBe("Re-opened e-1, then failed: network exploded");
   });
 });

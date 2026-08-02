@@ -21,10 +21,10 @@ describe("useDebouncedValue", () => {
     rerender({ v: "abc" });
     expect(result.current).toBe("a");
 
-    act(() => vi.advanceTimersByTime(199));
+    void act(() => vi.advanceTimersByTime(199));
     expect(result.current).toBe("a");
 
-    act(() => vi.advanceTimersByTime(1));
+    void act(() => vi.advanceTimersByTime(1));
     expect(result.current).toBe("abc");
   });
 });
