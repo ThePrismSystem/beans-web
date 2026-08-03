@@ -117,7 +117,9 @@ argument above.
 
 The published image runs as the unprivileged `node` user, and the compose stack drops all
 capabilities, sets `no-new-privileges`, and mounts the root filesystem read-only with a
-tmpfs for `/tmp`. The project bind mount stays read-write because the UI writes beans; run
+tmpfs for `/tmp` and one for `/home/node/.cache` — corepack writes the pinned pnpm version
+into that cache on first run, and without it a read-only container fails to boot with
+`EROFS`. The project bind mount stays read-write because the UI writes beans; run
 the container as the host UID that owns those files (`user:` in `docker-compose.yml`) so
 they are not written as root.
 

@@ -78,6 +78,8 @@ words:
   - unredacted
   - safelisted
   - bypassable
+  # The errno a read-only container fails to boot with; named in SECURITY.md.
+  - EROFS
 ignorePaths:
   - node_modules
   - dist
