@@ -7,10 +7,9 @@ import { useState } from "react";
  * persists the result via `write` at the moment it's called, before the
  * component re-renders with the new value.
  *
- * `read` must be a stable reference (e.g. a module-level function, not an
- * inline closure) since it's part of the effect's dependency array — a
- * fresh identity on every render would re-trigger the reload effect on
- * every render, not just when `project` changes.
+ * The reload is keyed on `storageKey`, not on `read`'s identity, so `read` may
+ * be an inline closure. It is called during render, which means it must be
+ * pure and cheap: no side effects, no network, just a synchronous storage read.
  */
 export function usePersistedProjectState<T>(
   project: string,
