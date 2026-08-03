@@ -10,9 +10,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # Keep in sync with Dockerfile's ARG default and CI's `go install` pin.
-      args:
-        BEANS_VERSION: v0.4.2
+      # No BEANS_VERSION override here on purpose. A build arg silently wins
+      # over the Dockerfile's ARG default, so pinning it in both places meant
+      # bumping the Dockerfile alone shipped the old binary. The Dockerfile is
+      # the single source of truth; CI reads the pin from it too.
     image: beans-frontend:latest
     container_name: beans-frontend
     restart: unless-stopped

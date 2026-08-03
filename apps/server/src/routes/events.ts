@@ -26,6 +26,27 @@ function isAborted(signal: AbortSignal): boolean {
   return signal.aborted;
 }
 
+/**
+ * Waits out the heartbeat interval, but gives up as soon as the client goes
+ * away. `stream.sleep` is a bare `setTimeout`, so on its own it keeps the
+ * callback — and the timer and TransformStream it closes over — alive for the
+ * full interval after a disconnect. Connect/abort churn would then pile up
+ * dead closures at connection rate, unbounded by `MAX_SSE_CLIENTS`, since the
+ * slot is released on abort rather than when the callback finally unwinds.
+ */
+function sleepUntilAborted(signal: AbortSignal, ms: number): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const done = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
+
 export function registerEvents(app: Hono, deps: AppDeps): void {
   let openStreams = 0;
 
@@ -68,7 +89,7 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
           release();
         });
         while (!isAborted(c.req.raw.signal)) {
-          await stream.sleep(HEARTBEAT_MS);
+          await sleepUntilAborted(c.req.raw.signal, HEARTBEAT_MS);
           if (isAborted(c.req.raw.signal)) break;
           // A named "ping" event keeps the connection warm without reaching the
           // client's default `onmessage` handler.

@@ -70,6 +70,7 @@ pnpm -r test:coverage
 pnpm -r build
 pnpm -r knip                         # unused files/exports/dependencies
 pnpm spell                           # cspell
+pnpm check:pins                      # the beans CLI version has exactly one source of truth
 pnpm codegen:check                   # apps/web/src/api/generated.ts matches the operations
 ```
 

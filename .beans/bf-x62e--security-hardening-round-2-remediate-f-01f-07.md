@@ -1,11 +1,11 @@
 ---
 # bf-x62e
 title: Security hardening round 2 — remediate F-01..F-07
-status: in-progress
+status: completed
 type: task
 priority: high
 created_at: 2026-08-02T22:26:51Z
-updated_at: 2026-08-03T03:22:09Z
+updated_at: 2026-08-03T17:33:12Z
 ---
 
 Remediate the seven actionable findings from the 2026-08-02 audit (security/260802-1624-stride-owasp-full-audit).

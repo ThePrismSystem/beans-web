@@ -87,6 +87,57 @@ test("chart marks resolve to real colors in both schemes, and differ between the
   expect(dark.tick).not.toBe(light.tick);
 });
 
+/**
+ * The status and type charts color each bar by looking its row up with
+ * `props.index` inside a custom `shape`. That mapping is recharts' contract,
+ * not ours — if `index` ever stopped meaning "position in `data`", every bar
+ * would still render, just wearing the wrong status's color. Two unit tests
+ * covered it; nothing checked it in a real browser, and the other chart specs
+ * probe "Beans per project", which does not use a custom shape at all.
+ */
+test("each status bar carries its own row's fill class, in data order", async ({ page }) => {
+  // Mirrors STATUS_LABEL, so the accessible table's row headers can be mapped
+  // back to the slug the fill class is built from.
+  const slugForLabel: Record<string, string> = {
+    Draft: "draft",
+    "To do": "todo",
+    "In progress": "in-progress",
+    Completed: "completed",
+    Scrapped: "scrapped",
+  };
+
+  await page.goto("/analytics");
+  const section = page.locator(".chart-section").filter({ hasText: "Beans by status" });
+  await expect(section.getByRole("heading", { name: "Beans by status" })).toBeVisible();
+  await expect(section.locator(".recharts-bar-rectangle path").first()).toBeAttached();
+
+  // The chart's own table is the data the bars are drawn from, in the same
+  // order. Deriving the expectation from it rather than hard-coding the
+  // fixture's contents keeps this honest if the seed data changes.
+  const rows = await section.locator("tbody tr").evaluateAll((trs) =>
+    trs.map((tr) => ({
+      label: tr.querySelector("th")?.textContent.trim() ?? "",
+      count: Number(tr.querySelector("td")?.textContent.trim() ?? "0"),
+    })),
+  );
+  const expected = rows
+    .filter((row) => row.count > 0)
+    .map((row) => `chart-fill-${slugForLabel[row.label] ?? row.label}`);
+  expect(expected.length).toBeGreaterThan(0);
+
+  const classes = await section
+    .locator(".recharts-bar-rectangle path")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => [...node.classList].find((c) => c.startsWith("chart-fill-")) ?? null),
+    );
+
+  // recharts draws nothing for a zero count, so the bars that exist are the
+  // non-zero rows. If `props.index` ever meant "position among rendered bars"
+  // instead of "position in `data`", these would come back as the first N
+  // statuses rather than the right ones — which is the whole failure mode.
+  expect(classes).toEqual(expected);
+});
+
 test("chart text and bars clear their WCAG minimums in both schemes", async ({ browser }) => {
   for (const scheme of ["light", "dark"] as const) {
     const paint = await readChartPaint(browser, scheme);

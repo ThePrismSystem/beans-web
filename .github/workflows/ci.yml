@@ -91,7 +91,11 @@ jobs:
 
       - name: Install beans
         run: |
-          go install github.com/hmans/beans@v0.4.2
+          # The Dockerfile's ARG is the single source of truth for this pin, so
+          # CI always tests the version the image ships.
+          BEANS_VERSION="$(sed -n 's/^ARG BEANS_VERSION=//p' Dockerfile)"
+          test -n "$BEANS_VERSION" || { echo "could not read BEANS_VERSION from Dockerfile"; exit 1; }
+          go install "github.com/hmans/beans@${BEANS_VERSION}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - run: pnpm install --frozen-lockfile
@@ -181,7 +185,11 @@ jobs:
 
       - name: Install beans
         run: |
-          go install github.com/hmans/beans@v0.4.2
+          # The Dockerfile's ARG is the single source of truth for this pin, so
+          # CI always tests the version the image ships.
+          BEANS_VERSION="$(sed -n 's/^ARG BEANS_VERSION=//p' Dockerfile)"
+          test -n "$BEANS_VERSION" || { echo "could not read BEANS_VERSION from Dockerfile"; exit 1; }
+          go install "github.com/hmans/beans@${BEANS_VERSION}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - run: pnpm install --frozen-lockfile
@@ -241,6 +249,11 @@ jobs:
 
       - name: Spell check
         run: pnpm spell
+
+      # The beans CLI pin lives only in the Dockerfile's ARG; compose and CI
+      # both derive it. Fails if a competing literal pin reappears in a build input.
+      - name: Check the beans version pin has one source
+        run: pnpm check:pins
 
       # Regenerates in place and fails on any diff, so a hand-edited or stale
       # generated.ts cannot reach main. Run `pnpm codegen:check` locally to fix.

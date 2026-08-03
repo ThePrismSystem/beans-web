@@ -31,6 +31,13 @@ export interface RunOpts {
   query: string;
   variables?: Record<string, unknown>;
   binPath?: string;
+  /**
+   * Abandons the call if it is still queued for a slot when this aborts. It is
+   * deliberately not forwarded to the child process: a `beans` mutation killed
+   * mid-write could leave a bean file truncated, and a client hanging up is not
+   * a reason to risk that.
+   */
+  signal?: AbortSignal;
 }
 
 export function buildBeansArgs(opts: RunOpts): string[] {
@@ -130,5 +137,5 @@ export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
       if (err instanceof BeansError) throw err;
       throw new BeansError(extractBeansErrorMessage(err));
     }
-  });
+  }, opts.signal);
 }

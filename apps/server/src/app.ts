@@ -23,6 +23,7 @@ export interface AppDeps {
     configPath: string,
     query: string,
     variables?: Record<string, unknown>,
+    signal?: AbortSignal,
   ) => Promise<unknown>;
   search: (q: string) => Promise<SearchResult>;
   analytics: () => Promise<Analytics>;

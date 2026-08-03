@@ -123,12 +123,16 @@ into that cache on first run, and without it a read-only container fails to boot
 the container as the host UID that owns those files (`user:` in `docker-compose.yml`) so
 they are not written as root.
 
-The `beans` CLI version baked into the image is pinned in two places that must move
-together: the `ARG BEANS_VERSION` default in the `Dockerfile` and the `BEANS_VERSION`
-build arg in `docker-compose.yml`, which overrides that default. Both must stay in sync
-with the pin in `.github/workflows/ci.yml`, so the image ships the binary CI tested
-against — bumping only the `Dockerfile` leaves `docker compose build` shipping the old
-binary.
+The `beans` CLI version baked into the image is pinned in exactly one place: the
+`ARG BEANS_VERSION` default in the `Dockerfile`. `docker compose build` inherits it, and
+CI reads it from there before `go install`, so the image always ships the binary CI
+tested against and a bump is a one-line change.
+
+It previously lived in four places kept in sync by comments alone. That was not
+theoretical: a compose build arg silently overrides the `ARG` default, so bumping the
+`Dockerfile` on its own shipped the old binary — and this document said to do exactly
+that. `pnpm check:pins` now fails the build if a competing literal pin reappears in any
+build input.
 
 ### No authentication
 

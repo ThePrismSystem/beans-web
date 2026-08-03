@@ -39,6 +39,9 @@ describe("POST /api/projects/:name/graphql", () => {
       "/root/proj-a/.beans.yml",
       "{ beans { id } }",
       undefined,
+      // The request's own signal, so a client that hangs up while queued for a
+      // subprocess slot drops out of the queue instead of spawning a child.
+      expect.any(AbortSignal),
     );
   });
 

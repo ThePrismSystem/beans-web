@@ -20,18 +20,33 @@ const CACHE_TTL_MS = 5_000;
 // Re-scan on this cadence so projects created after boot get watched too.
 const REFRESH_INTERVAL_MS = 30_000;
 
-const run = (configPath: string, query: string, variables?: Record<string, unknown>) =>
-  runBeansGraphql({ configPath, query, variables });
+const run = (
+  configPath: string,
+  query: string,
+  variables?: Record<string, unknown>,
+  signal?: AbortSignal,
+) => runBeansGraphql({ configPath, query, variables, signal });
 
 const discover = () => discoverProjects(env.GIT_ROOT, env.SCAN_DEPTH);
 
 let cache: { at: number; projects: ProjectRecord[] } | null = null;
+// A discovery pass fans out one `beans` child per project. Without this, every
+// request arriving on a cold or just-expired cache starts its own pass, so K
+// concurrent requests queue K x N children for the same answer. Callers share
+// the in-flight promise instead and the stampede collapses to one pass.
+let inFlight: Promise<ProjectRecord[]> | null = null;
 const listProjects = async (): Promise<ProjectRecord[]> => {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_TTL_MS) return cache.projects;
-  const projects = await discover();
-  cache = { at: now, projects };
-  return projects;
+  inFlight ??= discover()
+    .then((projects) => {
+      cache = { at: Date.now(), projects };
+      return projects;
+    })
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
 };
 
 const projects = await listProjects();
