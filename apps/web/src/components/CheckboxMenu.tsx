@@ -92,10 +92,12 @@ export function CheckboxMenu<T extends string>({
         className={`checkbox-menu-trigger ${selected.length > 0 ? "active" : ""}`}
         aria-expanded={open}
         aria-controls={listId}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+        }}
       >
         {label}
-        {selected.length > 0 ? ` (${selected.length})` : ""} ▾
+        {selected.length > 0 ? ` (${String(selected.length)})` : ""} ▾
       </button>
       {open && (
         <div
@@ -111,7 +113,9 @@ export function CheckboxMenu<T extends string>({
               <input
                 type="checkbox"
                 checked={selected.includes(option.value)}
-                onChange={() => toggle(option.value)}
+                onChange={() => {
+                  toggle(option.value);
+                }}
               />
               {option.label}
             </label>

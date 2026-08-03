@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { useDebouncedValue } from "../hooks/useDebouncedValue.js";
 import { useSearch } from "../hooks/useSearch.js";
+
 import { BeanTypeTag } from "./BeanTypeTag.js";
 import { StatusDot } from "./StatusDot.js";
 
 const SEARCH_DEBOUNCE_MS = 200;
 const MAX_DROPDOWN = 8;
 const LISTBOX_ID = "header-search-listbox";
-const optionId = (index: number) => `header-search-option-${index}`;
+const optionId = (index: number) => `header-search-option-${String(index)}`;
 
 export function HeaderSearch() {
   const [query, setQuery] = useState("");
@@ -27,7 +28,9 @@ export function HeaderSearch() {
       }
     }
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+    };
   }, []);
 
   const hits = data?.hits.slice(0, MAX_DROPDOWN) ?? [];
@@ -35,10 +38,13 @@ export function HeaderSearch() {
 
   // Any keystroke invalidates the highlight. Keyed on the raw query rather
   // than the debounced one so the highlight can't point at a stale row during
-  // the debounce window.
-  useEffect(() => {
+  // the debounce window. Adjusted during render (not an effect) so the reset
+  // lands in the same commit as the keystroke.
+  const [previousQuery, setPreviousQuery] = useState(query);
+  if (query !== previousQuery) {
+    setPreviousQuery(query);
     setActiveIndex(-1);
-  }, [query]);
+  }
 
   const active = showDropdown && activeIndex >= 0 ? hits[activeIndex] : undefined;
 
@@ -114,12 +120,14 @@ export function HeaderSearch() {
           setQuery(event.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+        }}
         onKeyDown={handleKeyDown}
       />
       {/* Announces the result count, which sighted users read off the dropdown. */}
       <span className="visually-hidden" role="status">
-        {debounced.length > 0 ? `${hits.length} results` : ""}
+        {debounced.length > 0 ? `${String(hits.length)} results` : ""}
       </span>
       {showDropdown && (
         <div
@@ -137,7 +145,9 @@ export function HeaderSearch() {
               id={optionId(index)}
               role="option"
               aria-selected={index === activeIndex}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+              }}
             >
               <BeanTypeTag type={hit.bean.type} />
               <span className="header-search-hit-title">{hit.bean.title}</span>

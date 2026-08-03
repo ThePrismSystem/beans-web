@@ -90,7 +90,11 @@ describe("CheckboxMenu", () => {
 
     it("moves down the options with ArrowDown and wraps at the end", async () => {
       const { user, boxes } = await openMenu();
-      boxes[0]!.focus();
+      const first = boxes[0];
+      if (!first) {
+        throw new Error("expected at least one checkbox");
+      }
+      first.focus();
 
       await user.keyboard("{ArrowDown}");
       expect(boxes[1]).toHaveFocus();
@@ -101,7 +105,11 @@ describe("CheckboxMenu", () => {
 
     it("moves up with ArrowUp and wraps to the last option", async () => {
       const { user, boxes } = await openMenu();
-      boxes[0]!.focus();
+      const first = boxes[0];
+      if (!first) {
+        throw new Error("expected at least one checkbox");
+      }
+      first.focus();
 
       await user.keyboard("{ArrowUp}");
 
@@ -110,7 +118,11 @@ describe("CheckboxMenu", () => {
 
     it("jumps to the first and last options with Home and End", async () => {
       const { user, boxes } = await openMenu();
-      boxes[1]!.focus();
+      const second = boxes[1];
+      if (!second) {
+        throw new Error("expected at least two checkboxes");
+      }
+      second.focus();
 
       await user.keyboard("{End}");
       expect(boxes[2]).toHaveFocus();

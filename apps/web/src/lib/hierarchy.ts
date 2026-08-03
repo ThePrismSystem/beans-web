@@ -84,7 +84,10 @@ export function withAncestors<T extends BeanListItem>(list: T[], all: T[]): T[] 
   for (const bean of list) {
     let parentId = bean.parentId;
     while (parentId && byId.has(parentId) && !keep.has(parentId)) {
-      const parent = byId.get(parentId)!;
+      const parent = byId.get(parentId);
+      if (!parent) {
+        break;
+      }
       keep.set(parentId, parent);
       parentId = parent.parentId;
     }

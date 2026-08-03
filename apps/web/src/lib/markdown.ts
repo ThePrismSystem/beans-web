@@ -1,9 +1,19 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 
+import type { Token, Tokens } from "marked";
+
 const MAX_HEADING_LEVEL = 6;
 
 marked.setOptions({ gfm: true, breaks: true });
+
+// `Token` also includes `Tokens.Generic`, whose `type` is a plain `string`
+// (not a literal), so `token.type === "heading"` alone can't narrow away that
+// variant — its index signature would leave `token.depth` typed `any`. A
+// dedicated type guard makes the narrowing explicit instead.
+function isHeadingToken(token: Token): token is Tokens.Heading {
+  return token.type === "heading";
+}
 
 /**
  * Bean bodies are authored by people and by coding agents, so their headings
@@ -15,7 +25,7 @@ marked.setOptions({ gfm: true, breaks: true });
  */
 marked.use({
   walkTokens: (token) => {
-    if (token.type === "heading") {
+    if (isHeadingToken(token)) {
       token.depth = Math.min(token.depth + 1, MAX_HEADING_LEVEL);
     }
   },

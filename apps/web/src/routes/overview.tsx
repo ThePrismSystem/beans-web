@@ -1,16 +1,18 @@
+import { BEAN_TYPES } from "@beans-frontend/shared";
 import { Link } from "@tanstack/react-router";
 
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useProjects } from "../hooks/useProjects.js";
 
-import { BEAN_TYPES } from "@beans-frontend/shared";
-
-import type { Project } from "@beans-frontend/shared";
+import type { BeanType, Project } from "@beans-frontend/shared";
 
 function ProjectRow({ project }: { project: Project }) {
+  // Widened to Partial: `openByType` crosses the GraphQL boundary, so a type
+  // the server omitted (rather than sent as 0) must not throw on lookup here.
+  const openByType: Partial<Record<BeanType, number>> = project.counts.openByType;
   const openTypes = BEAN_TYPES.map((type) => ({
     type,
-    count: project.counts.openByType[type] ?? 0,
+    count: openByType[type] ?? 0,
   })).filter(({ count }) => count > 0);
   return (
     <Link to="/p/$project" params={{ project: project.name }} className="project-row">

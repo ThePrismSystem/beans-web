@@ -1,7 +1,6 @@
-import { useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useId, useMemo, useState } from "react";
-
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { useId, useMemo, useState } from "react";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
@@ -10,10 +9,9 @@ import { EnumSelect } from "../components/EnumSelect.js";
 import { InlineEditRow } from "../components/InlineEditRow.js";
 import { RelationEditor } from "../components/RelationEditor.js";
 import { StatusDot } from "../components/StatusDot.js";
-
 import { useBean } from "../hooks/useBean.js";
-import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useProjectBeans } from "../hooks/useBeans.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import {
   describeMutationError,
   isEtagConflict,
@@ -31,8 +29,8 @@ import { parseEnumValue } from "../lib/enum.js";
 import { renderMarkdown } from "../lib/markdown.js";
 import { closedAncestors, indexById, isOrphaned } from "../lib/orphan.js";
 
-import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";
 import type { RelationChange } from "../components/RelationEditor.js";
+import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";
 
 function formatTimestamp(value: string): string {
   const date = new Date(value);
@@ -91,7 +89,9 @@ function BeanDetailHeader({
             className="bean-detail-title-input"
             value={titleDraft}
             autoFocus
-            onChange={(event) => onTitleDraftChange(event.target.value)}
+            onChange={(event) => {
+              onTitleDraftChange(event.target.value);
+            }}
             onBlur={onCommitTitle}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -173,7 +173,9 @@ function BeanDetailHeader({
             <input
               aria-label="Tags editor"
               value={value}
-              onChange={(event) => onValue(event.target.value)}
+              onChange={(event) => {
+                onValue(event.target.value);
+              }}
             />
           )}
         />
@@ -215,7 +217,9 @@ function BeanDetailBody({
             aria-label="Body"
             className="body-editor-textarea"
             value={bodyDraft}
-            onChange={(event) => onBodyDraftChange(event.target.value)}
+            onChange={(event) => {
+              onBodyDraftChange(event.target.value);
+            }}
             rows={BODY_TEXTAREA_ROWS}
           />
           <div className="bean-detail-body-actions">
@@ -301,7 +305,9 @@ function BeanDetailDialogs({
         message={`"${bean.title}" will be permanently deleted.`}
         confirmLabel="Delete"
         onConfirm={onDeleteConfirmed}
-        onCancel={() => onConfirmingDeleteChange(false)}
+        onCancel={() => {
+          onConfirmingDeleteChange(false);
+        }}
       />
 
       {/* Replaces window.prompt(), which the browser draws itself: it ignores
@@ -315,14 +321,16 @@ function BeanDetailDialogs({
         reasonPlaceholder="Why is this being scrapped?"
         confirmLabel="Scrap"
         onConfirm={onScrapConfirmed}
-        onCancel={() => onConfirmingScrapChange(false)}
+        onCancel={() => {
+          onConfirmingScrapChange(false);
+        }}
       />
 
       <ConfirmDialog
         open={isConfirmingReopen}
         title={
           ancestorsToReopen.length > 1
-            ? `Re-open ${ancestorsToReopen.length} ancestors?`
+            ? `Re-open ${String(ancestorsToReopen.length)} ancestors?`
             : "Re-open parent?"
         }
         message={
@@ -337,7 +345,9 @@ function BeanDetailDialogs({
         }
         confirmLabel="Re-open"
         onConfirm={onReopenConfirmed}
-        onCancel={() => onConfirmingReopenChange(false)}
+        onCancel={() => {
+          onConfirmingReopenChange(false);
+        }}
       />
     </>
   );
@@ -386,13 +396,14 @@ function BeanDetailContent({
     () => (isOrphaned(bean, byId) ? closedAncestors(bean, byId) : []),
     [bean, byId],
   );
+  const firstAncestorToReopen = ancestorsToReopen[0];
 
-  useEffect(() => {
-    if (bean.id !== syncedBodyForId) {
-      setBodyDraft(bean.body);
-      setSyncedBodyForId(bean.id);
-    }
-  }, [bean.id, bean.body, syncedBodyForId]);
+  // Adjusted during render rather than in an effect, so the redraft lands in
+  // the same commit as the id change.
+  if (bean.id !== syncedBodyForId) {
+    setBodyDraft(bean.body);
+    setSyncedBodyForId(bean.id);
+  }
 
   // Surface only the most recently fired mutation's error, so a later success
   // clears a banner from an earlier failure instead of leaving it stuck.
@@ -426,21 +437,21 @@ function BeanDetailContent({
   }
 
   function saveStatus(value: string) {
-    saveField(BEAN_STATUSES, bean.status, value, (status) =>
-      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { status } }),
-    );
+    saveField(BEAN_STATUSES, bean.status, value, (status) => {
+      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { status } });
+    });
   }
 
   function saveType(value: string) {
-    saveField(BEAN_TYPES, bean.type, value, (type) =>
-      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { type } }),
-    );
+    saveField(BEAN_TYPES, bean.type, value, (type) => {
+      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { type } });
+    });
   }
 
   function savePriority(value: string) {
-    saveField(BEAN_PRIORITIES, bean.priority, value, (priority) =>
-      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { priority } }),
-    );
+    saveField(BEAN_PRIORITIES, bean.priority, value, (priority) => {
+      updateBean.mutate({ id: bean.id, etag: bean.etag, input: { priority } });
+    });
   }
 
   function saveTags(value: string) {
@@ -542,7 +553,9 @@ function BeanDetailContent({
         onTitleDraftChange={setTitleDraft}
         onStartEditingTitle={startEditingTitle}
         onCommitTitle={commitTitle}
-        onCancelEditingTitle={() => setIsEditingTitle(false)}
+        onCancelEditingTitle={() => {
+          setIsEditingTitle(false);
+        }}
         onSaveType={saveType}
         onSaveStatus={saveStatus}
         onSavePriority={savePriority}
@@ -553,22 +566,32 @@ function BeanDetailContent({
         <div className="mutation-error" role="alert">
           <p>{describeMutationError(mutationError)}</p>
           {isEtagConflict(mutationError) && (
-            <button type="button" onClick={() => refetch()}>
+            <button
+              type="button"
+              onClick={() => {
+                refetch();
+              }}
+            >
               Reload
             </button>
           )}
         </div>
       )}
 
-      {ancestorsToReopen.length > 0 && (
+      {firstAncestorToReopen && (
         <div className="bean-detail-orphan" role="status">
           <p>
-            Orphaned — parent <span className="bean-id">{ancestorsToReopen[0]!.id}</span> “
-            {ancestorsToReopen[0]!.title}” is {ancestorsToReopen[0]!.status}.
+            Orphaned — parent <span className="bean-id">{firstAncestorToReopen.id}</span> “
+            {firstAncestorToReopen.title}” is {firstAncestorToReopen.status}.
           </p>
-          <button type="button" onClick={() => setIsConfirmingReopen(true)}>
+          <button
+            type="button"
+            onClick={() => {
+              setIsConfirmingReopen(true);
+            }}
+          >
             {ancestorsToReopen.length > 1
-              ? `Re-open ${ancestorsToReopen.length} ancestors`
+              ? `Re-open ${String(ancestorsToReopen.length)} ancestors`
               : "Re-open parent"}
           </button>
         </div>
@@ -594,16 +617,28 @@ function BeanDetailContent({
       </section>
 
       <section className="bean-detail-actions">
-        <button type="button" onClick={() => setIsCreating((v) => !v)}>
+        <button
+          type="button"
+          onClick={() => {
+            setIsCreating((v) => !v);
+          }}
+        >
           + New bean
         </button>
-        <button type="button" onClick={() => setIsConfirmingScrap(true)}>
+        <button
+          type="button"
+          onClick={() => {
+            setIsConfirmingScrap(true);
+          }}
+        >
           Scrap
         </button>
         <button
           type="button"
           className="bean-detail-delete"
-          onClick={() => setIsConfirmingDelete(true)}
+          onClick={() => {
+            setIsConfirmingDelete(true);
+          }}
         >
           Delete
         </button>
@@ -619,7 +654,9 @@ function BeanDetailContent({
             candidates={[bean, ...candidates]}
             defaultParentId={bean.id}
             onSubmit={handleCreateSubmit}
-            onCancel={() => setIsCreating(false)}
+            onCancel={() => {
+              setIsCreating(false);
+            }}
           />
         </section>
       )}

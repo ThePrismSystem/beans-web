@@ -1,6 +1,5 @@
-import { useState } from "react";
-
 import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { useState } from "react";
 
 import { CheckboxMenu } from "./CheckboxMenu.js";
 
@@ -42,40 +41,52 @@ export function FilterBar({ filter, prefixOptions, onChange }: FilterBarProps) {
         placeholder="Search beans…"
         aria-label="Search beans"
         value={filter.search}
-        onChange={(e) => onChange({ ...filter, search: e.target.value })}
+        onChange={(e) => {
+          onChange({ ...filter, search: e.target.value });
+        }}
       />
       <button
         type="button"
         className="filter-toggle"
         aria-expanded={showFilters}
-        onClick={() => setShowFilters((o) => !o)}
+        onClick={() => {
+          setShowFilters((o) => !o);
+        }}
       >
-        Filters{activeCount > 0 ? ` (${activeCount})` : ""}
+        Filters{activeCount > 0 ? ` (${String(activeCount)})` : ""}
       </button>
       <div className="filter-bar-advanced">
         <CheckboxMenu
           label="Type"
           options={toOptions(BEAN_TYPES)}
           selected={filter.type}
-          onChange={(type) => onChange({ ...filter, type })}
+          onChange={(type) => {
+            onChange({ ...filter, type });
+          }}
         />
         <CheckboxMenu
           label="Status"
           options={toOptions(BEAN_STATUSES)}
           selected={filter.status}
-          onChange={(status) => onChange({ ...filter, status })}
+          onChange={(status) => {
+            onChange({ ...filter, status });
+          }}
         />
         <CheckboxMenu
           label="Priority"
           options={toOptions(BEAN_PRIORITIES)}
           selected={filter.priority}
-          onChange={(priority) => onChange({ ...filter, priority })}
+          onChange={(priority) => {
+            onChange({ ...filter, priority });
+          }}
         />
         <CheckboxMenu
           label="Prefix"
           options={toOptions(prefixOptions)}
           selected={filter.prefix}
-          onChange={(prefix) => onChange({ ...filter, prefix })}
+          onChange={(prefix) => {
+            onChange({ ...filter, prefix });
+          }}
         />
         <input
           type="text"

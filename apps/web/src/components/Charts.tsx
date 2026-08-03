@@ -1,3 +1,4 @@
+import { BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
 import { useId } from "react";
 import {
   Area,
@@ -5,19 +6,18 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
+  Rectangle,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
-import { BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { STATUS_LABEL } from "../lib/statusLabel.js";
 
-import { STATUS_LABEL } from "./StatusDot.js";
-
-import type { ReactNode } from "react";
 import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { ReactNode } from "react";
+import type { BarShapeProps } from "recharts";
 
 const CHART_HEIGHT = 240;
 
@@ -171,11 +171,18 @@ function CompletedOverTimeChart({ data }: { data: Analytics["completedByMonth"] 
 }
 
 function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
+  // Widened to Partial: `data` crosses the GraphQL boundary, so a status the
+  // server omitted (rather than sent as 0) must not throw on lookup here.
+  const counts: Partial<Record<BeanStatus, number>> = data;
   const rows = BEAN_STATUSES.map((status) => ({
     status,
     label: STATUS_LABEL[status],
-    count: data[status] ?? 0,
+    count: counts[status] ?? 0,
   }));
+  function renderBar(props: BarShapeProps) {
+    const row = rows[props.index];
+    return <Rectangle {...props} className={row ? `chart-fill-${row.status}` : undefined} />;
+  }
   return (
     <ChartSection
       title="Beans by status"
@@ -189,18 +196,21 @@ function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
         <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
         <YAxis type="category" dataKey="label" tick={AXIS_TICK} width={90} />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
-        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]}>
-          {rows.map((row) => (
-            <Cell key={row.status} className={`chart-fill-${row.status}`} />
-          ))}
-        </Bar>
+        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]} shape={renderBar} />
       </BarChart>
     </ChartSection>
   );
 }
 
 function ByTypeChart({ data }: { data: Record<BeanType, number> }) {
-  const rows = BEAN_TYPES.map((type) => ({ type, count: data[type] ?? 0 }));
+  // Widened to Partial: `data` crosses the GraphQL boundary, so a type the
+  // server omitted (rather than sent as 0) must not throw on lookup here.
+  const counts: Partial<Record<BeanType, number>> = data;
+  const rows = BEAN_TYPES.map((type) => ({ type, count: counts[type] ?? 0 }));
+  function renderBar(props: BarShapeProps) {
+    const row = rows[props.index];
+    return <Rectangle {...props} className={row ? `chart-fill-${row.type}` : undefined} />;
+  }
   return (
     <ChartSection
       title="Beans by type"
@@ -214,11 +224,7 @@ function ByTypeChart({ data }: { data: Record<BeanType, number> }) {
         <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
         <YAxis type="category" dataKey="type" tick={AXIS_TICK} width={90} />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
-        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]}>
-          {rows.map((row) => (
-            <Cell key={row.type} className={`chart-fill-${row.type}`} />
-          ))}
-        </Bar>
+        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]} shape={renderBar} />
       </BarChart>
     </ChartSection>
   );

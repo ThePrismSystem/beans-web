@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useEvents } from "../hooks/useEvents.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { useProjects } from "../hooks/useProjects.js";
+
 import { HeaderSearch } from "./HeaderSearch.js";
 import { Sidebar } from "./Sidebar.js";
 
@@ -42,13 +43,29 @@ export function AppShell() {
     mainRef.current?.focus();
   }, [pathname]);
 
+  // Adjusted during render rather than in an effect, so the pill appears in
+  // the same commit as the event instead of one frame later. Seeded to `null`
+  // rather than `lastEvent` so an event already present on the very first
+  // render (as in a live-sync reconnect) still shows the pill, matching the
+  // effect this replaces, which always ran once on mount.
+  const [previousEvent, setPreviousEvent] = useState<typeof lastEvent>(null);
+  if (lastEvent !== previousEvent) {
+    setPreviousEvent(lastEvent);
+    if (lastEvent) {
+      setShowUpdated(true);
+    }
+  }
+
   useEffect(() => {
     if (!lastEvent) {
       return;
     }
-    setShowUpdated(true);
-    const timer = setTimeout(() => setShowUpdated(false), UPDATED_INDICATOR_DURATION_MS);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      setShowUpdated(false);
+    }, UPDATED_INDICATOR_DURATION_MS);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [lastEvent]);
 
   useEffect(() => {
@@ -61,7 +78,9 @@ export function AppShell() {
       }
     }
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [navOpen]);
 
   // As a drawer the sidebar is modal, so focus moves into it on open and back
@@ -96,7 +115,9 @@ export function AppShell() {
           type="button"
           className="sidebar-backdrop"
           aria-label="Close menu"
-          onClick={() => setNavOpen(false)}
+          onClick={() => {
+            setNavOpen(false);
+          }}
         />
       )}
       <Sidebar
@@ -105,7 +126,9 @@ export function AppShell() {
         activeProject={project}
         open={navOpen}
         inert={drawerClosed}
-        onNavigate={() => setNavOpen(false)}
+        onNavigate={() => {
+          setNavOpen(false);
+        }}
       />
       <div className="app-main" inert={drawerOpen}>
         <header className="app-header">
@@ -115,7 +138,9 @@ export function AppShell() {
             className="nav-toggle"
             aria-label="Toggle project menu"
             aria-expanded={navOpen}
-            onClick={() => setNavOpen((open) => !open)}
+            onClick={() => {
+              setNavOpen((open) => !open);
+            }}
           >
             ☰
           </button>

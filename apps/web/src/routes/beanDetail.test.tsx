@@ -1,5 +1,4 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -7,6 +6,7 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -729,7 +729,11 @@ function renderDetail({
   useBeansMock.mockReturnValue({ data: [epic, milestone], isPending: false, isError: false });
 
   const fetchMock = vi.fn((_url: string, init: RequestInit) => {
-    const body = JSON.parse(String(init.body)) as { variables?: { id?: string } };
+    const rawBody = init.body;
+    if (typeof rawBody !== "string") {
+      throw new Error("expected a string request body");
+    }
+    const body = JSON.parse(rawBody) as { variables?: { id?: string } };
     return Promise.resolve(
       new Response(
         JSON.stringify({ data: { updateBean: { id: body.variables?.id ?? "", etag: "e" } } }),
@@ -808,12 +812,15 @@ describe("orphan warning", () => {
 
     await waitFor(() => {
       const updates = fetchMock.mock.calls
-        .map(
-          (call) =>
-            JSON.parse(String((call[1] as RequestInit).body)) as {
-              variables?: { id?: string; input?: { status?: string } };
-            },
-        )
+        .map((call) => {
+          const rawBody = call[1].body;
+          if (typeof rawBody !== "string") {
+            throw new Error("expected a string request body");
+          }
+          return JSON.parse(rawBody) as {
+            variables?: { id?: string; input?: { status?: string } };
+          };
+        })
         .filter((body) => body.variables?.input?.status !== undefined);
       expect(updates.map((u) => u.variables?.id)).toEqual(["e-1", "m-1"]);
       expect(updates[0]?.variables?.input?.status).toBe("in-progress");
