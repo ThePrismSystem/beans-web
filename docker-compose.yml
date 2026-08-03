@@ -10,9 +10,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # Pin the beans CLI version instead of tracking latest (needs Go >= 1.24.6):
-      # args:
-      #   BEANS_VERSION: v0.4.2
+      # Keep in sync with Dockerfile's ARG default and CI's `go install` pin.
+      args:
+        BEANS_VERSION: v0.4.2
     image: beans-frontend:latest
     container_name: beans-frontend
     restart: unless-stopped

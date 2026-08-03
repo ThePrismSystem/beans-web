@@ -17,7 +17,9 @@
 # binary that runs on any glibc/musl base without extra shared libraries.
 # ---------------------------------------------------------------------------
 FROM golang:1.24-bookworm AS beans-builder
-ARG BEANS_VERSION=latest
+# Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
+# the binary CI tested against.
+ARG BEANS_VERSION=v0.4.2
 ENV CGO_ENABLED=0
 RUN go install "github.com/hmans/beans@${BEANS_VERSION}"
 # -> /go/bin/beans
