@@ -4,6 +4,36 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-03
+
+Closes the five follow-up items 0.2.0 left open. Nothing to do to upgrade.
+
+### Fixed
+
+- A client that disconnects while queued for a `beans` subprocess slot now
+  leaves the queue instead of reaching the front and spawning a child nobody is
+  waiting for. Cancellation deliberately stops there: a `beans` process already
+  running is never killed, because interrupting a mutation mid-write could
+  truncate a bean file.
+- Project discovery shares one in-flight pass. Every request arriving on a cold
+  or just-expired cache used to start its own, each fanning out a child process
+  per project, so simultaneous requests queued a multiple of that for a single
+  answer.
+- Requesting a subprocess slot from inside one now fails loudly instead of
+  hanging forever. Once every slot is held by a caller waiting on a nested
+  request, nothing can ever release.
+- Closing an event stream no longer leaves its heartbeat timer and stream
+  plumbing alive for up to 25 seconds. The connection's slot was already freed
+  on disconnect, so repeated connect/drop cycles piled up dead closures at
+  connection rate, unbounded by the 32-stream cap.
+
+### Changed
+
+- The `beans` CLI version has one source: `ARG BEANS_VERSION` in the
+  `Dockerfile`. The compose build argument that silently overrode it is gone,
+  CI reads the pin from the Dockerfile, and a build fails if a second literal
+  pin reappears in any build input. Bumping the Dockerfile is now enough.
+
 ## [0.2.0] - 2026-08-03
 
 Closes the seven actionable findings from the 2026-08-02 STRIDE/OWASP audit, and
@@ -278,6 +308,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.2.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.0
 [0.1.5]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.4
