@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { env } from "../env.js";
+import { withBeansSlot } from "../util/concurrency.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -66,15 +67,20 @@ function extractBeansErrorMessage(err: unknown): string {
 
 export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
   const bin = opts.binPath ?? env.BEANS_BIN;
-  try {
-    const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
-      maxBuffer: MAX_STDOUT_BYTES,
-      timeout: BEANS_EXEC_TIMEOUT_MS,
-      killSignal: "SIGKILL",
-    });
-    return parseBeansResult(stdout);
-  } catch (err) {
-    if (err instanceof BeansError) throw err;
-    throw new BeansError(extractBeansErrorMessage(err));
-  }
+  // Every caller — the graphql route, search, analytics, discovery — reaches a
+  // `beans` child through here, so gating at this one point bounds the whole
+  // server. Doing it at the call sites would leave the graphql route unbounded.
+  return withBeansSlot(async () => {
+    try {
+      const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
+        maxBuffer: MAX_STDOUT_BYTES,
+        timeout: BEANS_EXEC_TIMEOUT_MS,
+        killSignal: "SIGKILL",
+      });
+      return parseBeansResult(stdout);
+    } catch (err) {
+      if (err instanceof BeansError) throw err;
+      throw new BeansError(extractBeansErrorMessage(err));
+    }
+  });
 }

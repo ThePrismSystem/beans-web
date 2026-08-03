@@ -2,6 +2,8 @@ import { execFile } from "node:child_process";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { BEANS_CONCURRENCY } from "../util/concurrency.js";
+
 import {
   BEANS_EXEC_TIMEOUT_MS,
   buildBeansArgs,
@@ -16,13 +18,28 @@ type ExecFileCallback = (
   stderr: string,
 ) => void;
 
+// The default mock fails fast, which is what the error-handling tests below
+// want. `holdCallbacks` switches it to parking each invocation so a test can
+// observe how many children are in flight at once.
+let holdCallbacks = false;
+let inFlight = 0;
+let peakInFlight = 0;
+const held: (() => void)[] = [];
+
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(
     (_file: string, _args: string[], _options: unknown, callback: ExecFileCallback) => {
-      const err = Object.assign(new Error("real error message"), {
-        stderr: "no error-line prefix here\n",
-      });
-      callback(err, "", "");
+      inFlight += 1;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      const finish = (): void => {
+        inFlight -= 1;
+        const err = Object.assign(new Error("real error message"), {
+          stderr: "no error-line prefix here\n",
+        });
+        callback(err, "", "");
+      };
+      if (holdCallbacks) held.push(finish);
+      else finish();
     },
   ),
 }));
@@ -87,5 +104,38 @@ describe("runBeansGraphql", () => {
     };
     expect(options.timeout).toBe(BEANS_EXEC_TIMEOUT_MS);
     expect(options.killSignal).toBe("SIGKILL");
+  });
+});
+
+describe("runBeansGraphql concurrency", () => {
+  it("never spawns more than BEANS_CONCURRENCY children at once", async () => {
+    holdCallbacks = true;
+    inFlight = 0;
+    peakInFlight = 0;
+    held.length = 0;
+    try {
+      const calls = Array.from({ length: 40 }, () =>
+        runBeansGraphql({ configPath: "/x/.beans.yml", query: "{ beans { id } }" }).catch(
+          () => undefined,
+        ),
+      );
+
+      await vi.waitFor(() => {
+        expect(held.length).toBe(BEANS_CONCURRENCY);
+      });
+      expect(peakInFlight).toBeLessThanOrEqual(BEANS_CONCURRENCY);
+
+      // Drain: each completion frees a slot for the next queued caller.
+      while (held.length > 0) {
+        held.shift()?.();
+        await Promise.resolve();
+      }
+      await Promise.all(calls);
+
+      expect(peakInFlight).toBeLessThanOrEqual(BEANS_CONCURRENCY);
+    } finally {
+      holdCallbacks = false;
+      held.length = 0;
+    }
   });
 });
