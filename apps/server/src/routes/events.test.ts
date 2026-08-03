@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
 
+import { MAX_SSE_CLIENTS } from "./events.js";
+
 import type { AppDeps } from "../app.js";
 
 // hono's StreamingApi.write() swallows every error internally (bare
@@ -118,5 +120,51 @@ describe("GET /api/events", () => {
 
     controller.abort();
     await reader.cancel();
+  });
+
+  it("rejects a connection past MAX_SSE_CLIENTS with 503", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controllers: AbortController[] = [];
+
+    for (let i = 0; i < MAX_SSE_CLIENTS; i++) {
+      const controller = new AbortController();
+      controllers.push(controller);
+      const res = await app.request("/api/events", { signal: controller.signal });
+      expect(res.status).toBe(200);
+    }
+
+    const overflow = await app.request("/api/events");
+    expect(overflow.status).toBe(503);
+
+    controllers.forEach((controller) => {
+      controller.abort();
+    });
+  });
+
+  it("frees a slot when a stream closes", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controllers: AbortController[] = [];
+
+    for (let i = 0; i < MAX_SSE_CLIENTS; i++) {
+      const controller = new AbortController();
+      controllers.push(controller);
+      await app.request("/api/events", { signal: controller.signal });
+    }
+    expect((await app.request("/api/events")).status).toBe(503);
+
+    const [firstController] = controllers;
+    expect(firstController).toBeDefined();
+    firstController?.abort();
+    await vi.waitFor(async () => {
+      expect((await app.request("/api/events")).status).toBe(200);
+    });
+
+    controllers.forEach((controller) => {
+      controller.abort();
+    });
   });
 });

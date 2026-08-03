@@ -8,6 +8,16 @@ import type { Hono } from "hono";
 // stream. Long enough that it never interleaves with a request/response in tests.
 const HEARTBEAT_MS = 25_000;
 
+const HTTP_SERVICE_UNAVAILABLE = 503;
+
+/**
+ * Ceiling on simultaneous event streams. Each one holds a socket and a watcher
+ * listener for as long as it is open, and the route is a GET, so it is exempt
+ * from the cross-origin guard. A browser caps ~6 connections per origin, so
+ * this leaves room for several tabs while bounding a direct client.
+ */
+export const MAX_SSE_CLIENTS = 32;
+
 // TS narrows a repeated `signal.aborted` read across an `await` to the
 // literal it held before the wait, even though an abort can land during that
 // wait. Route the re-check through a plain function so it gets the real
@@ -17,26 +27,52 @@ function isAborted(signal: AbortSignal): boolean {
 }
 
 export function registerEvents(app: Hono, deps: AppDeps): void {
-  app.get("/api/events", (c) =>
-    streamSSE(c, async (stream) => {
-      const handler = (e: ServerEvent) => {
-        // Drop the listener if the client has gone away mid-write rather than
-        // silently discarding the rejected write and leaking the subscription.
-        stream.writeSSE({ data: JSON.stringify(e) }).catch(() => {
-          deps.watcher.off("event", handler);
-        });
+  let openStreams = 0;
+
+  app.get("/api/events", (c) => {
+    if (openStreams >= MAX_SSE_CLIENTS) {
+      return c.text("too many event streams", HTTP_SERVICE_UNAVAILABLE);
+    }
+    openStreams += 1;
+
+    return streamSSE(c, async (stream) => {
+      // The while loop below only re-checks the abort signal after its
+      // current heartbeat sleep resolves, so it can lag up to HEARTBEAT_MS
+      // behind an actual disconnect. Release the slot from the abort event
+      // itself so a torn-down connection frees capacity immediately; `release`
+      // is idempotent so the `finally` below can't double-decrement.
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        openStreams -= 1;
       };
-      deps.watcher.on("event", handler);
-      c.req.raw.signal.addEventListener("abort", () => deps.watcher.off("event", handler));
-      while (!isAborted(c.req.raw.signal)) {
-        await stream.sleep(HEARTBEAT_MS);
-        if (isAborted(c.req.raw.signal)) break;
-        // A named "ping" event keeps the connection warm without reaching the
-        // client's default `onmessage` handler.
-        await stream.writeSSE({ event: "ping", data: "" }).catch(() => {
+
+      try {
+        const handler = (e: ServerEvent) => {
+          // Drop the listener if the client has gone away mid-write rather than
+          // silently discarding the rejected write and leaking the subscription.
+          stream.writeSSE({ data: JSON.stringify(e) }).catch(() => {
+            deps.watcher.off("event", handler);
+          });
+        };
+        deps.watcher.on("event", handler);
+        c.req.raw.signal.addEventListener("abort", () => {
           deps.watcher.off("event", handler);
+          release();
         });
+        while (!isAborted(c.req.raw.signal)) {
+          await stream.sleep(HEARTBEAT_MS);
+          if (isAborted(c.req.raw.signal)) break;
+          // A named "ping" event keeps the connection warm without reaching the
+          // client's default `onmessage` handler.
+          await stream.writeSSE({ event: "ping", data: "" }).catch(() => {
+            deps.watcher.off("event", handler);
+          });
+        }
+      } finally {
+        release();
       }
-    }),
-  );
+    });
+  });
 }
