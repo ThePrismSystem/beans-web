@@ -39,8 +39,8 @@ describe("withoutQuery", () => {
 });
 
 describe("writeLog", () => {
-  it("forwards the message to console.log", () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  it("forwards the message to console.info", () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
     writeLog("hello");
 

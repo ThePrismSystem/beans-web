@@ -31,7 +31,7 @@ describe("security headers", () => {
 
 describe("request logging", () => {
   it("logs API requests", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
     await createApp(deps()).request("/api/projects");
 
@@ -40,7 +40,7 @@ describe("request logging", () => {
   });
 
   it("does not log the graphql query or variables", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const secret = "SENTINEL_BEAN_BODY_TEXT";
 
     await createApp(deps()).request("/api/projects/proj-a/graphql", {
@@ -55,7 +55,7 @@ describe("request logging", () => {
   });
 
   it("does not log the search query text", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const secret = "SENTINEL_SEARCH_TEXT";
 
     await createApp(deps()).request(`/api/search?q=${secret}`);
@@ -66,7 +66,7 @@ describe("request logging", () => {
   });
 
   it("logs a request rejected by the CSRF guard, so middleware order stays load-bearing", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
     const res = await createApp(deps()).request("/api/projects/proj-a/graphql", {
       method: "POST",

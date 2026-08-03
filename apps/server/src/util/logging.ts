@@ -11,12 +11,10 @@ export function withoutQuery(message: string): string {
 }
 
 /**
- * The one place in this codebase allowed to call `console.log` directly —
- * `no-console` blocks it everywhere else so a stray debug statement never
- * ships (see the matching eslint override for this file). `hono/logger`'s
- * request trace is routed through here so it can pass through `withoutQuery`
- * first.
+ * Routes `hono/logger`'s request trace through `withoutQuery` before writing
+ * it. `console.info` writes to stdout exactly as `console.log` does, and it's
+ * already permitted by the `no-console` rule.
  */
 export function writeLog(message: string): void {
-  console.log(message);
+  console.info(message);
 }
