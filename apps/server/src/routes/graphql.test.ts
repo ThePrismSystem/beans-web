@@ -102,6 +102,28 @@ describe("POST /api/projects/:name/graphql", () => {
     expect(res.status).toBe(404);
   });
 
+  it("does not leak an absolute host path when beans fails to load a file", async () => {
+    const app = createApp(
+      deps({
+        runGraphql: vi.fn(() => {
+          throw new BeansError("loading beans: loading broken.md: parsing front matter");
+        }),
+      }),
+    );
+
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+
+    expect(res.status).toBe(400);
+    const payload = (await res.json()) as { errors: { message: string }[] };
+    const message = payload.errors[0]?.message ?? "";
+    expect(message).toContain("broken.md");
+    expect(message).not.toMatch(/(?<=^|\s)\/(?:[^\s:]+\/)+/);
+  });
+
   it("rejects an over-sized request body with 413", async () => {
     const d = deps();
     const app = createApp(d);

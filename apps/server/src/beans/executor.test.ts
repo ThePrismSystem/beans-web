@@ -9,6 +9,7 @@ import {
   buildBeansArgs,
   BeansError,
   parseBeansResult,
+  redactPaths,
   runBeansGraphql,
 } from "./executor.js";
 
@@ -137,5 +138,46 @@ describe("runBeansGraphql concurrency", () => {
       holdCallbacks = false;
       held.length = 0;
     }
+  });
+});
+
+describe("error message redaction", () => {
+  it("reduces an absolute path to its basename", () => {
+    expect(
+      redactPaths(
+        "loading beans: loading /home/alice/git/proj/.beans/broken.md: parsing front matter",
+      ),
+    ).toBe("loading beans: loading broken.md: parsing front matter");
+  });
+
+  it("leaves a GraphQL validation error byte-identical", () => {
+    const message = 'graphql: Cannot query field "nosuchfield" on type "Bean".';
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves a URL intact", () => {
+    const message = "see http://example.com/a/b for details";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("redacts every path in a message with more than one", () => {
+    expect(redactPaths("copying /a/one.md to /b/two.md failed")).toBe(
+      "copying one.md to two.md failed",
+    );
+  });
+
+  it("leaves a relative path alone", () => {
+    const message = "loading .beans/rel.md failed";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("redacts a path that starts the message", () => {
+    expect(redactPaths("/leading/path/at/start.md is broken")).toBe("start.md is broken");
+  });
+
+  it("redacts a path introduced by a colon and space", () => {
+    expect(redactPaths("beans path does not exist or is not a directory: /nope/here")).toBe(
+      "beans path does not exist or is not a directory: here",
+    );
   });
 });

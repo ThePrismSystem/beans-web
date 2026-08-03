@@ -56,13 +56,35 @@ export function parseBeansResult(stdout: string): unknown {
 
 const ERROR_LINE = /^Error:\s*(.*)$/m;
 
+/**
+ * A `/`-rooted run of non-space, non-colon segments, anchored to the start of
+ * the message or a space. The anchor is what keeps `http://host/path` intact:
+ * its `//` follows a colon. Excluding `:` also stops the match before the
+ * delimiter in `…/broken.md: parsing front matter`.
+ */
+const ABSOLUTE_PATH = /(?<=^|\s)\/(?:[^\s:]+\/)*[^\s:]+/g;
+
+/**
+ * Reduces absolute paths in a `beans` error to their basenames. The CLI names
+ * the file it failed on by full path, which would hand a client the OS
+ * username and the real location of GIT_ROOT — the same disclosure that was
+ * removed from `/api/projects`. The basename is kept because, alongside the
+ * project name callers already log, it is enough to find the file.
+ *
+ * A path containing spaces is only redacted up to the first space. Accepted:
+ * the residual is a partial directory name, not a full path.
+ */
+export function redactPaths(message: string): string {
+  return message.replace(ABSOLUTE_PATH, (path) => path.slice(path.lastIndexOf("/") + 1));
+}
+
 function extractBeansErrorMessage(err: unknown): string {
   const e = err as { stderr?: unknown; message?: unknown };
   const stderr = typeof e.stderr === "string" ? e.stderr : "";
   const match = ERROR_LINE.exec(stderr);
-  if (match?.[1]) return match[1];
-  if (typeof e.message === "string") return e.message;
-  return String(err);
+  if (match?.[1]) return redactPaths(match[1]);
+  if (typeof e.message === "string") return redactPaths(e.message);
+  return redactPaths(String(err));
 }
 
 export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
