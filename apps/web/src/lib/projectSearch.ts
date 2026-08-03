@@ -4,7 +4,7 @@ import type { SortDir, SortKey } from "./sort.js";
 import type { BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
 
 export const SORT_KEYS: readonly SortKey[] = ["type", "title", "status"];
-export const SORT_DIRS: readonly SortDir[] = ["asc", "desc"];
+const SORT_DIRS: readonly SortDir[] = ["asc", "desc"];
 
 export interface ProjectSearch {
   type?: BeanType[];

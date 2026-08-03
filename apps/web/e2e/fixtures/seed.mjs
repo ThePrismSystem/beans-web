@@ -6,6 +6,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+/** @typedef {import("./seed.d.mts").SeedState} SeedState */
+
 const STATE_FILE = join(tmpdir(), "beans-frontend-e2e-state.json");
 
 const PROJECT_NAME = "e2e-project";
@@ -16,6 +18,8 @@ const PROJECT_NAME = "e2e-project";
  * bean under it) plus the exact `beans init` / `beans create ... -t task`
  * sequence beans-frontend's own integration tests rely on. Bean titles are
  * timestamped so re-runs never collide.
+ *
+ * @returns {SeedState}
  */
 export function seedGitRoot() {
   const root = mkdtempSync(join(tmpdir(), "beans-e2e-"));
@@ -53,6 +57,7 @@ export function seedGitRoot() {
   return state;
 }
 
+/** @returns {SeedState} */
 export function readSeedState() {
   return JSON.parse(readFileSync(STATE_FILE, "utf8"));
 }
