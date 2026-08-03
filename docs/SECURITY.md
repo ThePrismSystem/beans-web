@@ -123,9 +123,12 @@ into that cache on first run, and without it a read-only container fails to boot
 the container as the host UID that owns those files (`user:` in `docker-compose.yml`) so
 they are not written as root.
 
-The `beans` CLI version baked into the image is pinned (`BEANS_VERSION` in the `Dockerfile`)
-and must be kept in sync with the pin in `.github/workflows/ci.yml`, so the image ships the
-binary CI tested against.
+The `beans` CLI version baked into the image is pinned in two places that must move
+together: the `ARG BEANS_VERSION` default in the `Dockerfile` and the `BEANS_VERSION`
+build arg in `docker-compose.yml`, which overrides that default. Both must stay in sync
+with the pin in `.github/workflows/ci.yml`, so the image ships the binary CI tested
+against — bumping only the `Dockerfile` leaves `docker compose build` shipping the old
+binary.
 
 ### No authentication
 

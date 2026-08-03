@@ -140,11 +140,13 @@ volumes:
 Read-write is required. Editing through the UI writes to your project files, so a
 read-only mount leaves the app view-only with every mutation failing.
 
-The container runs as root by default, which means beans written through the UI
-end up root-owned on the host. Set `user: "<uid>:<gid>"` in the Compose service to
-the account owning your git projects (commonly `"1000:1000"`) to keep your own
-ownership. Nothing in the container needs privileges beyond read/write on that
-mount.
+The container runs as the unprivileged `node` user (uid 1000), so beans written
+through the UI already land owned by uid 1000 on the host. If the account that
+owns your git projects has a different uid, uncomment `user: "<uid>:<gid>"` in
+`docker-compose.yml` and set it to that account (find yours with `id -u`) —
+otherwise writes through the UI land with the wrong owner and edits fail with
+`EACCES` on the bind mount. Nothing in the container needs privileges beyond
+read/write on that mount.
 
 #### Security
 
@@ -210,8 +212,10 @@ whose immediate subfolders contain a `.beans.yml`.
 
 Two things to know about the image. It ships source plus `node_modules` rather
 than a compiled bundle, because the server runs through `tsx`, which makes it
-larger than a typical Node image. And if your stack enforces `read_only: true`,
-give the container a writable `/tmp` via tmpfs.
+larger than a typical Node image. And the shipped `docker-compose.yml` sets
+`read_only: true` unconditionally, with tmpfs mounts for both `/tmp` and
+`/home/node/.cache` — the latter is where corepack writes the pinned pnpm
+version on first run, and the container fails to boot without it.
 
 ## Quality checks
 
