@@ -17,9 +17,12 @@ services:
     container_name: beans-frontend
     restart: unless-stopped
 
-    # Run as the host UID:GID that OWNS your git projects, so beans created or
-    # edited through the UI are written with your ownership rather than root's.
-    user: "1000:1000"
+    # The image already runs as non-root (`USER node`, uid 1000 — see Dockerfile).
+    # Uncomment and set this ONLY if the host user that owns your git projects is
+    # not uid 1000; otherwise beans written through the UI land with the wrong
+    # owner and edits fail with EACCES on the bind mount below.
+    # Find yours with: id -u
+    # user: "1001:1001"
 
     read_only: true
     tmpfs:
