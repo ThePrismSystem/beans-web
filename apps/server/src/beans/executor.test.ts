@@ -132,10 +132,22 @@ describe("runBeansGraphql concurrency", () => {
       });
       expect(peakInFlight).toBeLessThanOrEqual(BEANS_CONCURRENCY);
 
-      // Drain: each completion frees a slot for the next queued caller.
-      while (held.length > 0) {
-        held.shift()?.();
-        await Promise.resolve();
+      // Drain: each completion frees a slot for the next queued caller. Wait
+      // for that caller to actually reach the mock rather than assuming a fixed
+      // microtask depth — the release path is reject -> catch -> finally ->
+      // release -> acquire, and lengthening it would leave callers queued and
+      // hang this loop at its timeout instead of failing legibly.
+      let remaining = calls.length;
+      while (remaining > 0) {
+        const next = held.shift();
+        if (!next) {
+          await vi.waitFor(() => {
+            expect(held.length).toBeGreaterThan(0);
+          });
+          continue;
+        }
+        next();
+        remaining -= 1;
       }
       await Promise.all(calls);
 

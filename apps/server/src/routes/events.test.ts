@@ -201,6 +201,30 @@ describe("GET /api/events", () => {
     });
   });
 
+  it("clears the heartbeat timer on abort instead of holding it for the interval", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controller = new AbortController();
+
+    await app.request("/api/events", { signal: controller.signal });
+    // The stream is parked on its heartbeat sleep, so a timer is pending.
+    await vi.waitFor(() => {
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+    });
+
+    controller.abort();
+    // Yield so the abort listener and the unwinding callback both run.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Without an abort-aware sleep the timer — and the callback, TransformStream
+    // and closures it keeps alive — would survive for the full interval, so
+    // connect/abort churn piled up dead streams that MAX_SSE_CLIENTS did not
+    // bound. Advancing time here would mask that; the point is it is gone now.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("drops the watcher listener when the heartbeat ping write fails", async () => {
     vi.useFakeTimers();
     failNextWrite = true;

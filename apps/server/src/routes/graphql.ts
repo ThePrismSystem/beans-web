@@ -47,7 +47,14 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
 
       const configPath = join(assertWithinRoot(project.root, project.path), ".beans.yml");
       try {
-        const data = await deps.runGraphql(configPath, parsed.data.query, parsed.data.variables);
+        // A client that navigates away while queued for a slot should not still
+        // spawn its child when it reaches the front of the queue.
+        const data = await deps.runGraphql(
+          configPath,
+          parsed.data.query,
+          parsed.data.variables,
+          c.req.raw.signal,
+        );
         return c.json({ data });
       } catch (err) {
         if (err instanceof BeansError)

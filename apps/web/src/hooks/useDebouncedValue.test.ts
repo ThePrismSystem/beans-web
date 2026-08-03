@@ -12,7 +12,9 @@ describe("useDebouncedValue", () => {
     expect(result.current).toBe("a");
   });
 
-  it("delays updates until the delay elapses, collapsing rapid changes", () => {
+  // `act` returns a thenable under React 19. Discarding it with `void` drops
+  // any warning or rejection it would surface, so these are awaited.
+  it("delays updates until the delay elapses, collapsing rapid changes", async () => {
     const { result, rerender } = renderHook(({ v }) => useDebouncedValue(v, 200), {
       initialProps: { v: "a" },
     });
@@ -21,10 +23,16 @@ describe("useDebouncedValue", () => {
     rerender({ v: "abc" });
     expect(result.current).toBe("a");
 
-    void act(() => vi.advanceTimersByTime(199));
+    await act(async () => {
+      vi.advanceTimersByTime(199);
+      await Promise.resolve();
+    });
     expect(result.current).toBe("a");
 
-    void act(() => vi.advanceTimersByTime(1));
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
     expect(result.current).toBe("abc");
   });
 });

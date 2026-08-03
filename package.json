@@ -21,6 +21,7 @@
     "codegen:check": "pnpm --filter @beans-frontend/web codegen && prettier --write apps/web/src/api/generated.ts && git diff --exit-code -- apps/web/src/api/generated.ts",
     "knip": "pnpm -r knip",
     "spell": "cspell \"**/*.{ts,tsx,md,json}\" --no-progress",
+    "check:pins": "bash scripts/check-beans-pin.sh",
     "prepare": "husky"
   },
   "devDependencies": {

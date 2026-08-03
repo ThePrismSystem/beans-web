@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { BEANS_CONCURRENCY, mapWithConcurrency, withBeansSlot } from "./concurrency.js";
 
@@ -153,5 +153,196 @@ describe("mapWithConcurrency", () => {
 
   it("handles an empty input list", async () => {
     await expect(mapWithConcurrency([], 4, () => Promise.resolve(1))).resolves.toEqual([]);
+  });
+});
+
+describe("withBeansSlot cancellation", () => {
+  it("drops a queued caller when its signal aborts, without running it", async () => {
+    const release: (() => void)[] = [];
+    const hold = () =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            release.push(() => {
+              resolve();
+            });
+          }),
+      );
+
+    // Fill every slot so the next caller has to queue.
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () => hold());
+    await vi.waitFor(() => {
+      expect(release.length).toBe(BEANS_CONCURRENCY);
+    });
+
+    const controller = new AbortController();
+    let ran = false;
+    const queued = withBeansSlot(() => {
+      ran = true;
+      return Promise.resolve();
+    }, controller.signal);
+
+    controller.abort();
+    await expect(queued).rejects.toThrow();
+    // The point of the fix: it never reached the front and spawned its work.
+    expect(ran).toBe(false);
+
+    for (const done of release) done();
+    await Promise.all(holders);
+  });
+
+  it("refuses immediately when handed an already-aborted signal", async () => {
+    let ran = false;
+    await expect(
+      withBeansSlot(() => {
+        ran = true;
+        return Promise.resolve();
+      }, AbortSignal.abort()),
+    ).rejects.toThrow();
+    expect(ran).toBe(false);
+  });
+
+  // Every GraphQL request now carries a signal, so the ordinary case is a
+  // queued caller whose signal never fires. Nothing covered it: the other
+  // cancellation tests all abort before their caller reaches the front.
+  it("serves a queued caller whose signal never fires, and stops listening once served", async () => {
+    const resolvers: (() => void)[] = [];
+    const hold = (signal?: AbortSignal) =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            resolvers.push(resolve);
+          }),
+        signal,
+      );
+
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () => hold());
+    await vi.waitFor(() => {
+      expect(resolvers).toHaveLength(BEANS_CONCURRENCY);
+    });
+
+    const controller = new AbortController();
+    const signalled = hold(controller.signal);
+    let ranBehind = false;
+    const behind = withBeansSlot(() => {
+      ranBehind = true;
+      return Promise.resolve();
+    });
+
+    // Free one slot. The signalled caller is first in the queue, so it takes it.
+    resolvers.shift()?.();
+    await vi.waitFor(() => {
+      expect(resolvers).toHaveLength(BEANS_CONCURRENCY);
+    });
+
+    // It is running now, not queued, so aborting has to be inert. An abort
+    // listener that outlived being served would splice at index -1 and evict
+    // whoever is genuinely last in the queue — `behind`, here.
+    controller.abort();
+    expect(ranBehind).toBe(false);
+
+    resolvers.pop()?.();
+    await signalled;
+    await vi.waitFor(() => {
+      expect(ranBehind).toBe(true);
+    });
+    await behind;
+
+    for (const resolve of resolvers) resolve();
+    await Promise.all(holders);
+  });
+
+  // `AbortSignal.reason` is whatever the caller passed — `abort("gone")` is
+  // legal and leaves a bare string. Rejecting with that would hand every catch
+  // site a non-Error, so it gets normalized.
+  it("rejects with an Error even when aborted with a non-Error reason", async () => {
+    const release: (() => void)[] = [];
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            release.push(() => {
+              resolve();
+            });
+          }),
+      ),
+    );
+    await vi.waitFor(() => {
+      expect(release.length).toBe(BEANS_CONCURRENCY);
+    });
+
+    const controller = new AbortController();
+    const queued = withBeansSlot(() => Promise.resolve(), controller.signal);
+    controller.abort("gone");
+    await expect(queued).rejects.toThrow(/queued for a beans slot/);
+
+    for (const done of release) done();
+    await Promise.all(holders);
+  });
+
+  it("gives an aborted waiter's slot to the next in line rather than losing it", async () => {
+    const release: (() => void)[] = [];
+    const hold = () =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            release.push(() => {
+              resolve();
+            });
+          }),
+      );
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () => hold());
+    await vi.waitFor(() => {
+      expect(release.length).toBe(BEANS_CONCURRENCY);
+    });
+
+    const controller = new AbortController();
+    const abandoned = withBeansSlot(() => Promise.resolve(), controller.signal).catch(
+      () => "aborted",
+    );
+    let servedSecond = false;
+    const second = withBeansSlot(() => {
+      servedSecond = true;
+      return Promise.resolve();
+    });
+
+    controller.abort();
+    await expect(abandoned).resolves.toBe("aborted");
+
+    // Freeing one slot must serve `second`, not be swallowed by the caller that
+    // left the queue — a leaked slot would shrink the pool permanently.
+    const first = release.shift();
+    first?.();
+    await second;
+    expect(servedSecond).toBe(true);
+
+    for (const done of release) done();
+    await Promise.all(holders);
+  });
+});
+
+describe("withBeansSlot reentrancy", () => {
+  it("throws instead of deadlocking when called from inside a held slot", async () => {
+    await expect(
+      withBeansSlot(() => withBeansSlot(() => Promise.resolve("inner"))),
+    ).rejects.toThrow(/not reentrant/);
+  });
+
+  it("releases the outer slot after a reentrant call is refused", async () => {
+    await withBeansSlot(() => withBeansSlot(() => Promise.resolve())).catch(() => undefined);
+    // If the outer slot leaked, this burst could not reach the full cap.
+    let peak = 0;
+    let live = 0;
+    await Promise.all(
+      Array.from({ length: BEANS_CONCURRENCY * 2 }, () =>
+        withBeansSlot(async () => {
+          live += 1;
+          peak = Math.max(peak, live);
+          await tick();
+          live -= 1;
+        }),
+      ),
+    );
+    expect(peak).toBe(BEANS_CONCURRENCY);
   });
 });
