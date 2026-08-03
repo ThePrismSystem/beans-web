@@ -167,4 +167,60 @@ describe("GET /api/events", () => {
       controller.abort();
     });
   });
+
+  it("releases a slot exactly once when an aborted stream's heartbeat sleep later resolves", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controller = new AbortController();
+
+    await app.request("/api/events", { signal: controller.signal });
+    controller.abort();
+
+    // The abort listener already released this stream's slot. Let its
+    // pending heartbeat sleep resolve too, so the while loop notices the
+    // abort, breaks, and its `finally` calls release() a second time —
+    // exercising the double-release guard, not just the abort listener.
+    await vi.advanceTimersByTimeAsync(25_000);
+
+    // If release() were not idempotent, this stream's teardown would have
+    // decremented openStreams twice, letting MAX_SSE_CLIENTS + 1 connections
+    // through instead of MAX_SSE_CLIENTS.
+    const controllers: AbortController[] = [];
+    for (let i = 0; i < MAX_SSE_CLIENTS; i++) {
+      const c = new AbortController();
+      controllers.push(c);
+      const res = await app.request("/api/events", { signal: c.signal });
+      expect(res.status).toBe(200);
+    }
+    const overflow = await app.request("/api/events");
+    expect(overflow.status).toBe(503);
+
+    controllers.forEach((c) => {
+      c.abort();
+    });
+  });
+
+  it("drops the watcher listener when the heartbeat ping write fails", async () => {
+    vi.useFakeTimers();
+    failNextWrite = true;
+    try {
+      const watcher = new EventEmitter();
+      const app = createApp(deps(watcher));
+      const controller = new AbortController();
+
+      await app.request("/api/events", { signal: controller.signal });
+      expect(watcher.listenerCount("event")).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(25_000);
+
+      await vi.waitFor(() => {
+        expect(watcher.listenerCount("event")).toBe(0);
+      });
+
+      controller.abort();
+    } finally {
+      failNextWrite = false;
+    }
+  });
 });
