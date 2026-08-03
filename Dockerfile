@@ -17,7 +17,9 @@
 # binary that runs on any glibc/musl base without extra shared libraries.
 # ---------------------------------------------------------------------------
 FROM golang:1.24-bookworm AS beans-builder
-ARG BEANS_VERSION=latest
+# Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
+# the binary CI tested against.
+ARG BEANS_VERSION=v0.4.2
 ENV CGO_ENABLED=0
 RUN go install "github.com/hmans/beans@${BEANS_VERSION}"
 # -> /go/bin/beans
@@ -75,5 +77,17 @@ EXPOSE 4780
 # Lightweight liveness probe: hit the SPA root (does not spawn beans processes).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4780)+'/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# Drop root: the container bind-mounts the host's project tree read-write, so
+# anything running here should not be able to write it as root. `node` is uid
+# 1000 in this base image; compose can override with `user:` when the host
+# owner differs.
+#
+# Docker leaves HOME=/ for a numeric uid with no /etc/passwd entry (the case
+# for any uid compose substitutes via `user:`), and corepack needs a writable
+# HOME to place its cache. Pin it to the `node` user's home so the tmpfs at
+# /home/node/.cache is actually the path corepack writes to.
+ENV HOME=/home/node
+USER node
 
 CMD ["pnpm", "--filter", "@beans-frontend/server", "start"]

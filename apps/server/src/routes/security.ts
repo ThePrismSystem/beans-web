@@ -54,8 +54,11 @@ export function registerSecurity(app: Hono, trustProxy: boolean): void {
   app.use("/api/*", async (c, next) => {
     if (c.req.method === "GET" || c.req.method === "HEAD") return next();
 
-    const contentType = (c.req.header("content-type") ?? "").toLowerCase();
-    if (!contentType.includes(JSON_CONTENT_TYPE)) {
+    // Compare the MIME essence, not the raw header: `includes()` also matches
+    // a parameter, and `multipart/form-data; boundary=application/json` is
+    // CORS-safelisted, so it would satisfy the check without a preflight.
+    const essence = (c.req.header("content-type") ?? "").split(";")[0]?.trim().toLowerCase();
+    if (essence !== JSON_CONTENT_TYPE) {
       return c.json(
         { errors: [{ message: "content-type must be application/json" }] },
         HTTP_UNSUPPORTED_MEDIA_TYPE,

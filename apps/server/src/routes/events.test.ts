@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
 
+import { MAX_SSE_CLIENTS } from "./events.js";
+
 import type { AppDeps } from "../app.js";
 
 // hono's StreamingApi.write() swallows every error internally (bare
@@ -118,5 +120,107 @@ describe("GET /api/events", () => {
 
     controller.abort();
     await reader.cancel();
+  });
+
+  it("rejects a connection past MAX_SSE_CLIENTS with 503", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controllers: AbortController[] = [];
+
+    for (let i = 0; i < MAX_SSE_CLIENTS; i++) {
+      const controller = new AbortController();
+      controllers.push(controller);
+      const res = await app.request("/api/events", { signal: controller.signal });
+      expect(res.status).toBe(200);
+    }
+
+    const overflow = await app.request("/api/events");
+    expect(overflow.status).toBe(503);
+
+    controllers.forEach((controller) => {
+      controller.abort();
+    });
+  });
+
+  it("frees a slot when a stream closes", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controllers: AbortController[] = [];
+
+    for (let i = 0; i < MAX_SSE_CLIENTS; i++) {
+      const controller = new AbortController();
+      controllers.push(controller);
+      await app.request("/api/events", { signal: controller.signal });
+    }
+    expect((await app.request("/api/events")).status).toBe(503);
+
+    const [firstController] = controllers;
+    expect(firstController).toBeDefined();
+    firstController?.abort();
+    await vi.waitFor(async () => {
+      expect((await app.request("/api/events")).status).toBe(200);
+    });
+
+    controllers.forEach((controller) => {
+      controller.abort();
+    });
+  });
+
+  it("releases a slot exactly once when an aborted stream's heartbeat sleep later resolves", async () => {
+    vi.useFakeTimers();
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const controller = new AbortController();
+
+    await app.request("/api/events", { signal: controller.signal });
+    controller.abort();
+
+    // The abort listener already released this stream's slot. Let its
+    // pending heartbeat sleep resolve too, so the while loop notices the
+    // abort, breaks, and its `finally` calls release() a second time —
+    // exercising the double-release guard, not just the abort listener.
+    await vi.advanceTimersByTimeAsync(25_000);
+
+    // If release() were not idempotent, this stream's teardown would have
+    // decremented openStreams twice, letting MAX_SSE_CLIENTS + 1 connections
+    // through instead of MAX_SSE_CLIENTS.
+    const controllers: AbortController[] = [];
+    for (let i = 0; i < MAX_SSE_CLIENTS; i++) {
+      const c = new AbortController();
+      controllers.push(c);
+      const res = await app.request("/api/events", { signal: c.signal });
+      expect(res.status).toBe(200);
+    }
+    const overflow = await app.request("/api/events");
+    expect(overflow.status).toBe(503);
+
+    controllers.forEach((c) => {
+      c.abort();
+    });
+  });
+
+  it("drops the watcher listener when the heartbeat ping write fails", async () => {
+    vi.useFakeTimers();
+    failNextWrite = true;
+    try {
+      const watcher = new EventEmitter();
+      const app = createApp(deps(watcher));
+      const controller = new AbortController();
+
+      await app.request("/api/events", { signal: controller.signal });
+      expect(watcher.listenerCount("event")).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(25_000);
+
+      await vi.waitFor(() => {
+        expect(watcher.listenerCount("event")).toBe(0);
+      });
+
+      controller.abort();
+    } finally {
+      failNextWrite = false;
+    }
   });
 });

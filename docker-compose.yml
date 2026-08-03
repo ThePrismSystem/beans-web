@@ -10,16 +10,29 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # Pin the beans CLI version instead of tracking latest (needs Go >= 1.24.6):
-      # args:
-      #   BEANS_VERSION: v0.4.2
+      # Keep in sync with Dockerfile's ARG default and CI's `go install` pin.
+      args:
+        BEANS_VERSION: v0.4.2
     image: beans-frontend:latest
     container_name: beans-frontend
     restart: unless-stopped
 
-    # Run as the host UID:GID that OWNS your git projects, so beans created or
-    # edited through the UI are written with your ownership rather than root's.
-    # user: "1000:1000"
+    # The image already runs as non-root (`USER node`, uid 1000 — see Dockerfile).
+    # Uncomment and set this ONLY if the host user that owns your git projects is
+    # not uid 1000; otherwise beans written through the UI land with the wrong
+    # owner and edits fail with EACCES on the bind mount below.
+    # Find yours with: id -u
+    # user: "1001:1001"
+
+    read_only: true
+    tmpfs:
+      - /tmp
+      # Corepack lazily downloads/verifies the pinned pnpm version into this
+      # cache on first run; without it the container fails to boot (EROFS).
+      - /home/node/.cache
+    cap_drop: [ALL]
+    security_opt:
+      - "no-new-privileges:true"
 
     environment:
       GIT_ROOT: /projects # comma-separated scan root(s) inside the container (matches the mount below)

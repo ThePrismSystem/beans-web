@@ -14,6 +14,12 @@ A follow-up STRIDE/OWASP audit on 2026-08-01 surfaced an argument-injection jail
 several hardening gaps; all were fixed on the `fix/security-audit-hardening` branch. The
 relevant sections below have been updated to reflect the current state.
 
+A second STRIDE/OWASP audit on 2026-08-02 confirmed every 2026-08-01 finding fixed and
+surfaced seven further items — an unbounded subprocess fan-out, host paths in error
+messages, a bypassable content-type check, container privileges, an unpinned CLI version,
+absent request logging, and uncapped event streams. All were fixed on the
+`fix/security-hardening-round-2` branch; the sections below reflect the current state.
+
 ### Dependency vulnerabilities
 
 `pnpm audit --audit-level moderate` is run on every CI build (`.github/workflows/ci.yml`) and
@@ -55,6 +61,12 @@ are held on a server-internal `ProjectRecord` and projected out before the respo
 client, so they no longer travel over the wire. (Server-side, those fields are still used to
 resolve each project's `.beans.yml` and to enforce the path jail.)
 
+Error messages from the `beans` CLI are returned to clients, and the CLI names the file it
+failed to load by absolute path. Those paths are reduced to their basenames before the
+message leaves the server (`redactPaths`, `apps/server/src/beans/executor.ts`), so an error
+still identifies the offending file without disclosing the OS username or the location of
+`GIT_ROOT`.
+
 ### Command and argument injection
 
 The `beans` CLI is invoked via `execFile` (`apps/server/src/beans/executor.ts`), which does not
@@ -71,11 +83,11 @@ argument above.
 
 ### Transport hardening
 
-- **Cross-origin requests:** state-changing (`/api/*`, non-GET/HEAD) requests must carry an
-  `application/json` content-type — which refuses a no-preflight `text/plain` simple request — and,
-  when an `Origin` header is present, it must match the server's own origin
-  (`apps/server/src/routes/security.ts`). GET/HEAD reads are left open; their responses are never
-  cross-origin readable.
+- **Cross-origin requests:** state-changing (`/api/*`, non-GET/HEAD) requests must have an
+  `application/json` content-type — compared by MIME essence, so a CORS-safelisted type
+  cannot satisfy it via a parameter — and, when an `Origin` header is present, it must match
+  the server's own origin (`apps/server/src/routes/security.ts`). GET/HEAD reads are left
+  open; their responses are never cross-origin readable.
 - **Proxy-aware origin comparison:** "the server's own origin" comes from the inbound connection,
   which behind a TLS-terminating proxy is the internal plain-HTTP hop rather than the public URL the
   browser used. `TRUST_PROXY=true` (`apps/server/src/env.ts`) switches the comparison to the first
@@ -89,6 +101,34 @@ argument above.
 - **Request body cap:** the graphql route rejects bodies over 256 KB with `413` before parsing.
 - **Subprocess timeout:** each `beans` invocation has a 15 s timeout and is `SIGKILL`ed on expiry,
   so a child that blocks (e.g. on stdin) cannot leak a process slot.
+- **Subprocess ceiling:** every `beans` invocation acquires one of
+  `BEANS_CONCURRENCY` process-wide slots (`apps/server/src/util/concurrency.ts`), so
+  concurrent requests queue rather than multiplying child processes. The cap bounds the
+  server, not a single request.
+- **Event-stream ceiling:** `/api/events` refuses connections past `MAX_SSE_CLIENTS` with
+  a `503`, so unbounded streams cannot accumulate sockets and watcher listeners.
+- **Request logging:** `/api/*` requests are logged (method, path, status, duration).
+  Request and response bodies, headers, and query strings are never logged. The query
+  string is stripped before the line is written, because `/api/search?q=…` carries the
+  user's search text — the same class of bean content the GraphQL query and variables are
+  kept out of logs for. Static asset and SPA serving is not logged.
+
+### Container hardening
+
+The published image runs as the unprivileged `node` user, and the compose stack drops all
+capabilities, sets `no-new-privileges`, and mounts the root filesystem read-only with a
+tmpfs for `/tmp` and one for `/home/node/.cache` — corepack writes the pinned pnpm version
+into that cache on first run, and without it a read-only container fails to boot with
+`EROFS`. The project bind mount stays read-write because the UI writes beans; run
+the container as the host UID that owns those files (`user:` in `docker-compose.yml`) so
+they are not written as root.
+
+The `beans` CLI version baked into the image is pinned in two places that must move
+together: the `ARG BEANS_VERSION` default in the `Dockerfile` and the `BEANS_VERSION`
+build arg in `docker-compose.yml`, which overrides that default. Both must stay in sync
+with the pin in `.github/workflows/ci.yml`, so the image ships the binary CI tested
+against — bumping only the `Dockerfile` leaves `docker compose build` shipping the old
+binary.
 
 ### No authentication
 

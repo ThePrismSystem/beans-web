@@ -1,11 +1,11 @@
 ---
 # bf-96xa
 title: Repair the lint gate and fix surfaced violations
-status: in-progress
+status: completed
 type: bug
 priority: high
 created_at: 2026-08-02T22:57:26Z
-updated_at: 2026-08-03T00:53:01Z
+updated_at: 2026-08-03T01:15:48Z
 ---
 
 pnpm lint has never linted TypeScript source. ESLint 10 resolves the nearest eslint.config.js per file, so per-package re-export shims became the active config and the root's apps/server/**/*.ts globs (relative to the active config dir) matched nothing.
@@ -38,3 +38,13 @@ Acceptance test: a planted `const v: any = x[0]!;` now fails `eslint . --max-war
 Gate verified green end to end: format, lint, typecheck, 496 unit tests, knip, spell, codegen:check, and 55/55 e2e.
 
 Documented the constraint in `CONTRIBUTING.md` so a per-package config is not reintroduced.
+
+## Addendum: .mts/.cts gate hole
+
+The final whole-branch review found that `.mts`/`.cts` are not in ESLint's default lint target
+set, so `apps/web/e2e/fixtures/seed.d.mts` still escaped the repaired gate. Fixed generally
+(not just for that file): `NODE_FILES` and `REACT_FILES` now glob `{ts,mts,cts}`, and the
+declaration-file block globs `**/*.d.{ts,mts,cts}`. Verified with a planted bad `.mts` and a
+planted bad `.d.mts` — both now error. `eslint .` matches 164 files.
+
+Merged as eff68b7 (PR #31), all 9 CI checks green.

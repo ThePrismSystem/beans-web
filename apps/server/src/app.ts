@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import { Hono } from "hono";
+import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 
 import { registerAnalytics } from "./routes/analytics.js";
@@ -9,6 +10,7 @@ import { registerGraphql } from "./routes/graphql.js";
 import { registerProjects } from "./routes/projects.js";
 import { registerSearch } from "./routes/search.js";
 import { registerSecurity } from "./routes/security.js";
+import { withoutQuery, writeLog } from "./util/logging.js";
 
 import type { ProjectRecord } from "./discovery/scan.js";
 import type { Analytics, SearchResult } from "@beans-frontend/shared";
@@ -44,6 +46,17 @@ export function createApp(deps: AppDeps): Hono {
         baseUri: ["'self'"],
         objectSrc: ["'none'"],
       },
+    }),
+  );
+  // Scoped to /api/* so serving the SPA and its assets stays quiet, and placed
+  // ahead of the guards so rejected requests (415/403) are logged too. Request
+  // and response bodies are never logged by hono/logger, and withoutQuery
+  // strips the query string, so neither the GraphQL query/variables nor
+  // search text ever reaches an operator log.
+  app.use(
+    "/api/*",
+    logger((message) => {
+      writeLog(withoutQuery(message));
     }),
   );
   registerSecurity(app, deps.trustProxy);

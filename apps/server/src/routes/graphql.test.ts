@@ -102,6 +102,32 @@ describe("POST /api/projects/:name/graphql", () => {
     expect(res.status).toBe(404);
   });
 
+  // Redaction itself is covered where it happens — the unit tests on
+  // redactPaths, and the end-to-end tests in executor.test.ts that drive a
+  // real stderr through runBeansGraphql -> extractBeansErrorMessage. This
+  // test covers a different concern: that the route forwards an already-
+  // redacted BeansError's messages into the JSON response unchanged, rather
+  // than mangling or dropping them.
+  it("forwards an already-redacted BeansError message into the response unchanged", async () => {
+    const redactedMessage = "loading beans: loading broken.md: parsing front matter";
+    const app = createApp(
+      deps({
+        runGraphql: vi.fn(() => {
+          throw new BeansError(redactedMessage);
+        }),
+      }),
+    );
+
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ errors: [{ message: redactedMessage }] });
+  });
+
   it("rejects an over-sized request body with 413", async () => {
     const d = deps();
     const app = createApp(d);

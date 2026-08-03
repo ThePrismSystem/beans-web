@@ -77,6 +77,24 @@ describe("cross-origin guard", () => {
     expect(res.status).toBe(200);
   });
 
+  it("rejects a multipart content-type whose boundary spells application/json", async () => {
+    const res = await createApp(deps()).request(url, {
+      method: "POST",
+      headers: { "content-type": "multipart/form-data; boundary=application/json" },
+      body,
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it("still allows application/json with a charset parameter", async () => {
+    const res = await createApp(deps()).request(url, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body,
+    });
+    expect(res.status).toBe(200);
+  });
+
   it("names TRUST_PROXY in the rejection so a proxied deployment is diagnosable", async () => {
     const res = await createApp(deps()).request(
       proxiedUrl,

@@ -73,6 +73,15 @@ words:
   - noreferrer
   # cspell knows "viewport" but not its plural.
   - viewports
+  - nosuchfield
+  - basenames
+  - unredacted
+  - safelisted
+  - bypassable
+  # The errno a read-only container fails to boot with; named in SECURITY.md.
+  - EROFS
+  # The errno a bind-mount write fails with under a mismatched uid; README.md.
+  - EACCES
 ignorePaths:
   - node_modules
   - dist
