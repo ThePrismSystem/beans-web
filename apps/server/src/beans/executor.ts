@@ -57,25 +57,44 @@ export function parseBeansResult(stdout: string): unknown {
 const ERROR_LINE = /^Error:\s*(.*)$/m;
 
 /**
- * A `/`-rooted run of non-space, non-colon segments, anchored to the start of
- * the message or a space. The anchor is what keeps `http://host/path` intact:
- * its `//` follows a colon. Excluding `:` also stops the match before the
- * delimiter in `…/broken.md: parsing front matter`.
+ * A `/`-rooted run of non-space, non-colon characters, anchored so a match
+ * can begin at the start of the message, after whitespace, after an opening
+ * quote or bracket (`"`, `'`, `(`, `[`, `{`), or after a colon. The colon
+ * case needs its own guard: `(?!\/\/[^/\s])` rules out starting a match at
+ * the first `/` of a `scheme://host` URL — exactly two slashes followed by a
+ * non-slash host character — so `http://host/a/b` stays intact, while still
+ * letting `error:/local/path` (one slash) and `file:///local/path` (three
+ * slashes, the empty-authority form) redact. Excluding `:` from the content
+ * class also stops a match before the delimiter in `…/broken.md: parsing
+ * front matter`.
  */
-const ABSOLUTE_PATH = /(?<=^|\s)\/(?:[^\s:]+\/)*[^\s:]+/g;
+const ABSOLUTE_PATH = /(?<=^|[\s"'(\[{:])(?!\/\/[^/\s])\/[^\s:]*/g;
 
 /**
  * Reduces absolute paths in a `beans` error to their basenames. The CLI names
  * the file it failed on by full path, which would hand a client the OS
  * username and the real location of GIT_ROOT — the same disclosure that was
  * removed from `/api/projects`. The basename is kept because, alongside the
- * project name callers already log, it is enough to find the file.
+ * project name callers already log, it is enough to find the file. Trailing
+ * slashes are trimmed before the basename is taken, so `/a/b/` reduces to
+ * `b` rather than an empty string.
  *
- * A path containing spaces is only redacted up to the first space. Accepted:
- * the residual is a partial directory name, not a full path.
+ * A path containing a space is only redacted up to that space: the segment
+ * before it is reduced to a basename, but the space itself isn't part of the
+ * match, so everything from the space onward — the rest of the username and
+ * any remaining directory structure — passes through unredacted
+ * (`/home/alice smith/proj/x.md` becomes `alice smith/proj/x.md`, the same
+ * disclosure this function exists to prevent, for a macOS-style
+ * `/Users/Alice Smith/` home directory). Handling that structurally would
+ * mean parsing balanced quoted or escaped segments; `beans` never emits
+ * space-containing paths in practice, so this was accepted rather than
+ * built for.
  */
 export function redactPaths(message: string): string {
-  return message.replace(ABSOLUTE_PATH, (path) => path.slice(path.lastIndexOf("/") + 1));
+  return message.replace(ABSOLUTE_PATH, (path) => {
+    const trimmed = path.replace(/\/+$/, "");
+    return trimmed.slice(trimmed.lastIndexOf("/") + 1);
+  });
 }
 
 function extractBeansErrorMessage(err: unknown): string {

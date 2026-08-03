@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BEANS_CONCURRENCY } from "../util/concurrency.js";
 
@@ -13,19 +13,24 @@ import {
   runBeansGraphql,
 } from "./executor.js";
 
-type ExecFileCallback = (
-  error: (Error & { stderr?: string; stdout?: string }) | null,
-  stdout: string,
-  stderr: string,
-) => void;
+type ExecFileCallback = (error: unknown, stdout: string, stderr: string) => void;
+
+const DEFAULT_ERROR = (): unknown =>
+  Object.assign(new Error("real error message"), {
+    stderr: "no error-line prefix here\n",
+  });
 
 // The default mock fails fast, which is what the error-handling tests below
 // want. `holdCallbacks` switches it to parking each invocation so a test can
-// observe how many children are in flight at once.
+// observe how many children are in flight at once. `mockError` is settable
+// per test so a test can drive a specific rejection value through the real
+// execFile -> extractBeansErrorMessage -> BeansError path, rather than
+// calling redactPaths directly.
 let holdCallbacks = false;
 let inFlight = 0;
 let peakInFlight = 0;
 const held: (() => void)[] = [];
+let mockError: unknown = DEFAULT_ERROR();
 
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(
@@ -34,16 +39,17 @@ vi.mock("node:child_process", () => ({
       peakInFlight = Math.max(peakInFlight, inFlight);
       const finish = (): void => {
         inFlight -= 1;
-        const err = Object.assign(new Error("real error message"), {
-          stderr: "no error-line prefix here\n",
-        });
-        callback(err, "", "");
+        callback(mockError, "", "");
       };
       if (holdCallbacks) held.push(finish);
       else finish();
     },
   ),
 }));
+
+afterEach(() => {
+  mockError = DEFAULT_ERROR();
+});
 
 describe("buildBeansArgs", () => {
   it("passes config, json flag, and query as separate argv entries (no shell)", () => {
@@ -179,5 +185,80 @@ describe("error message redaction", () => {
     expect(redactPaths("beans path does not exist or is not a directory: /nope/here")).toBe(
       "beans path does not exist or is not a directory: here",
     );
+  });
+
+  it("redacts a path wrapped in double quotes", () => {
+    expect(redactPaths('"/home/alice/git/p/x.md"')).toBe('"x.md"');
+  });
+
+  it("redacts a path wrapped in parentheses", () => {
+    expect(redactPaths("(/home/alice/git/p/x.md)")).toBe("(x.md)");
+  });
+
+  it("redacts a path wrapped in square brackets", () => {
+    expect(redactPaths("[/home/alice/git/p/x.md]")).toBe("[x.md]");
+  });
+
+  it("redacts a path introduced by a colon with no space", () => {
+    expect(redactPaths("error:/home/alice/git/p/x.md")).toBe("error:x.md");
+  });
+
+  it("redacts a path embedded as a JSON string value", () => {
+    expect(redactPaths('{"path":"/home/alice/git/p/x.md"}')).toBe('{"path":"x.md"}');
+  });
+
+  it("redacts the local-path part of a file:// URI without leaking the directory", () => {
+    expect(redactPaths("file:///home/alice/git/p/x.md")).not.toContain("/home/alice");
+  });
+
+  it("leaves an http:// URL with a bare host fully intact", () => {
+    const message = "see http://host/a/b for details";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves an https:// URL fully intact", () => {
+    const message = "https://example.com/path/to/thing";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("reduces a trailing-slash path to its last segment instead of an empty string", () => {
+    expect(redactPaths("dir /a/b/ missing")).toBe("dir b missing");
+  });
+
+  it("stops redacting at a colon inside a directory name", () => {
+    expect(redactPaths("/home/a/we:ird/x.md")).toBe("we:ird/x.md");
+  });
+});
+
+// These drive redaction through the real execFile -> extractBeansErrorMessage
+// -> BeansError path (unlike the block above, which calls redactPaths
+// directly) so the wiring itself is under regression: removing the
+// redactPaths calls in extractBeansErrorMessage fails the first test here.
+describe("runBeansGraphql error redaction (end-to-end)", () => {
+  it("redacts an absolute path surfaced through a real ERROR_LINE-matching stderr", async () => {
+    mockError = Object.assign(new Error("ignored — stderr wins"), {
+      stderr:
+        "Error: loading beans: loading /home/alice/git/proj/.beans/broken.md: parsing front matter\n",
+    });
+
+    const err = await runBeansGraphql({
+      configPath: "/x/.beans.yml",
+      query: "{ beans { id } }",
+    }).catch((e: unknown) => e);
+
+    if (!(err instanceof BeansError)) throw new Error("expected a BeansError");
+    expect(err.messages[0]).toBe("loading beans: loading broken.md: parsing front matter");
+  });
+
+  it("falls back to String(err) — and still redacts it — when err has no stderr or string message", async () => {
+    mockError = { stderr: "no error-line prefix here\n" };
+
+    const err = await runBeansGraphql({
+      configPath: "/x/.beans.yml",
+      query: "{ beans { id } }",
+    }).catch((e: unknown) => e);
+
+    if (!(err instanceof BeansError)) throw new Error("expected a BeansError");
+    expect(err.message).toBe("[object Object]");
   });
 });

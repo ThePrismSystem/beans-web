@@ -102,11 +102,18 @@ describe("POST /api/projects/:name/graphql", () => {
     expect(res.status).toBe(404);
   });
 
-  it("does not leak an absolute host path when beans fails to load a file", async () => {
+  // Redaction itself is covered where it happens — the unit tests on
+  // redactPaths, and the end-to-end tests in executor.test.ts that drive a
+  // real stderr through runBeansGraphql -> extractBeansErrorMessage. This
+  // test covers a different concern: that the route forwards an already-
+  // redacted BeansError's messages into the JSON response unchanged, rather
+  // than mangling or dropping them.
+  it("forwards an already-redacted BeansError message into the response unchanged", async () => {
+    const redactedMessage = "loading beans: loading broken.md: parsing front matter";
     const app = createApp(
       deps({
         runGraphql: vi.fn(() => {
-          throw new BeansError("loading beans: loading broken.md: parsing front matter");
+          throw new BeansError(redactedMessage);
         }),
       }),
     );
@@ -118,10 +125,7 @@ describe("POST /api/projects/:name/graphql", () => {
     });
 
     expect(res.status).toBe(400);
-    const payload = (await res.json()) as { errors: { message: string }[] };
-    const message = payload.errors[0]?.message ?? "";
-    expect(message).toContain("broken.md");
-    expect(message).not.toMatch(/(?<=^|\s)\/(?:[^\s:]+\/)+/);
+    expect(await res.json()).toEqual({ errors: [{ message: redactedMessage }] });
   });
 
   it("rejects an over-sized request body with 413", async () => {
