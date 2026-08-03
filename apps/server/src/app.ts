@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import { Hono } from "hono";
+import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 
 import { registerAnalytics } from "./routes/analytics.js";
@@ -46,6 +47,11 @@ export function createApp(deps: AppDeps): Hono {
       },
     }),
   );
+  // Scoped to /api/* so serving the SPA and its assets stays quiet, and placed
+  // ahead of the guards so rejected requests (415/403) are logged too. The
+  // GraphQL query and variables are deliberately not logged — they carry bean
+  // content.
+  app.use("/api/*", logger());
   registerSecurity(app, deps.trustProxy);
   registerProjects(app, deps);
   registerGraphql(app, deps);
