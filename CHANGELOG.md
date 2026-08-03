@@ -4,6 +4,71 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-03
+
+Closes the seven actionable findings from the 2026-08-02 STRIDE/OWASP audit, and
+repairs a lint gate that had never run. The version bump is for the container:
+it no longer runs as root, so an existing deployment whose project files are
+root-owned needs one change before it can write them again.
+
+### Upgrading
+
+The image now runs as `node` (uid 1000). If your bind-mounted projects are owned
+by root, the UI will fail to write beans until you either `chown` the tree to the
+uid you want, or set `user:` in `docker-compose.yml` to the uid that already owns
+it (`id -u` prints yours). The `user:` line ships commented with that guidance.
+
+### Security
+
+- Every `beans` subprocess now takes one of `BEANS_CONCURRENCY` (8) process-wide
+  slots. The cap read like a server-wide limit but `mapWithConcurrency` built a
+  fresh pool per request, so it bounded one request and nothing else — the audit
+  measured 120 concurrent requests producing 162 live child processes. Callers
+  now queue rather than multiplying children.
+- Absolute host paths are stripped from `beans` error messages before they reach
+  a client. The CLI names the file it failed to load by full path, and the
+  GraphQL route returned that verbatim, disclosing the OS username and the
+  location of `GIT_ROOT`. Errors now carry the basename only, so they still
+  identify the offending file.
+- The cross-origin guard compares the content-type by MIME essence instead of
+  substring. `multipart/form-data; boundary=application/json` satisfied the old
+  check — and `multipart/form-data` is CORS-safelisted, so that request reached
+  a state-changing handler with no preflight.
+- `/api/events` refuses connections past 32 concurrent streams with a `503`.
+  Each stream held a socket and a watcher listener for as long as it lived, and
+  the route is a GET, so it was exempt from the cross-origin guard.
+- `/api/*` requests are logged with method, path, status and duration, ahead of
+  the guards so rejected requests are traced too. Bodies, headers and query
+  strings are never written: the query is stripped before the line is emitted,
+  because `/api/search?q=…` carries the user's own search text.
+- The `beans` CLI version baked into the image is pinned rather than tracking
+  `latest`, and the pin is kept in step with the one CI tests against.
+
+### Changed
+
+- **The container runs as an unprivileged user.** The runtime stage sets
+  `USER node`, and the compose stack drops all capabilities, sets
+  `no-new-privileges`, and mounts the root filesystem read-only with tmpfs for
+  `/tmp` and `/home/node/.cache`. See **Upgrading** above — this is the only
+  change in this release that can require action.
+
+### Fixed
+
+- `pnpm lint` had never linted a single TypeScript file. ESLint 10 resolves the
+  nearest `eslint.config.js` per file, so three per-package re-export shims
+  became the active config for everything under `apps/*` and `packages/*` — and
+  flat-config `files` globs resolve relative to that config's own directory, so
+  the root's `apps/server/**/*.ts` patterns matched nothing. `eslint .` matched
+  10 files, none of them source. A file containing `const v: any = x[0]!;`
+  passed the gate clean. It now matches every source file and that probe fails.
+  Broken since the scaffold commit, not a dependency regression.
+- The 465 violations the repaired gate surfaced, across 115 files. Two groups
+  were real defects rather than style: seven `react-hooks/set-state-in-effect`
+  cases, fixed by deriving during render, and six unhandled promise rejections.
+- `docs/SECURITY.md` overstated the old content-type check, claiming it refused
+  a no-preflight `text/plain` request. `README.md` claimed the container ran as
+  root, which contradicted the image it described.
+
 ## [0.1.5] - 2026-08-02
 
 Gives the search page the styling it never had. A scoped audit scored it 11/20
@@ -213,6 +278,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.2.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.0
 [0.1.5]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.3
