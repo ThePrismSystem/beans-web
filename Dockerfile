@@ -82,6 +82,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # anything running here should not be able to write it as root. `node` is uid
 # 1000 in this base image; compose can override with `user:` when the host
 # owner differs.
+#
+# Docker leaves HOME=/ for a numeric uid with no /etc/passwd entry (the case
+# for any uid compose substitutes via `user:`), and corepack needs a writable
+# HOME to place its cache. Pin it to the `node` user's home so the tmpfs at
+# /home/node/.cache is actually the path corepack writes to.
+ENV HOME=/home/node
 USER node
 
 CMD ["pnpm", "--filter", "@beans-frontend/server", "start"]
