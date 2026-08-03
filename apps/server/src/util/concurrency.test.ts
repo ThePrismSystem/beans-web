@@ -202,6 +202,34 @@ describe("withBeansSlot cancellation", () => {
     expect(ran).toBe(false);
   });
 
+  // `AbortSignal.reason` is whatever the caller passed — `abort("gone")` is
+  // legal and leaves a bare string. Rejecting with that would hand every catch
+  // site a non-Error, so it gets normalized.
+  it("rejects with an Error even when aborted with a non-Error reason", async () => {
+    const release: (() => void)[] = [];
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            release.push(() => {
+              resolve();
+            });
+          }),
+      ),
+    );
+    await vi.waitFor(() => {
+      expect(release.length).toBe(BEANS_CONCURRENCY);
+    });
+
+    const controller = new AbortController();
+    const queued = withBeansSlot(() => Promise.resolve(), controller.signal);
+    controller.abort("gone");
+    await expect(queued).rejects.toThrow(/queued for a beans slot/);
+
+    for (const done of release) done();
+    await Promise.all(holders);
+  });
+
   it("gives an aborted waiter's slot to the next in line rather than losing it", async () => {
     const release: (() => void)[] = [];
     const hold = () =>

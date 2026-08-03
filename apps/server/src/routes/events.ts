@@ -33,9 +33,12 @@ function isAborted(signal: AbortSignal): boolean {
  * full interval after a disconnect. Connect/abort churn would then pile up
  * dead closures at connection rate, unbounded by `MAX_SSE_CLIENTS`, since the
  * slot is released on abort rather than when the callback finally unwinds.
+ *
+ * Must not be called with an already-aborted signal: a listener registered
+ * after `abort` has fired never runs, so the sleep would serve its full term.
+ * The loop below checks first, with no await in between.
  */
 function sleepUntilAborted(signal: AbortSignal, ms: number): Promise<void> {
-  if (signal.aborted) return Promise.resolve();
   return new Promise<void>((resolve) => {
     const done = (): void => {
       clearTimeout(timer);

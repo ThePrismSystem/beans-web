@@ -39,7 +39,6 @@ let active = 0;
 
 interface Waiter {
   resolve: () => void;
-  reject: (reason: Error) => void;
 }
 const waiters: Waiter[] = [];
 
@@ -71,31 +70,25 @@ async function acquire(signal?: AbortSignal): Promise<void> {
   // here. Decrementing and letting the waiter re-acquire would let a caller
   // already queued as a microtask take the freed slot first and push the
   // total past the cap.
+  // Aliased to a const so the narrowing below survives into the closures; TS
+  // resets it for a parameter, which is mutable as far as it is concerned.
   const pending = signal;
   return new Promise<void>((resolve, reject) => {
-    const onAbort = (): void => {
-      const queued = waiters.indexOf(waiter);
-      // -1 means `release` already handed this caller a slot. Too late to
-      // cancel: it owns the slot and must run so its `finally` gives it back.
-      if (queued === -1) return;
-      waiters.splice(queued, 1);
-      if (pending) waiter.reject(abortError(pending));
-    };
-    const settle = (): void => {
-      pending?.removeEventListener("abort", onAbort);
-    };
-    const waiter: Waiter = {
-      resolve: () => {
-        settle();
-        resolve();
-      },
-      reject: (reason) => {
-        settle();
-        reject(reason);
-      },
-    };
+    const waiter: Waiter = { resolve };
     waiters.push(waiter);
-    pending?.addEventListener("abort", onAbort, { once: true });
+    if (!pending) return;
+
+    const onAbort = (): void => {
+      // Being served drops this listener before it resolves, so by the time
+      // `onAbort` can run the waiter is always still queued.
+      waiters.splice(waiters.indexOf(waiter), 1);
+      reject(abortError(pending));
+    };
+    waiter.resolve = () => {
+      pending.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    pending.addEventListener("abort", onAbort, { once: true });
   });
 }
 
