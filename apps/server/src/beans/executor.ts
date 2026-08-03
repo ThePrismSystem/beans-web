@@ -66,9 +66,12 @@ const ERROR_LINE = /^Error:\s*(.*)$/m;
  * letting `error:/local/path` (one slash) and `file:///local/path` (three
  * slashes, the empty-authority form) redact. Excluding `:` from the content
  * class also stops a match before the delimiter in `…/broken.md: parsing
- * front matter`.
+ * front matter`. The trailing `+` (not `*`) requires at least one content
+ * character after the leading `/`, so a bare slash in prose (`true / false`,
+ * `cannot write to /`) never matches — the old `*` let it capture zero
+ * characters and get deleted.
  */
-const ABSOLUTE_PATH = /(?<=^|[\s"'(\[{:])(?!\/\/[^/\s])\/[^\s:]*/g;
+const ABSOLUTE_PATH = /(?<=^|[\s"'(\[{:])(?!\/\/[^/\s])\/[^\s:]+/g;
 
 /**
  * Reduces absolute paths in a `beans` error to their basenames. The CLI names
@@ -77,7 +80,10 @@ const ABSOLUTE_PATH = /(?<=^|[\s"'(\[{:])(?!\/\/[^/\s])\/[^\s:]*/g;
  * removed from `/api/projects`. The basename is kept because, alongside the
  * project name callers already log, it is enough to find the file. Trailing
  * slashes are trimmed before the basename is taken, so `/a/b/` reduces to
- * `b` rather than an empty string.
+ * `b` rather than an empty string. A run of only slashes (`//`, `///`) is
+ * punctuation, not a path — trimming trailing slashes from it empties the
+ * string, and slicing an empty string would otherwise delete the run from
+ * the message, so that case is passed through unchanged instead.
  *
  * A path containing a space is only redacted up to that space: the segment
  * before it is reduced to a basename, but the space itself isn't part of the
@@ -93,6 +99,7 @@ const ABSOLUTE_PATH = /(?<=^|[\s"'(\[{:])(?!\/\/[^/\s])\/[^\s:]*/g;
 export function redactPaths(message: string): string {
   return message.replace(ABSOLUTE_PATH, (path) => {
     const trimmed = path.replace(/\/+$/, "");
+    if (trimmed === "") return path;
     return trimmed.slice(trimmed.lastIndexOf("/") + 1);
   });
 }

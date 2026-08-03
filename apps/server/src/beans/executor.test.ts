@@ -228,6 +228,36 @@ describe("error message redaction", () => {
   it("stops redacting at a colon inside a directory name", () => {
     expect(redactPaths("/home/a/we:ird/x.md")).toBe("we:ird/x.md");
   });
+
+  it("leaves a bare slash between words alone", () => {
+    const message = "true / false";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves a bare slash used as a fraction separator alone", () => {
+    const message = "ratio is 10 / 20 percent";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves a trailing bare slash alone", () => {
+    const message = "cannot write to /";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves multiple bare slashes alone", () => {
+    const message = "x / y / z all bare slashes";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves a doubled bare slash alone", () => {
+    const message = "a // b";
+    expect(redactPaths(message)).toBe(message);
+  });
+
+  it("leaves a slash-delimited word pair alone", () => {
+    const message = "and / or";
+    expect(redactPaths(message)).toBe(message);
+  });
 });
 
 // These drive redaction through the real execFile -> extractBeansErrorMessage
