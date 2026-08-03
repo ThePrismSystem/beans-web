@@ -19,7 +19,17 @@ services:
 
     # Run as the host UID:GID that OWNS your git projects, so beans created or
     # edited through the UI are written with your ownership rather than root's.
-    # user: "1000:1000"
+    user: "1000:1000"
+
+    read_only: true
+    tmpfs:
+      - /tmp
+      # Corepack lazily downloads/verifies the pinned pnpm version into this
+      # cache on first run; without it the container fails to boot (EROFS).
+      - /home/node/.cache
+    cap_drop: [ALL]
+    security_opt:
+      - "no-new-privileges:true"
 
     environment:
       GIT_ROOT: /projects # comma-separated scan root(s) inside the container (matches the mount below)

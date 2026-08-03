@@ -78,4 +78,10 @@ EXPOSE 4780
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4780)+'/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
+# Drop root: the container bind-mounts the host's project tree read-write, so
+# anything running here should not be able to write it as root. `node` is uid
+# 1000 in this base image; compose can override with `user:` when the host
+# owner differs.
+USER node
+
 CMD ["pnpm", "--filter", "@beans-frontend/server", "start"]
