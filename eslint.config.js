@@ -176,6 +176,14 @@ export default tseslint.config(
     files: ["apps/server/**/*.constants.ts", "packages/shared/**/*.constants.ts"],
     rules: MAGIC_NUMBERS_OFF,
   },
+  {
+    // The one place allowed to call console.log directly: hono/logger's
+    // request trace is routed through here so it can be stripped of query
+    // strings first. Scoped narrowly so a stray console.log elsewhere in
+    // apps/server still fails the base no-console rule above.
+    files: ["apps/server/src/util/logging.ts"],
+    rules: { "no-console": ["error", { allow: ["info", "warn", "error", "log"] }] },
+  },
 
   // --- apps/web (typescript-react ruleset) ---
   {
