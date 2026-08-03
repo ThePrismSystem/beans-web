@@ -33,7 +33,6 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
     if (openStreams >= MAX_SSE_CLIENTS) {
       return c.text("too many event streams", HTTP_SERVICE_UNAVAILABLE);
     }
-    openStreams += 1;
 
     return streamSSE(c, async (stream) => {
       // The while loop below only re-checks the abort signal after its
@@ -49,6 +48,13 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
       };
 
       try {
+        // hono's streamSSE invokes this callback synchronously (no await
+        // between the cap check above and here), so this stays atomic with
+        // it. If streamSSE ever threw before reaching this callback, the slot
+        // would never be claimed — better than a leak that never gets
+        // released.
+        openStreams += 1;
+
         const handler = (e: ServerEvent) => {
           // Drop the listener if the client has gone away mid-write rather than
           // silently discarding the rejected write and leaking the subscription.
