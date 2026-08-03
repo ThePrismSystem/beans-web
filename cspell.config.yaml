@@ -73,6 +73,11 @@ words:
   - noreferrer
   # cspell knows "viewport" but not its plural.
   - viewports
+  - nosuchfield
+  - basenames
+  - unredacted
+  - safelisted
+  - bypassable
 ignorePaths:
   - node_modules
   - dist
