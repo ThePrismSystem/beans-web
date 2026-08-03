@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
+
 import { describe, expect, it, vi } from "vitest";
+
 import {
   BEANS_EXEC_TIMEOUT_MS,
   buildBeansArgs,

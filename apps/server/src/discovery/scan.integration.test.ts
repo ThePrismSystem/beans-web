@@ -2,7 +2,9 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
 import { discoverProjects } from "./scan.js";
 
 const root = mkdtempSync(join(tmpdir(), "scan-it-"));
@@ -20,7 +22,9 @@ beforeAll(() => {
   mkdirSync(brokenDir, { recursive: true });
   writeFileSync(join(brokenDir, ".beans.yml"), "not: a-real-config\n");
 });
-afterAll(() => rmSync(root, { recursive: true, force: true }));
+afterAll(() => {
+  rmSync(root, { recursive: true, force: true });
+});
 
 describe("discoverProjects (real binary)", () => {
   it("finds the seeded project with non-zero counts", async () => {

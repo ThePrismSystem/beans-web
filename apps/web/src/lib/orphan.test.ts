@@ -78,7 +78,11 @@ describe("closedAncestors", () => {
       listItem({ id: "e-1", type: "epic", parentId: "m-1", status: "scrapped" }),
       listItem({ id: "t-1", parentId: "e-1" }),
     ];
-    const chain = closedAncestors(beans[2]!, indexById(beans));
+    const target = beans[2];
+    if (!target) {
+      throw new Error("expected a target bean");
+    }
+    const chain = closedAncestors(target, indexById(beans));
     expect(chain.map((b) => b.id)).toEqual(["e-1", "m-1"]);
   });
 
@@ -88,7 +92,11 @@ describe("closedAncestors", () => {
       listItem({ id: "e-1", type: "epic", parentId: "m-1", status: "completed" }),
       listItem({ id: "t-1", parentId: "e-1" }),
     ];
-    expect(closedAncestors(beans[2]!, indexById(beans)).map((b) => b.id)).toEqual(["e-1"]);
+    const target = beans[2];
+    if (!target) {
+      throw new Error("expected a target bean");
+    }
+    expect(closedAncestors(target, indexById(beans)).map((b) => b.id)).toEqual(["e-1"]);
   });
 
   it("returns empty when the parent is open", () => {
@@ -96,7 +104,11 @@ describe("closedAncestors", () => {
       listItem({ id: "e-1", type: "epic", status: "todo" }),
       listItem({ id: "t-1", parentId: "e-1" }),
     ];
-    expect(closedAncestors(beans[1]!, indexById(beans))).toEqual([]);
+    const target = beans[1];
+    if (!target) {
+      throw new Error("expected a target bean");
+    }
+    expect(closedAncestors(target, indexById(beans))).toEqual([]);
   });
 
   it("terminates on a parent cycle", () => {
@@ -105,6 +117,10 @@ describe("closedAncestors", () => {
       listItem({ id: "a-2", parentId: "a-1", status: "completed" }),
       listItem({ id: "t-1", parentId: "a-1" }),
     ];
-    expect(closedAncestors(beans[2]!, indexById(beans)).map((b) => b.id)).toEqual(["a-1", "a-2"]);
+    const target = beans[2];
+    if (!target) {
+      throw new Error("expected a target bean");
+    }
+    expect(closedAncestors(target, indexById(beans)).map((b) => b.id)).toEqual(["a-1", "a-2"]);
   });
 });

@@ -6,12 +6,14 @@ import { buildAnalytics } from "./analytics.js";
 
 describe("buildAnalytics", () => {
   it("aggregates totals, per-project counts, and completed-by-month", async () => {
-    const run = vi.fn(async () => ({
-      beans: [
-        { type: "task", status: "completed", updatedAt: "2026-03-14T00:00:00Z" },
-        { type: "bug", status: "todo", updatedAt: "2026-03-15T00:00:00Z" },
-      ],
-    }));
+    const run = vi.fn(() =>
+      Promise.resolve({
+        beans: [
+          { type: "task", status: "completed", updatedAt: "2026-03-14T00:00:00Z" },
+          { type: "bug", status: "todo", updatedAt: "2026-03-15T00:00:00Z" },
+        ],
+      }),
+    );
     const a = await buildAnalytics([fakeProject("a")], run);
     expect(a.perProject).toEqual([{ project: "a", total: 2, open: 1 }]);
     expect(a.byType.task).toBe(1);
@@ -22,16 +24,16 @@ describe("buildAnalytics", () => {
 
   it("surfaces a project that errors, leaving it at zero counts, and orders projects and months", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const run = vi.fn(async (cfg: string) => {
-      if (cfg.includes("/broken/")) throw new Error("boom");
+    const run = vi.fn((cfg: string) => {
+      if (cfg.includes("/broken/")) return Promise.reject(new Error("boom"));
       if (cfg.includes("/z/")) {
-        return {
+        return Promise.resolve({
           beans: [{ type: "task", status: "completed", updatedAt: "2026-01-05T00:00:00Z" }],
-        };
+        });
       }
-      return {
+      return Promise.resolve({
         beans: [{ type: "task", status: "completed", updatedAt: "2026-02-10T00:00:00Z" }],
-      };
+      });
     });
     const a = await buildAnalytics(
       [fakeProject("z"), fakeProject("broken"), fakeProject("m")],

@@ -1,5 +1,3 @@
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -7,9 +5,13 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ProjectList, validateProjectSearch } from "./projectList.js";
+import { validateProjectSearch } from "../lib/projectSearch.js";
+
+import { ProjectList } from "./projectList.js";
 
 import type { BeanListItem } from "@beans-frontend/shared";
 

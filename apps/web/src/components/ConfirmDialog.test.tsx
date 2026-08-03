@@ -129,7 +129,11 @@ describe("ConfirmDialog", () => {
     it("closes on a backdrop click while the reason is empty", async () => {
       const { user, onCancel } = renderWithReason();
 
-      await user.click(document.querySelector(".confirm-dialog-backdrop")!);
+      const backdrop = document.querySelector(".confirm-dialog-backdrop");
+      if (!backdrop) {
+        throw new Error("expected a confirm-dialog-backdrop element");
+      }
+      await user.click(backdrop);
 
       expect(onCancel).toHaveBeenCalled();
     });
@@ -138,7 +142,11 @@ describe("ConfirmDialog", () => {
       const { user, onCancel } = renderWithReason();
       await user.type(screen.getByLabelText("Reason"), "careful work");
 
-      await user.click(document.querySelector(".confirm-dialog-backdrop")!);
+      const backdrop = document.querySelector(".confirm-dialog-backdrop");
+      if (!backdrop) {
+        throw new Error("expected a confirm-dialog-backdrop element");
+      }
+      await user.click(backdrop);
 
       // Discarding typed text on a stray click, with no warning, loses work.
       expect(onCancel).not.toHaveBeenCalled();

@@ -1,17 +1,20 @@
 import { EventEmitter } from "node:events";
+
 import { describe, expect, it, vi } from "vitest";
+
 import { createApp } from "../app.js";
-import type { AppDeps } from "../app.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
+
+import type { AppDeps } from "../app.js";
 
 function deps(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
     roots: ["/root"],
     scanDepth: 4,
-    listProjects: vi.fn(async () => [fakeProject("proj-a")]),
-    runGraphql: vi.fn(async () => ({ beans: [] })),
-    search: vi.fn(async () => ({ hits: [], failures: [] })),
-    analytics: vi.fn(async () => fakeAnalytics()),
+    listProjects: vi.fn(() => Promise.resolve([fakeProject("proj-a")])),
+    runGraphql: vi.fn(() => Promise.resolve({ beans: [] })),
+    search: vi.fn(() => Promise.resolve({ hits: [], failures: [] })),
+    analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
     ...overrides,

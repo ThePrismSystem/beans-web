@@ -14,7 +14,13 @@ function renderRow(onSave = vi.fn()) {
         initialValue="feature"
         onSave={onSave}
         editor={({ value, onValue }) => (
-          <select aria-label="Type editor" value={value} onChange={(e) => onValue(e.target.value)}>
+          <select
+            aria-label="Type editor"
+            value={value}
+            onChange={(e) => {
+              onValue(e.target.value);
+            }}
+          >
             <option value="feature">feature</option>
             <option value="epic">epic</option>
           </select>
@@ -57,7 +63,9 @@ describe("InlineEditRow", () => {
             <input
               aria-label="Status editor"
               value={value}
-              onChange={(event) => onValue(event.target.value)}
+              onChange={(event) => {
+                onValue(event.target.value);
+              }}
             />
           )}
         />,

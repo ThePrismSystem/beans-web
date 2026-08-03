@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { UseQueryResult } from "@tanstack/react-query";
 import type { BeanListItem } from "@beans-frontend/shared";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 // `body` is deliberately absent: no list row renders it, and leaving it out is
 // what makes fetching a whole project at once cheap. The detail view fetches

@@ -8,8 +8,10 @@ import tseslint from "typescript-eslint";
 
 // apps/server + packages/shared use the typescript-node ruleset;
 // apps/web uses the typescript-react ruleset.
-const NODE_FILES = ["apps/server/**/*.ts", "packages/shared/**/*.ts"];
-const REACT_FILES = ["apps/web/**/*.{ts,tsx}"];
+// `.mts`/`.cts` are not in ESLint's default lint target set, so a file using
+// either extension is silently skipped unless a `files` glob names it.
+const NODE_FILES = ["apps/server/**/*.{ts,mts,cts}", "packages/shared/**/*.{ts,mts,cts}"];
+const REACT_FILES = ["apps/web/**/*.{ts,mts,cts,tsx}"];
 
 const NODE_TEST_FILES = [
   "apps/server/**/*.test.ts",
@@ -181,7 +183,8 @@ export default tseslint.config(
     extends: [...tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: ["./apps/web/tsconfig.eslint.json"],
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {
@@ -221,7 +224,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.d.ts"],
+    files: ["**/*.d.{ts,mts,cts}"],
     ...tseslint.configs.disableTypeChecked,
   },
 

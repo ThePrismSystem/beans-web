@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 
-import { BeanRow } from "./BeanRow.js";
-
 import { usePersistedProjectState } from "../hooks/usePersistedState.js";
 import { buildTree, pruneTreeToMatches } from "../lib/hierarchy.js";
 import { beanComparator } from "../lib/sort.js";
 import { readStringSet, writeStringSet } from "../lib/storage.js";
+
+import { BeanRow } from "./BeanRow.js";
 
 import type { BeanNode } from "../lib/hierarchy.js";
 import type { SortDir, SortKey } from "../lib/sort.js";
@@ -112,7 +112,10 @@ export function HierarchyList({
       : "hierarchy-row";
     return (
       <li key={node.bean.id} className="hierarchy-node" data-depth={node.depth}>
-        <div className={rowClass} style={{ paddingLeft: `calc(${node.depth} * var(--indent))` }}>
+        <div
+          className={rowClass}
+          style={{ paddingLeft: `calc(${String(node.depth)} * var(--indent))` }}
+        >
           {hasChildren ? (
             <button
               type="button"

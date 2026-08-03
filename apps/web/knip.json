@@ -1,5 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/api/client.ts", "eslint.config.js", "e2e/fixtures/serve.mjs"],
+  "entry": ["src/api/client.ts", "e2e/fixtures/serve.mjs", "e2e/fixtures/seed.d.mts"],
   "ignoreBinaries": ["tsc", "eslint", "beans"]
 }

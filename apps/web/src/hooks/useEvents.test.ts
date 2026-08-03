@@ -1,5 +1,5 @@
-import { act, renderHook } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useEvents } from "./useEvents.js";

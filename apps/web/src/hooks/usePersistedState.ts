@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 /**
  * Loads a project-scoped value from storage on mount and whenever `project`
@@ -7,10 +7,9 @@ import { useEffect, useState } from "react";
  * persists the result via `write` at the moment it's called, before the
  * component re-renders with the new value.
  *
- * `read` must be a stable reference (e.g. a module-level function, not an
- * inline closure) since it's part of the effect's dependency array — a
- * fresh identity on every render would re-trigger the reload effect on
- * every render, not just when `project` changes.
+ * The reload is keyed on `storageKey`, not on `read`'s identity, so `read` may
+ * be an inline closure. It is called during render, which means it must be
+ * pure and cheap: no side effects, no network, just a synchronous storage read.
  */
 export function usePersistedProjectState<T>(
   project: string,
@@ -19,11 +18,15 @@ export function usePersistedProjectState<T>(
   write: (key: string, value: T) => void,
 ): [T, (updater: T | ((current: T) => T)) => void] {
   const storageKey = `beans:${name}:${project}`;
+  const [loadedKey, setLoadedKey] = useState(storageKey);
   const [value, setValue] = useState<T>(() => read(storageKey));
 
-  useEffect(() => {
+  // Reload from storage when `storageKey` changes, without a `useEffect`
+  // round-trip: https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-when-a-prop-changes
+  if (storageKey !== loadedKey) {
+    setLoadedKey(storageKey);
     setValue(read(storageKey));
-  }, [project, storageKey, read]);
+  }
 
   function setPersisted(updater: T | ((current: T) => T)) {
     setValue((current) => {

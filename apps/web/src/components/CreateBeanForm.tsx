@@ -1,5 +1,3 @@
-import { useRef, useState } from "react";
-
 import {
   BEAN_PRIORITIES,
   BEAN_STATUSES,
@@ -7,12 +5,13 @@ import {
   canParent,
   validParentTypes,
 } from "@beans-frontend/shared";
+import { useRef, useState } from "react";
 
 import { EnumSelect } from "./EnumSelect.js";
 
 import type { CreateBeanInput } from "../api/generated.js";
-import type { ChangeEvent, FormEvent } from "react";
 import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { ChangeEvent, SubmitEvent } from "react";
 
 const TITLE_ERROR_ID = "create-bean-title-error";
 
@@ -97,7 +96,7 @@ export function CreateBeanForm({
     setTags(event.target.value);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
@@ -204,7 +203,9 @@ export function CreateBeanForm({
         <textarea
           id="create-bean-body"
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => {
+            setBody(event.target.value);
+          }}
           rows={6}
         />
       </div>

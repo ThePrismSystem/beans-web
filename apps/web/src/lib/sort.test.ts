@@ -198,7 +198,11 @@ describe("sortBeans determinism", () => {
 
   it("inverts only the primary key, leaving ties in ascending default order", () => {
     const asc = sortBeans(beans, "status", "asc");
-    const desc = sortBeans(rotations(beans)[1]!, "status", "desc");
+    const rotated = rotations(beans)[1];
+    if (!rotated) {
+      throw new Error("expected a rotated bean list");
+    }
+    const desc = sortBeans(rotated, "status", "desc");
     const tiedAsc = asc.filter((b) => b.status === "todo").map((b) => b.id);
     const tiedDesc = desc.filter((b) => b.status === "todo").map((b) => b.id);
     expect(tiedDesc).toEqual(tiedAsc);

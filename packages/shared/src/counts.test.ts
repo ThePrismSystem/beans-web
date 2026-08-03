@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { BEAN_STATUSES, BEAN_TYPES } from "./enums.js";
 import { zeroCounts } from "./counts.js";
+import { BEAN_STATUSES, BEAN_TYPES } from "./enums.js";
 
 describe("zeroCounts", () => {
   it("builds a record with every key set to zero", () => {

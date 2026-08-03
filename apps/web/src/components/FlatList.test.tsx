@@ -1,9 +1,9 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { FlatList } from "./FlatList.js";
-
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { FlatList } from "./FlatList.js";
 
 import type { BeanListItem } from "@beans-frontend/shared";
 

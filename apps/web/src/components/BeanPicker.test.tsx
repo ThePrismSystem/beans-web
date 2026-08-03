@@ -280,8 +280,11 @@ describe("BeanPicker", () => {
     const focusable = dialog.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) {
+      throw new Error("expected at least one focusable element");
+    }
 
     last.focus();
     await user.tab();
@@ -308,8 +311,11 @@ describe("BeanPicker", () => {
     const focusable = dialog.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
-    const first = focusable[0]!;
-    const second = focusable[1]!;
+    const first = focusable[0];
+    const second = focusable[1];
+    if (!first || !second) {
+      throw new Error("expected at least two focusable elements");
+    }
 
     first.focus();
     await user.tab();
@@ -332,8 +338,11 @@ describe("BeanPicker", () => {
     const focusable = dialog.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
-    const secondToLast = focusable[focusable.length - 2]!;
-    const last = focusable[focusable.length - 1]!;
+    const secondToLast = focusable[focusable.length - 2];
+    const last = focusable[focusable.length - 1];
+    if (!secondToLast || !last) {
+      throw new Error("expected at least two focusable elements");
+    }
 
     last.focus();
     await user.tab({ shift: true });

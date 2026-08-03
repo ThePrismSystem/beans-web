@@ -1,5 +1,5 @@
 import { Link, useSearch as useRouteSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
 import { StatusDot } from "../components/StatusDot.js";
@@ -7,14 +7,10 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useSearch } from "../hooks/useSearch.js";
 
-import type { ChangeEvent } from "react";
 import type { SearchHit } from "@beans-frontend/shared";
+import type { ChangeEvent } from "react";
 
 const SEARCH_DEBOUNCE_MS = 250;
-
-export function validateSearchPageSearch(search: Record<string, unknown>): { q: string } {
-  return { q: typeof search.q === "string" ? search.q : "" };
-}
 
 function SearchResultRow({ hit }: { hit: SearchHit }) {
   return (
@@ -39,10 +35,13 @@ export function SearchPage() {
   // SearchPage never writes to the URL itself (only header-search Enter
   // does), so it's safe to resync from the route whenever ?q= changes while
   // this page stays mounted, e.g. navigating here again from the header
-  // search with a new query.
-  useEffect(() => {
+  // search with a new query. Adjusted during render (not an effect) so the
+  // resync lands in the same commit as the route change.
+  const [previousRouteQuery, setPreviousRouteQuery] = useState(routeSearch.q);
+  if (routeSearch.q !== previousRouteQuery) {
+    setPreviousRouteQuery(routeSearch.q);
     setQuery(routeSearch.q ?? "");
-  }, [routeSearch.q]);
+  }
 
   const trimmed = query.trim();
   const debounced = useDebouncedValue(trimmed, SEARCH_DEBOUNCE_MS);
@@ -63,7 +62,7 @@ export function SearchPage() {
         </p>
       );
     }
-    if (isPending || !data) {
+    if (isPending) {
       return (
         <p className="muted" role="status">
           Searching…

@@ -1,8 +1,11 @@
 import { EventEmitter } from "node:events";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { fakeProject } from "../testing/fixtures.js";
+
 import { BeansWatcher } from "./watcher.js";
+
 import type { WatchLike } from "./watcher.js";
 
 class FakeWatch extends EventEmitter implements WatchLike {
@@ -14,7 +17,7 @@ class FakeWatch extends EventEmitter implements WatchLike {
   unwatch = vi.fn((paths: string | string[]) => {
     this.removed.push(...(Array.isArray(paths) ? paths : [paths]));
   });
-  close = vi.fn(async () => undefined);
+  close = vi.fn(() => Promise.resolve(undefined));
 }
 
 describe("BeansWatcher", () => {

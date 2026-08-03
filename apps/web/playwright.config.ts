@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 const PORT = 4791;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+const BASE_URL = `http://127.0.0.1:${String(PORT)}`;
 
 export default defineConfig({
   testDir: "./e2e",

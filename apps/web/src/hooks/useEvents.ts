@@ -1,8 +1,8 @@
 import { QueryClientContext } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
 
-import type { QueryClient } from "@tanstack/react-query";
 import type { ServerEvent, ServerEventKind } from "@beans-frontend/shared";
+import type { QueryClient } from "@tanstack/react-query";
 
 export interface UseEventsResult {
   lastEvent: ServerEvent | null;
@@ -67,12 +67,12 @@ export function useEvents(client?: QueryClient): UseEventsResult {
     function flush() {
       flushTimer = undefined;
       for (const project of pendingProjects) {
-        queryClient?.invalidateQueries({ queryKey: ["beans", project] });
-        queryClient?.invalidateQueries({ queryKey: ["bean", project] });
+        void queryClient?.invalidateQueries({ queryKey: ["beans", project] });
+        void queryClient?.invalidateQueries({ queryKey: ["bean", project] });
       }
       pendingProjects.clear();
-      queryClient?.invalidateQueries({ queryKey: ["projects"] });
-      queryClient?.invalidateQueries({ queryKey: ["analytics"] });
+      void queryClient?.invalidateQueries({ queryKey: ["projects"] });
+      void queryClient?.invalidateQueries({ queryKey: ["analytics"] });
       setLastEvent(pendingEvent);
     }
 
@@ -80,9 +80,8 @@ export function useEvents(client?: QueryClient): UseEventsResult {
       const parsed = parseServerEvent(event.data);
       if (!parsed) {
         // Surface (rather than silently drop) payloads we don't recognize —
-        // e.g. after a server-side event-shape change. `debug` keeps it out of
-        // the default console view while remaining discoverable.
-        console.debug("useEvents: dropped unrecognized SSE payload", event.data);
+        // e.g. after a server-side event-shape change.
+        console.warn("useEvents: dropped unrecognized SSE payload", event.data);
         return;
       }
       pendingProjects.add(parsed.project);

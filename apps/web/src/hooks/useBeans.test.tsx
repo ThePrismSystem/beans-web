@@ -51,7 +51,9 @@ describe("useProjectBeans", () => {
   it("sends an empty filter when there is no search text", async () => {
     const fetchMock = mockFetch();
     const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     expect(sentBody(fetchMock).variables).toEqual({ filter: {} });
   });
@@ -59,7 +61,9 @@ describe("useProjectBeans", () => {
   it("sends only the trimmed search term when there is one", async () => {
     const fetchMock = mockFetch();
     const { result } = renderHook(() => useProjectBeans("demo", "  login~2  "), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     expect(sentBody(fetchMock).variables).toEqual({ filter: { search: "login~2" } });
   });
@@ -67,7 +71,9 @@ describe("useProjectBeans", () => {
   it("does not request the bean body", async () => {
     const fetchMock = mockFetch();
     const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     expect(sentBody(fetchMock).query).not.toMatch(/\bbody\b/);
   });
@@ -75,7 +81,9 @@ describe("useProjectBeans", () => {
   it("returns the beans from the response", async () => {
     mockFetch();
     const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     expect(result.current.data).toEqual([bean]);
   });

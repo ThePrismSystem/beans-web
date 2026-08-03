@@ -2,9 +2,9 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { Sidebar } from "./Sidebar.js";
-
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { Sidebar } from "./Sidebar.js";
 
 import type { Project } from "@beans-frontend/shared";
 

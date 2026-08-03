@@ -79,6 +79,14 @@ fails if the result differs from what is committed. Change a GraphQL document in
 commit the regenerated types alongside it. Never hand-edit that file: the check will
 overwrite the edit and then fail on it.
 
+### Linting
+
+ESLint config lives **only** at the repo root. Do not add `eslint.config.js` to a
+package — ESLint resolves the nearest config file per file, and flat-config `files`
+globs are relative to the config's own directory, so a per-package config silently
+stops the root's `apps/server/**` patterns from matching and the gate lints nothing.
+Run `pnpm lint` from the root.
+
 ## TypeScript conventions
 
 - No `as any`, no `as unknown as` double-casts, no `as never`, no `eslint-disable` comments. Fix

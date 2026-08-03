@@ -2,8 +2,9 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { RelationEditor } from "./RelationEditor.js";
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { RelationEditor } from "./RelationEditor.js";
 
 import type { Bean, BeanDetail, LinkedBean } from "@beans-frontend/shared";
 

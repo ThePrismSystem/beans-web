@@ -1,6 +1,21 @@
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 
 const JSON_CONTENT_TYPE = "application/json";
+const HTTP_UNSUPPORTED_MEDIA_TYPE = 415;
+const HTTP_FORBIDDEN = 403;
+
+/**
+ * The slice of Hono's `Context` that origin-checking needs. Typed narrowly
+ * (rather than importing `Context` itself) so a call site's concretely-typed
+ * context structurally satisfies this without any `any` flowing through
+ * Hono's default generic parameters.
+ */
+interface OriginContext {
+  req: {
+    url: string;
+    header: (name: string) => string | undefined;
+  };
+}
 
 /**
  * Each proxy in a chain appends to `X-Forwarded-*`, so the first value is the one
@@ -20,7 +35,7 @@ function firstHop(raw: string | undefined): string | undefined {
  * headers: anything that can reach the server directly can forge them, which
  * would leave the guard checking a value the caller controls.
  */
-function expectedOrigin(c: Context, trustProxy: boolean): string {
+function expectedOrigin(c: OriginContext, trustProxy: boolean): string {
   const url = new URL(c.req.url);
   if (!trustProxy) return url.origin;
   const proto = firstHop(c.req.header("x-forwarded-proto")) ?? url.protocol.slice(0, -1);
@@ -41,7 +56,10 @@ export function registerSecurity(app: Hono, trustProxy: boolean): void {
 
     const contentType = (c.req.header("content-type") ?? "").toLowerCase();
     if (!contentType.includes(JSON_CONTENT_TYPE)) {
-      return c.json({ errors: [{ message: "content-type must be application/json" }] }, 415);
+      return c.json(
+        { errors: [{ message: "content-type must be application/json" }] },
+        HTTP_UNSUPPORTED_MEDIA_TYPE,
+      );
     }
 
     const origin = c.req.header("origin");
@@ -49,7 +67,10 @@ export function registerSecurity(app: Hono, trustProxy: boolean): void {
       // Every write failing with an opaque 403 behind a proxy is hard to place,
       // so name the setting that fixes it — but only when it isn't already on.
       const hint = trustProxy ? "" : " (set TRUST_PROXY=true if behind a reverse proxy)";
-      return c.json({ errors: [{ message: `cross-origin request rejected${hint}` }] }, 403);
+      return c.json(
+        { errors: [{ message: `cross-origin request rejected${hint}` }] },
+        HTTP_FORBIDDEN,
+      );
     }
 
     return next();

@@ -2,8 +2,9 @@ import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { HeaderSearch } from "./HeaderSearch.js";
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { HeaderSearch } from "./HeaderSearch.js";
 
 const { useSearchMock } = vi.hoisted(() => ({ useSearchMock: vi.fn() }));
 vi.mock("../hooks/useSearch.js", () => ({ useSearch: useSearchMock }));
@@ -25,7 +26,11 @@ describe("HeaderSearch", () => {
     const user = userEvent.setup();
     renderWithRouter(<HeaderSearch />);
     const search = await screen.findByRole("search", { name: "Global search" });
-    await user.type(search.querySelector("input")!, "bell");
+    const input = search.querySelector("input");
+    if (!input) {
+      throw new Error("expected a search input element");
+    }
+    await user.type(input, "bell");
     expect(await screen.findByText("Ring bell")).toBeInTheDocument();
   });
 
@@ -38,7 +43,10 @@ describe("HeaderSearch", () => {
     const user = userEvent.setup();
     const { router } = renderWithRouter(<HeaderSearch />);
     const search = await screen.findByRole("search", { name: "Global search" });
-    const input = search.querySelector("input")!;
+    const input = search.querySelector("input");
+    if (!input) {
+      throw new Error("expected a search input element");
+    }
     await user.type(input, "bell");
     await screen.findByText("Ring bell");
 
@@ -58,7 +66,10 @@ describe("HeaderSearch", () => {
     const user = userEvent.setup();
     renderWithRouter(<HeaderSearch />);
     const search = await screen.findByRole("search", { name: "Global search" });
-    const input = search.querySelector("input")!;
+    const input = search.querySelector("input");
+    if (!input) {
+      throw new Error("expected a search input element");
+    }
     await user.type(input, "bell");
     await screen.findByText("Ring bell");
 
@@ -76,7 +87,11 @@ describe("HeaderSearch", () => {
     const user = userEvent.setup();
     renderWithRouter(<HeaderSearch />);
     const search = await screen.findByRole("search", { name: "Global search" });
-    await user.type(search.querySelector("input")!, "bell");
+    const input = search.querySelector("input");
+    if (!input) {
+      throw new Error("expected a search input element");
+    }
+    await user.type(input, "bell");
     await screen.findByText("Ring bell");
 
     fireEvent.mouseDown(document.body);
@@ -93,7 +108,11 @@ describe("HeaderSearch", () => {
     const user = userEvent.setup();
     renderWithRouter(<HeaderSearch />);
     const search = await screen.findByRole("search", { name: "Global search" });
-    await user.type(search.querySelector("input")!, "bell");
+    const input = search.querySelector("input");
+    if (!input) {
+      throw new Error("expected a search input element");
+    }
+    await user.type(input, "bell");
 
     await user.click(await screen.findByText("Ring bell"));
 
@@ -116,7 +135,10 @@ describe("HeaderSearch", () => {
       const user = userEvent.setup();
       const rendered = renderWithRouter(<HeaderSearch />);
       const search = await screen.findByRole("search", { name: "Global search" });
-      const input = search.querySelector("input")!;
+      const input = search.querySelector("input");
+      if (!input) {
+        throw new Error("expected a search input element");
+      }
       await user.type(input, "bell");
       await screen.findByText("Ring bell");
       return { user, input, ...rendered };
@@ -136,8 +158,12 @@ describe("HeaderSearch", () => {
       await user.keyboard("{ArrowDown}");
 
       const options = screen.getAllByRole("option");
-      expect(options[0]).toHaveAttribute("aria-selected", "true");
-      expect(input).toHaveAttribute("aria-activedescendant", options[0]!.id);
+      const first = options[0];
+      if (!first) {
+        throw new Error("expected at least one search result option");
+      }
+      expect(first).toHaveAttribute("aria-selected", "true");
+      expect(input).toHaveAttribute("aria-activedescendant", first.id);
 
       await user.keyboard("{ArrowDown}");
       expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");

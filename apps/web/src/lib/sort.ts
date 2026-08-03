@@ -18,8 +18,10 @@ export function compareIds(a: string, b: string): number {
   if (!matchA || !matchB) {
     return a.localeCompare(b);
   }
-  const byPrefix = matchA[1]!.localeCompare(matchB[1]!);
-  return byPrefix !== 0 ? byPrefix : Number(matchA[2]) - Number(matchB[2]);
+  const [, prefixA = "", numA = ""] = matchA;
+  const [, prefixB = "", numB = ""] = matchB;
+  const byPrefix = prefixA.localeCompare(prefixB);
+  return byPrefix !== 0 ? byPrefix : Number(numA) - Number(numB);
 }
 
 /**

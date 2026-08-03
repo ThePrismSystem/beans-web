@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+
 import { env } from "../env.js";
 
 const execFileAsync = promisify(execFile);
@@ -10,6 +11,9 @@ const execFileAsync = promisify(execFile);
  * slot indefinitely; on timeout the child is killed and the call rejects.
  */
 export const BEANS_EXEC_TIMEOUT_MS = 15_000;
+
+/** Hard ceiling on a single `beans` invocation's combined stdout/stderr size. */
+const MAX_STDOUT_BYTES = 33_554_432; // 32 MiB
 
 export class BeansError extends Error {
   constructor(
@@ -64,7 +68,7 @@ export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
   const bin = opts.binPath ?? env.BEANS_BIN;
   try {
     const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
-      maxBuffer: 32 * 1024 * 1024,
+      maxBuffer: MAX_STDOUT_BYTES,
       timeout: BEANS_EXEC_TIMEOUT_MS,
       killSignal: "SIGKILL",
     });

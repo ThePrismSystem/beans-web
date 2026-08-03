@@ -1,5 +1,3 @@
-import { act, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -7,6 +5,8 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./AppShell.js";

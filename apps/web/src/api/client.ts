@@ -1,7 +1,7 @@
 import type { Analytics, Project, SearchResult } from "@beans-frontend/shared";
 
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`request failed: ${res.status}`);
+  if (!res.ok) throw new Error(`request failed: ${String(res.status)}`);
   return (await res.json()) as T;
 }
 

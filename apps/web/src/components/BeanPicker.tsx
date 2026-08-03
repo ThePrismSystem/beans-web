@@ -1,11 +1,11 @@
+import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-frontend/shared";
 import { useEffect, useRef, useState } from "react";
 
-import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-frontend/shared";
+import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 
 import { BeanTypeTag } from "./BeanTypeTag.js";
 import { CheckboxMenu } from "./CheckboxMenu.js";
 import { StatusDot } from "./StatusDot.js";
-import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 
 import type { BeanListItem, BeanStatus, BeanType } from "@beans-frontend/shared";
 
@@ -51,8 +51,11 @@ export function BeanPicker({
       const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) {
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -62,7 +65,9 @@ export function BeanPicker({
       }
     }
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open, onClose]);
 
   // Move focus into the dialog when it opens, so keyboard users don't have
@@ -94,7 +99,11 @@ export function BeanPicker({
   // be reset explicitly on each closed→open transition. Without this, a
   // previous multi-select stays checked after "Add" dispatches and closes
   // the picker, and reopening lets that stale checked set be re-dispatched.
-  useEffect(() => {
+  // Adjusted during render (not an effect) so the reset lands in the same
+  // commit as the open transition.
+  const [previousOpen, setPreviousOpen] = useState(open);
+  if (open !== previousOpen) {
+    setPreviousOpen(open);
     if (open) {
       setChecked([]);
       setSearch("");
@@ -102,7 +111,7 @@ export function BeanPicker({
       setStatuses([...OPEN_STATUSES]);
       setPrefixes([]);
     }
-  }, [open]);
+  }
 
   if (!open) return null;
 
@@ -130,7 +139,9 @@ export function BeanPicker({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
       >
         <div className="picker-head">
           <h2>{title}</h2>
@@ -145,7 +156,9 @@ export function BeanPicker({
           placeholder="Search beans…"
           aria-label="Search beans"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+          }}
         />
         <div className="picker-filters">
           <CheckboxMenu
@@ -169,7 +182,13 @@ export function BeanPicker({
         </div>
         <div className="picker-list">
           {mode === "single" && allowNone && (
-            <button type="button" className="picker-none" onClick={() => onPick([])}>
+            <button
+              type="button"
+              className="picker-none"
+              onClick={() => {
+                onPick([]);
+              }}
+            >
               — (none) —
             </button>
           )}
@@ -179,7 +198,9 @@ export function BeanPicker({
                 key={bean.id}
                 type="button"
                 className="picker-row"
-                onClick={() => onPick([bean.id])}
+                onClick={() => {
+                  onPick([bean.id]);
+                }}
               >
                 <BeanTypeTag type={bean.type} />
                 <span className="picker-row-title">{bean.title}</span>
@@ -191,7 +212,9 @@ export function BeanPicker({
                   type="checkbox"
                   aria-label={`Select ${bean.title}`}
                   checked={checked.includes(bean.id)}
-                  onChange={() => toggleChecked(bean.id)}
+                  onChange={() => {
+                    toggleChecked(bean.id);
+                  }}
                 />
                 <BeanTypeTag type={bean.type} />
                 <span className="picker-row-title">{bean.title}</span>
@@ -206,7 +229,9 @@ export function BeanPicker({
               type="button"
               className="picker-add"
               disabled={checked.length === 0}
-              onClick={() => onPick(checked)}
+              onClick={() => {
+                onPick(checked);
+              }}
             >
               Add {checked.length}
             </button>

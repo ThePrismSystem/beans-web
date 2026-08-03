@@ -54,12 +54,16 @@ export function ConfirmDialog({
     };
   }, [open]);
 
-  // Each opening starts from an empty field rather than the last attempt's text.
-  useEffect(() => {
+  // Each opening starts from an empty field rather than the last attempt's
+  // text. Adjusted during render (not an effect) so the reset lands in the
+  // same commit as the open transition.
+  const [previousOpen, setPreviousOpen] = useState(open);
+  if (open !== previousOpen) {
+    setPreviousOpen(open);
     if (open) {
       setReason("");
     }
-  }, [open]);
+  }
 
   if (!open) {
     return null;
@@ -112,7 +116,9 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={message ? messageId : undefined}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
         onKeyDown={handleKeyDown}
       >
         <h2 id={titleId}>{title}</h2>
@@ -132,7 +138,9 @@ export function ConfirmDialog({
               rows={REASON_ROWS}
               placeholder={reasonPlaceholder}
               value={reason}
-              onChange={(event) => setReason(event.target.value)}
+              onChange={(event) => {
+                setReason(event.target.value);
+              }}
             />
           </>
         )}
@@ -140,7 +148,13 @@ export function ConfirmDialog({
           <button type="button" onClick={onCancel}>
             {cancelLabel}
           </button>
-          <button type="button" className="confirm-dialog-danger" onClick={() => onConfirm(reason)}>
+          <button
+            type="button"
+            className="confirm-dialog-danger"
+            onClick={() => {
+              onConfirm(reason);
+            }}
+          >
             {confirmLabel}
           </button>
         </div>

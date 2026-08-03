@@ -1,9 +1,9 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Overview } from "./overview.js";
-
 import { renderWithRouter } from "../test/renderWithRouter.js";
+
+import { Overview } from "./overview.js";
 
 import type { BeanType, Project } from "@beans-frontend/shared";
 

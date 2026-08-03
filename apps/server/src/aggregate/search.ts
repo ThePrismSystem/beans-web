@@ -1,9 +1,9 @@
 import { join } from "node:path";
 
-import type { SearchHit, SearchResult } from "@beans-frontend/shared";
+import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
 
 import type { ProjectRecord } from "../discovery/scan.js";
-import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
+import type { SearchHit, SearchResult } from "@beans-frontend/shared";
 
 export type RunFn = (
   configPath: string,

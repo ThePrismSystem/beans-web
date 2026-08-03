@@ -34,8 +34,8 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe("useSearch", () => {
   it("fetches search hits for a non-empty query", async () => {
-    const fetchMock = vi.fn(
-      async () => new Response(JSON.stringify(searchResult), { status: 200 }),
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify(searchResult), { status: 200 })),
     );
     vi.stubGlobal("fetch", fetchMock);
 
