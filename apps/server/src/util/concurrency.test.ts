@@ -202,6 +202,56 @@ describe("withBeansSlot cancellation", () => {
     expect(ran).toBe(false);
   });
 
+  // Every GraphQL request now carries a signal, so the ordinary case is a
+  // queued caller whose signal never fires. Nothing covered it: the other
+  // cancellation tests all abort before their caller reaches the front.
+  it("serves a queued caller whose signal never fires, and stops listening once served", async () => {
+    const resolvers: (() => void)[] = [];
+    const hold = (signal?: AbortSignal) =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            resolvers.push(resolve);
+          }),
+        signal,
+      );
+
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () => hold());
+    await vi.waitFor(() => {
+      expect(resolvers).toHaveLength(BEANS_CONCURRENCY);
+    });
+
+    const controller = new AbortController();
+    const signalled = hold(controller.signal);
+    let ranBehind = false;
+    const behind = withBeansSlot(() => {
+      ranBehind = true;
+      return Promise.resolve();
+    });
+
+    // Free one slot. The signalled caller is first in the queue, so it takes it.
+    resolvers.shift()?.();
+    await vi.waitFor(() => {
+      expect(resolvers).toHaveLength(BEANS_CONCURRENCY);
+    });
+
+    // It is running now, not queued, so aborting has to be inert. An abort
+    // listener that outlived being served would splice at index -1 and evict
+    // whoever is genuinely last in the queue — `behind`, here.
+    controller.abort();
+    expect(ranBehind).toBe(false);
+
+    resolvers.pop()?.();
+    await signalled;
+    await vi.waitFor(() => {
+      expect(ranBehind).toBe(true);
+    });
+    await behind;
+
+    for (const resolve of resolvers) resolve();
+    await Promise.all(holders);
+  });
+
   // `AbortSignal.reason` is whatever the caller passed — `abort("gone")` is
   // legal and leaves a bare string. Rejecting with that would hand every catch
   // site a non-Error, so it gets normalized.
