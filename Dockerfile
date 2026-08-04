@@ -16,13 +16,21 @@
 # Stage 1 — build the `beans` CLI. CGO is disabled so the result is a static
 # binary that runs on any glibc/musl base without extra shared libraries.
 # ---------------------------------------------------------------------------
-FROM golang:1.24-bookworm AS beans-builder
+FROM golang:1.26-bookworm AS beans-builder
 # Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
 # the binary CI tested against.
 ARG BEANS_VERSION=v0.4.2
 ENV CGO_ENABLED=0
-RUN go install "github.com/hmans/beans@${BEANS_VERSION}"
-# -> /go/bin/beans
+# Built through a throwaway module rather than `go install pkg@version`, because
+# `go install` honours the dependency versions in upstream's go.mod and those
+# carry known CVEs. A module lets `go get` lift them first.
+#
+# These two pins are deliberate, not `@latest`: builds stay reproducible, and the
+# image-scan CI job goes red when they go stale, which is the signal to bump them.
+RUN go mod init beansbuild \
+ && go get "github.com/hmans/beans@${BEANS_VERSION}" \
+ && go get golang.org/x/net@v0.55.0 golang.org/x/text@v0.39.0 \
+ && go build -o /go/bin/beans github.com/hmans/beans
 # Keep the upstream Apache-2.0 license so the redistributed binary ships with
 # its attribution (the module cache dir name embeds the resolved version).
 RUN cp "$(go env GOMODCACHE)"/github.com/hmans/beans@*/LICENSE /beans-LICENSE
