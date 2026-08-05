@@ -165,7 +165,12 @@ describe("cross-origin guard with TRUST_PROXY on", () => {
   });
 
   it("honors X-Forwarded-Host when the proxy rewrites Host to the internal name", async () => {
-    const res = await proxied().request(
+    // Under the dual host check, both the internal name the proxy dials and
+    // the public name it forwards must be allowed — not just the forwarded
+    // one — so this deployment needs both listed.
+    const res = await createApp(
+      deps({ trustProxy: true, allowedHosts: ["beans.example.com", "beans-frontend"] }),
+    ).request(
       "http://beans-frontend:4780/api/projects/proj-a/graphql",
       proxiedPost({
         origin: "https://beans.example.com",
@@ -276,9 +281,33 @@ describe("host allowlist (DNS rebinding)", () => {
     expect(res.status).toBe(421);
   });
 
-  it("accepts an allowed forwarded host under TRUST_PROXY even when the connection host is not", async () => {
+  it("closes the X-Forwarded-Host bypass: a forged forwarded host cannot launder a disallowed connection host on a GET", async () => {
+    // X-Forwarded-Host is not a forbidden header, so a rebound page can set
+    // it freely with no preflight. Before this fix the allowlist trusted it
+    // alone under TRUST_PROXY, so this exact request — real Host/Origin both
+    // evil.example, forged X-Forwarded-Host: localhost — returned 200 and
+    // reopened the read half this guard exists to close.
+    const res = await createApp(deps({ trustProxy: true })).request(
+      "http://evil.example:4780/api/projects",
+      {
+        headers: { origin: "http://evil.example:4780", "x-forwarded-host": "localhost" },
+      },
+    );
+    expect(res.status).toBe(421);
+  });
+
+  it("rejects an allowed forwarded host under TRUST_PROXY when the connection host is not also allowed", async () => {
     const res = await createApp(
       deps({ trustProxy: true, allowedHosts: ["beans.example.com"] }),
+    ).request("http://internal.example/api/projects", {
+      headers: { "x-forwarded-host": "beans.example.com" },
+    });
+    expect(res.status).toBe(421);
+  });
+
+  it("accepts a proxied request under TRUST_PROXY once both the connection host and the forwarded host are allowed", async () => {
+    const res = await createApp(
+      deps({ trustProxy: true, allowedHosts: ["internal.example", "beans.example.com"] }),
     ).request("http://internal.example/api/projects", {
       headers: { "x-forwarded-host": "beans.example.com" },
     });
@@ -289,6 +318,13 @@ describe("host allowlist (DNS rebinding)", () => {
     const res = await createApp(deps()).request("http://localhost/api/projects", {
       headers: { "x-forwarded-host": "evil.example" },
     });
+    expect(res.status).toBe(200);
+  });
+
+  it("ignores a port an operator includes in ALLOWED_HOSTS, matching how a request's own port is ignored", async () => {
+    const res = await createApp(deps({ allowedHosts: ["beans.example.com:8080"] })).request(
+      "http://beans.example.com/api/projects",
+    );
     expect(res.status).toBe(200);
   });
 });

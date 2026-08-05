@@ -93,6 +93,11 @@ argument above.
   is all the origin comparison checks, but it cannot make `Host` agree with this list. The
   allowlist covers `GET`/`HEAD` specifically because a rebound page is same-origin as far as the
   browser is concerned, so — unlike a normal cross-origin request — it can read those responses.
+  Under `TRUST_PROXY=true` the check requires **both** the real connection `Host` and the
+  forwarded one (`X-Forwarded-Host`) to be allowed, not the forwarded one alone: unlike `Origin`,
+  `X-Forwarded-Host` is an ordinary header a browser fetch can set with no preflight, so trusting
+  it by itself would let a rebound page forge its way past the allowlist (e.g.
+  `X-Forwarded-Host: localhost`) regardless of the `Host` it actually connected with.
 - **Cross-origin requests:** state-changing (`/api/*`, non-GET/HEAD) requests must have an
   `application/json` content-type — compared by MIME essence, so a CORS-safelisted type
   cannot satisfy it via a parameter — and an `Origin` header that matches the server's own
@@ -104,11 +109,11 @@ argument above.
   which behind a TLS-terminating proxy is the internal plain-HTTP hop rather than the public URL the
   browser used. `TRUST_PROXY=true` (`apps/server/src/env.ts`) switches the comparison to the first
   value of `X-Forwarded-Proto` and `X-Forwarded-Host`, falling back to the connection when a header
-  is absent or empty; it switches the host allowlist above to the same forwarded host. It defaults
-  to `false`: a client that can reach the port directly can set those headers to anything, so
-  trusting them unconditionally would let that client satisfy the check and the guard would stop
-  meaning anything. Turning the flag on asserts that no such direct path exists. Nothing else in
-  the server reads forwarded headers.
+  is absent or empty; it also adds the forwarded host to what the allowlist above checks, on top of
+  (not instead of) the connection host. It defaults to `false`: a client that can reach the port
+  directly can set those headers to anything, so trusting them unconditionally would let that
+  client satisfy the check and the guard would stop meaning anything. Turning the flag on asserts
+  that no such direct path exists. Nothing else in the server reads forwarded headers.
 - **Security headers:** all responses carry `secureHeaders` defaults (`nosniff`, `X-Frame-Options`)
   plus a self-only Content-Security-Policy with `frame-ancestors 'none'` (`apps/server/src/app.ts`).
 - **Request body cap:** the graphql route rejects bodies over 256 KB with `413` before parsing.

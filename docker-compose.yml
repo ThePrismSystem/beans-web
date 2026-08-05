@@ -44,6 +44,9 @@ services:
       BEANS_BIN: beans # the static beans binary baked into the image (on PATH)
       TRUST_PROXY: "false" # set to "true" when a reverse proxy is the only ingress
       # ALLOWED_HOSTS: beans.example.com # required when reaching the UI by hostname or LAN IP, not just localhost
+      # With TRUST_PROXY=true, also list any internal host the proxy rewrites
+      # Host to before forwarding (e.g. this service's name) -- both the
+      # connection host and the forwarded one must be allowed, comma-separated.
 
     volumes:
       # READ-WRITE on purpose: the UI creates / edits / scraps beans, which

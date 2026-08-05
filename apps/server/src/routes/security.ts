@@ -7,10 +7,10 @@ const HTTP_MISDIRECTED_REQUEST = 421;
 
 // Hostnames a request may target without an operator opting in via
 // ALLOWED_HOSTS: the loopback names/addresses a directly-run server binds by
-// default. Both the bracketed and bare forms of the IPv6 loopback are
-// listed because a parsed Host always yields the bracketed form, while an
-// operator-written ALLOWED_HOSTS entry is compared exactly as written.
-const DEFAULT_ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"];
+// default. The IPv6 loopback is listed only in its bracketed form, because
+// that's the only form hostnameOnly() ever produces from a Host header — a
+// bare "::1" would never be compared against, so listing it would be dead.
+const DEFAULT_ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 
 /**
  * The slice of Hono's `Context` that origin-checking needs. Typed narrowly
@@ -80,19 +80,44 @@ function expectedOrigin(c: OriginContext, trustProxy: boolean): string {
  * cross-origin page can never read a GET response — but under rebinding the
  * attacker page IS same-origin, so it can read GET responses freely.
  * Exempting GET here would leave that read path wide open.
+ *
+ * Under TRUST_PROXY, both the real connection `Host` and the forwarded one
+ * must be allowed — not the forwarded one alone. Unlike `Origin`,
+ * `X-Forwarded-Host` is an ordinary header a browser fetch can set freely
+ * with no preflight, so a rebound page could otherwise satisfy the
+ * allowlist by forging it (e.g. `X-Forwarded-Host: localhost`) regardless of
+ * what `Host` it actually connected with. Requiring the connection `Host` to
+ * also pass means forging the forwarded one buys nothing: the connection
+ * `Host` is still the attacker's own domain, and that alone fails.
  */
 function registerHostAllowlist(app: Hono, trustProxy: boolean, allowedHosts: string[]): void {
-  const allowed = new Set([...DEFAULT_ALLOWED_HOSTS, ...allowedHosts]);
+  // A port in an operator's ALLOWED_HOSTS entry would otherwise never match,
+  // since every value compared against it has already had its port
+  // stripped — normalize configured entries through the same path.
+  const configured = allowedHosts.map(hostnameOnly).filter((h): h is string => h !== undefined);
+  const allowed = new Set([...DEFAULT_ALLOWED_HOSTS, ...configured]);
   app.use("/api/*", async (c, next) => {
     const url = new URL(c.req.url);
-    // Unlike expectedOrigin, an untrusted direct client gets no fallback to
-    // a forwarded header: only when TRUST_PROXY asserts a proxy is the only
-    // way in is X-Forwarded-Host allowed to move this decision at all.
-    const forwarded = trustProxy ? firstHop(c.req.header("x-forwarded-host")) : undefined;
-    const host = hostnameOnly(forwarded ?? url.host);
-    if (host === undefined || !allowed.has(host)) {
+    const candidates = [url.host];
+    if (trustProxy) {
+      const forwarded = firstHop(c.req.header("x-forwarded-host"));
+      if (forwarded !== undefined) candidates.push(forwarded);
+    }
+    const allAllowed = candidates.every((raw) => {
+      const host = hostnameOnly(raw);
+      return host !== undefined && allowed.has(host);
+    });
+    if (!allAllowed) {
+      // A proxied deployment needs both hosts listed, which is easy to miss
+      // the first time TRUST_PROXY is turned on — say so here rather than
+      // leaving an operator to guess why ALLOWED_HOSTS alone didn't help.
+      const hint = trustProxy
+        ? "; with TRUST_PROXY on, list both the internal host your proxy dials and the public one it forwards"
+        : "";
       return c.json(
-        { errors: [{ message: "unrecognized Host header (set ALLOWED_HOSTS to allow it)" }] },
+        {
+          errors: [{ message: `unrecognized Host header (set ALLOWED_HOSTS to allow it)${hint}` }],
+        },
         HTTP_MISDIRECTED_REQUEST,
       );
     }
