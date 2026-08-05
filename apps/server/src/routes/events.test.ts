@@ -22,8 +22,33 @@ import type { Hono } from "hono";
 // is overridden to reject, which runs events.ts's own catch handler for real.
 let failNextWrite = false;
 
+/**
+ * Stream callbacks that have been entered but have not yet returned.
+ *
+ * Releasing the watcher listener and the MAX_SSE_CLIENTS slot is not on its
+ * own enough for a dead connection: the callback has to unwind too. One that
+ * merely gives its slot back while staying parked on `sleepUntilAborted` keeps
+ * a 25s timer, a TransformStream and every closure around it alive forever,
+ * and writes a ping into the dead stream on every interval — and because the
+ * slot is already back, the cap no longer bounds how many of those can pile
+ * up. That is worse than the leak it replaces, and it is invisible to a test
+ * that only counts listeners and slots. Wrapping the callback is the direct
+ * observation of "it returned"; nothing else in this file can see it.
+ */
+let liveCallbacks = 0;
+
 vi.mock("hono/streaming", async (importOriginal) => {
   const actual = await importOriginal<typeof import("hono/streaming")>();
+  const track = (cb: Parameters<typeof actual.streamSSE>[1]) => {
+    return async (stream: Parameters<typeof cb>[0]): Promise<void> => {
+      liveCallbacks += 1;
+      try {
+        await cb(stream);
+      } finally {
+        liveCallbacks -= 1;
+      }
+    };
+  };
   return {
     ...actual,
     streamSSE: (
@@ -31,11 +56,11 @@ vi.mock("hono/streaming", async (importOriginal) => {
       cb: Parameters<typeof actual.streamSSE>[1],
       onError?: Parameters<typeof actual.streamSSE>[2],
     ) => {
-      if (!failNextWrite) return actual.streamSSE(c, cb, onError);
+      if (!failNextWrite) return actual.streamSSE(c, track(cb), onError);
       const { readable, writable } = new TransformStream();
       const stream = new actual.SSEStreamingApi(writable, readable);
       stream.writeSSE = () => Promise.reject(new Error("write failed"));
-      void cb(stream);
+      void track(cb)(stream);
       return c.body(null);
     },
   };
@@ -297,10 +322,13 @@ describe("GET /api/events", () => {
     }
   });
 
-  it("releases the listener and the slot when a dead connection's response never opens", async () => {
+  it("unwinds the stream callback when a dead connection's response never opens", async () => {
     const watcher = new EventEmitter();
     const app = createApp(deps(watcher));
     const { server, port } = await listen(app);
+    // Earlier tests leave callbacks parked on purpose, so the baseline is
+    // whatever is already running rather than zero.
+    const parked = liveCallbacks;
 
     try {
       await pipelineThenDestroy(port);
@@ -310,8 +338,14 @@ describe("GET /api/events", () => {
       // the request signal from. With the abort signal as the sole way out,
       // this stream sits here holding its listener for the life of the
       // process, and no heartbeat or write failure ever dislodges it.
+      //
+      // Both pipelined callbacks must return, not just shed their listener and
+      // slot: a teardown that frees those while leaving the callback parked
+      // passes every other assertion here and is worse than the original bug,
+      // because the cap it just gave the slot back to no longer bounds it.
       await vi.waitFor(() => {
         expect(watcher.listenerCount("event")).toBe(0);
+        expect(liveCallbacks).toBe(parked);
       });
 
       // ...and its MAX_SSE_CLIENTS slot came back with it: every one of the
@@ -333,7 +367,13 @@ describe("GET /api/events", () => {
     }
   });
 
-  it("keeps a live connection's listener and delivery while the client is still reading", async () => {
+  // Scope note: this covers the real adapter admitting a connection, delivering
+  // to it, and holding its listener until it disconnects. It observes only the
+  // few hundred ms the exchange takes, so it does NOT cover surviving a
+  // heartbeat — `sends a heartbeat ping and keeps the connection open` covers
+  // that on fake timers, and a stream held for 30s of real time across a full
+  // interval was measured by hand rather than in CI.
+  it("holds a connected client's listener until it disconnects, and delivers to it", async () => {
     const watcher = new EventEmitter();
     const app = createApp(deps(watcher));
     const { server, port } = await listen(app);

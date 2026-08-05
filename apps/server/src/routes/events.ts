@@ -59,6 +59,20 @@ function sleepUntilAborted(signal: AbortSignal, ms: number): Promise<void> {
  * driven straight through `app.fetch`/`app.request` — so its shape is checked
  * rather than assumed. A runtime without it just falls back to the abort
  * signal, which is all this route ever had.
+ *
+ * Two ways this can start returning `undefined` where it used to return a
+ * request, both of which reinstate the leak silently rather than loudly:
+ *
+ * - **HTTP/2.** `@hono/node-server` serves those as `Http2ServerRequest`,
+ *   which is not an `IncomingMessage`. `index.ts` only ever calls `serve()`
+ *   over HTTP/1.1, and HTTP/2 has no pipelining, so there is nothing to catch
+ *   today — but moving to `createSecureServer` needs this widened.
+ * - **A middleware that awaits I/O ahead of this route.** The subscription
+ *   below assumes the request cannot already have closed, which holds only
+ *   because hono's whole chain runs inside the synchronous prefix of node's
+ *   `'request'` event. Insert an `await` upstream and the handler lands in a
+ *   later turn, where a socket that died in between leaves `'close'` already
+ *   fired, `once` never called, and the stream parked exactly as before.
  */
 function nodeRequest(env: unknown): IncomingMessage | undefined {
   const incoming = env instanceof Object && "incoming" in env ? env.incoming : undefined;
@@ -109,7 +123,7 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
         const disconnect = (): void => {
           disconnected.abort();
         };
-        c.req.raw.signal.addEventListener("abort", disconnect);
+        c.req.raw.signal.addEventListener("abort", disconnect, { once: true });
         nodeRequest(c.env)?.once("close", disconnect);
 
         const handler = (e: ServerEvent) => {
@@ -120,10 +134,14 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
           });
         };
         deps.watcher.on("event", handler);
-        disconnected.signal.addEventListener("abort", () => {
-          deps.watcher.off("event", handler);
-          release();
-        });
+        disconnected.signal.addEventListener(
+          "abort",
+          () => {
+            deps.watcher.off("event", handler);
+            release();
+          },
+          { once: true },
+        );
         while (!isAborted(disconnected.signal)) {
           await sleepUntilAborted(disconnected.signal, HEARTBEAT_MS);
           if (isAborted(disconnected.signal)) break;
