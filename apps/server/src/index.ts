@@ -22,10 +22,11 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 const run = (
   configPath: string,
+  beansPath: string,
   query: string,
   variables?: Record<string, unknown>,
   signal?: AbortSignal,
-) => runBeansGraphql({ configPath, query, variables, signal });
+) => runBeansGraphql({ configPath, beansPath, query, variables, signal });
 
 const discover = () => discoverProjects(env.GIT_ROOT, env.SCAN_DEPTH);
 

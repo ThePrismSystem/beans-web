@@ -19,6 +19,7 @@ export function fakeProject(name: string): ProjectRecord {
     name,
     path: `/root/${name}`,
     root: "/root",
+    dataPath: `/root/${name}/.beans`,
     prefix: "x-",
     counts: fakeCounts(),
   };

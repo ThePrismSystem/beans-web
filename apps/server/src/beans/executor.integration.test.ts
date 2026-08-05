@@ -29,6 +29,7 @@ describe("runBeansGraphql (real binary)", () => {
   it("lists the seeded bean", async () => {
     const data = (await runBeansGraphql({
       configPath: cfg,
+      beansPath: join(dir, ".beans"),
       query: "{ beans { id title type } }",
     })) as { beans: { title: string }[] };
     expect(data.beans.some((b) => b.title === "Integration seed")).toBe(true);
@@ -37,6 +38,7 @@ describe("runBeansGraphql (real binary)", () => {
   it("rejects with a clean BeansError on an invalid query", async () => {
     const err = await runBeansGraphql({
       configPath: cfg,
+      beansPath: join(dir, ".beans"),
       query: "{ beans { nope } }",
     }).then(
       () => {
@@ -57,6 +59,7 @@ describe("runBeansGraphql (real binary)", () => {
     // separator it is a literal (invalid) GraphQL query and must reject.
     const result = await runBeansGraphql({
       configPath: cfg,
+      beansPath: join(dir, ".beans"),
       query: `--beans-path=${join(outsideDir, ".beans")}`,
     }).then(
       (data) => ({ ok: true as const, data }),
@@ -67,5 +70,18 @@ describe("runBeansGraphql (real binary)", () => {
     if (result.ok) throw new Error("unreachable");
     expect(result.err).toBeInstanceOf(BeansError);
     expect(JSON.stringify(result.err)).not.toContain("Outside secret bean");
+  });
+
+  it("honours --beans-path over the config's own beans.path (closes SEC-03 at the CLI boundary)", async () => {
+    // Even a config whose own beans.path points at the OTHER project's data
+    // directory must be overridden by the explicit --beans-path argument, so
+    // this call still only ever sees this project's own bean.
+    const data = (await runBeansGraphql({
+      configPath: cfg,
+      beansPath: join(dir, ".beans"),
+      query: "{ beans { title } }",
+    })) as { beans: { title: string }[] };
+    expect(data.beans.map((b) => b.title)).toEqual(["Integration seed"]);
+    expect(JSON.stringify(data)).not.toContain("Outside secret bean");
   });
 });

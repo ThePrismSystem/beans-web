@@ -24,8 +24,8 @@ afterAll(() => {
 });
 
 describe("server integration", () => {
-  const run = (cfg: string, q: string, v?: Record<string, unknown>) =>
-    runBeansGraphql({ configPath: cfg, query: q, variables: v });
+  const run = (cfg: string, beansPath: string, q: string, v?: Record<string, unknown>) =>
+    runBeansGraphql({ configPath: cfg, beansPath, query: q, variables: v });
   const listProjects = () => discoverProjects([root], 4);
 
   it("lists the discovered project", async () => {

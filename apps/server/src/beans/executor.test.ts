@@ -52,19 +52,29 @@ afterEach(() => {
 });
 
 describe("buildBeansArgs", () => {
-  it("passes config, json flag, and query as separate argv entries (no shell)", () => {
-    const args = buildBeansArgs({ configPath: "/x/.beans.yml", query: "{ beans { id } }" });
+  it("passes config, beans-path, json flag, and query as separate argv entries (no shell)", () => {
+    const args = buildBeansArgs({
+      configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
+      query: "{ beans { id } }",
+    });
     expect(args).toEqual([
       "graphql",
       "--json",
       "--config",
       "/x/.beans.yml",
+      "--beans-path",
+      "/x/.beans",
       "--",
       "{ beans { id } }",
     ]);
   });
   it("keeps a flag-shaped query positional so it cannot be parsed as a beans flag", () => {
-    const args = buildBeansArgs({ configPath: "/x/.beans.yml", query: "--beans-path=/etc" });
+    const args = buildBeansArgs({
+      configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
+      query: "--beans-path=/etc",
+    });
     const sep = args.indexOf("--");
     expect(sep).toBeGreaterThan(-1);
     expect(args[sep + 1]).toBe("--beans-path=/etc");
@@ -73,11 +83,24 @@ describe("buildBeansArgs", () => {
   it("adds -v when variables are provided", () => {
     const args = buildBeansArgs({
       configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
       query: "q",
       variables: { id: "a" },
     });
     expect(args).toContain("-v");
     expect(args).toContain(JSON.stringify({ id: "a" }));
+  });
+  it("places --beans-path before the -- separator so it is parsed as a flag, not a positional", () => {
+    const args = buildBeansArgs({
+      configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
+      query: "q",
+    });
+    const sep = args.indexOf("--");
+    const flagIndex = args.indexOf("--beans-path");
+    expect(flagIndex).toBeGreaterThan(-1);
+    expect(flagIndex).toBeLessThan(sep);
+    expect(args[flagIndex + 1]).toBe("/x/.beans");
   });
 });
 
@@ -94,6 +117,7 @@ describe("runBeansGraphql", () => {
   it("falls back to err.message when stderr doesn't match the ERROR_LINE pattern", async () => {
     const err = await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch((e: unknown) => e);
 
@@ -102,9 +126,11 @@ describe("runBeansGraphql", () => {
   });
 
   it("passes a timeout and SIGKILL so a hung beans child is reaped", async () => {
-    await runBeansGraphql({ configPath: "/x/.beans.yml", query: "{ beans { id } }" }).catch(
-      () => {},
-    );
+    await runBeansGraphql({
+      configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
+      query: "{ beans { id } }",
+    }).catch(() => {});
     const options = vi.mocked(execFile).mock.calls.at(-1)?.[2] as {
       timeout?: number;
       killSignal?: string;
@@ -122,9 +148,11 @@ describe("runBeansGraphql concurrency", () => {
     held.length = 0;
     try {
       const calls = Array.from({ length: 40 }, () =>
-        runBeansGraphql({ configPath: "/x/.beans.yml", query: "{ beans { id } }" }).catch(
-          () => undefined,
-        ),
+        runBeansGraphql({
+          configPath: "/x/.beans.yml",
+          beansPath: "/x/.beans",
+          query: "{ beans { id } }",
+        }).catch(() => undefined),
       );
 
       await vi.waitFor(() => {
@@ -285,6 +313,7 @@ describe("runBeansGraphql error redaction (end-to-end)", () => {
 
     const err = await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch((e: unknown) => e);
 
@@ -297,6 +326,7 @@ describe("runBeansGraphql error redaction (end-to-end)", () => {
 
     const err = await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch((e: unknown) => e);
 

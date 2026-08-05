@@ -28,6 +28,18 @@ export class BeansError extends Error {
 
 export interface RunOpts {
   configPath: string;
+  /**
+   * The project's data directory, already resolved and contained by the
+   * caller (see `resolveContainedDataPath` in `discovery/scan.ts`). Passed as
+   * `--beans-path`, which the CLI honours over whatever `beans.path` says in
+   * the config at `configPath` — so a hostile or unparseable `beans.path` in
+   * that file can no longer redirect where this call actually reads or
+   * writes, regardless of what the config file says at the moment the CLI
+   * runs. Required, not optional: every call site must supply an
+   * already-validated value rather than let the CLI fall back to consulting
+   * the config itself.
+   */
+  beansPath: string;
   query: string;
   variables?: Record<string, unknown>;
   binPath?: string;
@@ -41,7 +53,7 @@ export interface RunOpts {
 }
 
 export function buildBeansArgs(opts: RunOpts): string[] {
-  const args = ["graphql", "--json", "--config", opts.configPath];
+  const args = ["graphql", "--json", "--config", opts.configPath, "--beans-path", opts.beansPath];
   if (opts.variables) args.push("-v", JSON.stringify(opts.variables));
   // "--" ends beans' option parsing: everything after it is a positional, so a
   // query that starts with "-" (e.g. "--beans-path=/etc") can never be

@@ -48,9 +48,13 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
       const configPath = join(assertWithinRoot(project.root, project.path), ".beans.yml");
       try {
         // A client that navigates away while queued for a slot should not still
-        // spawn its child when it reaches the front of the queue.
+        // spawn its child when it reaches the front of the queue. project.dataPath
+        // was resolved and contained once at discovery time (never recomputed from
+        // a possibly-since-edited .beans.yml), and is passed as --beans-path so the
+        // CLI never consults that file's own beans.path directly.
         const data = await deps.runGraphql(
           configPath,
+          project.dataPath,
           parsed.data.query,
           parsed.data.variables,
           c.req.raw.signal,

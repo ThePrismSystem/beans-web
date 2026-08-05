@@ -50,17 +50,28 @@ guard, patched as above.
 The jail also covers where each project's **data directory** lives, not just where its
 `.beans.yml` lives. `.beans.yml` can set `beans.path` to redirect the CLI's data directory
 anywhere on disk, relative to the config file, with no containment of its own — the CLI applies
-none. Discovery (`discoverProjects` in `apps/server/src/discovery/scan.ts`) reads that value out
-of each `.beans.yml` it finds, resolves it against the project directory, and drops the project
-outright if the result escapes the configured root, so a hostile config cannot break discovery
-for its siblings. There is no YAML dependency in this workspace, so the value is read with a
-regex parser rather than a real parser; that parser is deliberately fail-closed — a `path:` key
-it can see but cannot confidently resolve to a clean scalar (for example, flow-style
-`beans: {path: x}`, which the real CLI honours identically to block style) rejects the project
-rather than falling back to the default. The containment check also resolves symlinks, walking up
-to the nearest existing ancestor when the data directory itself doesn't exist yet, so a data
-directory that is lexically inside the root but is (or sits under) a symlink pointing outside it
-is still caught.
+none. Discovery (`discoverProjects` in `apps/server/src/discovery/scan.ts`) resolves that
+directory once per project, and every subsequent `beans` invocation for that project — discovery's
+own count query, the graphql route, search, analytics — passes it explicitly as `--beans-path`,
+which the CLI honours over whatever `beans.path` says in the config file at the moment the call
+actually runs (confirmed against the real binary). This is deliberate: there is no YAML
+dependency in this workspace, so `beans.path` is read out of the raw file with a regex parser,
+and a regex can always be wrong about some YAML form (multi-line values, block scalars, YAML
+anchors and aliases, escape sequences inside a quoted scalar) that the real parser inside the CLI
+still resolves correctly. Rather than try to enumerate every such form, the parser's output is
+never trusted directly — it only *proposes* a directory, computed once at discovery and reused
+for that project's whole cache lifetime rather than re-read per request. The proposal is always
+validated: resolved against the project directory, with symlinks resolved (walking up to the
+nearest existing ancestor when the directory doesn't exist yet, so a data directory that is
+lexically inside the root but is, or sits under, a symlink pointing outside it is still caught),
+and rejected if the result escapes the configured root. A project whose resolved directory
+genuinely escapes — the confidently-parsed value itself, or the substituted default — is hostile
+and is dropped outright, so it cannot break discovery for its siblings. A `beans.path` this
+parser can see but can't resolve with confidence is not a rejection, though: the parser falls
+back to the CLI's own default (`.beans`) and discovery still enforces it via `--beans-path`, so
+the project stays visible (its counts may end up empty until the config is fixed) rather than
+either silently disappearing or, worse, letting the unparsed value quietly reach the CLI as a
+config value it would honour.
 
 Discovery dedups projects across configured roots by comparing `path.resolve()`d strings, not
 `realpath()`, so two roots that reach the same physical directory through different symlinks are

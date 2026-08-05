@@ -173,73 +173,182 @@ describe("assertWithinRoot", () => {
 
 describe("parseDataPath", () => {
   it("defaults to .beans when the key is absent", () => {
-    expect(parseDataPath("beans:\n  prefix: bf-\n")).toBe(".beans");
+    expect(parseDataPath("beans:\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
 
   it("defaults to .beans when the key is present but blank", () => {
-    expect(parseDataPath("beans:\n  path:\n  prefix: bf-\n")).toBe(".beans");
+    expect(parseDataPath("beans:\n  path:\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
 
   it("parses an ordinary relative value", () => {
-    expect(parseDataPath("beans:\n  path: .beans\n")).toBe(".beans");
+    expect(parseDataPath("beans:\n  path: .beans\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
 
   it("parses a traversal value", () => {
-    expect(parseDataPath("beans:\n  path: ../../outside\n")).toBe("../../outside");
+    expect(parseDataPath("beans:\n  path: ../../outside\n")).toEqual({
+      value: "../../outside",
+      confident: true,
+    });
   });
 
   it("parses an absolute value as-is", () => {
-    expect(parseDataPath("beans:\n  path: /etc/evil\n")).toBe("/etc/evil");
+    expect(parseDataPath("beans:\n  path: /etc/evil\n")).toEqual({
+      value: "/etc/evil",
+      confident: true,
+    });
   });
 
   it("parses a double-quoted value", () => {
-    expect(parseDataPath('beans:\n  path: "../evil"\n')).toBe("../evil");
+    expect(parseDataPath('beans:\n  path: "../evil"\n')).toEqual({
+      value: "../evil",
+      confident: true,
+    });
   });
 
   it("parses a single-quoted value", () => {
-    expect(parseDataPath("beans:\n  path: '../evil'\n")).toBe("../evil");
+    expect(parseDataPath("beans:\n  path: '../evil'\n")).toEqual({
+      value: "../evil",
+      confident: true,
+    });
   });
 
   it("strips a trailing comment on an unquoted value", () => {
-    expect(parseDataPath("beans:\n  path: ../evil # do not look here\n")).toBe("../evil");
+    expect(parseDataPath("beans:\n  path: ../evil # do not look here\n")).toEqual({
+      value: "../evil",
+      confident: true,
+    });
   });
 
   it("strips a trailing comment on a quoted value", () => {
-    expect(parseDataPath('beans:\n  path: "../evil"   # do not look here\n')).toBe("../evil");
+    expect(parseDataPath('beans:\n  path: "../evil"   # do not look here\n')).toEqual({
+      value: "../evil",
+      confident: true,
+    });
   });
 
   it("tolerates extra whitespace around the value", () => {
-    expect(parseDataPath("beans:\n  path:    ../evil   \n")).toBe("../evil");
+    expect(parseDataPath("beans:\n  path:    ../evil   \n")).toEqual({
+      value: "../evil",
+      confident: true,
+    });
   });
 
   it("ignores a path: mention inside a full-line comment and still finds the default", () => {
-    expect(parseDataPath("beans:\n  # path: ../evil (disabled)\n  prefix: bf-\n")).toBe(".beans");
+    expect(parseDataPath("beans:\n  # path: ../evil (disabled)\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
+  });
+
+  it("ignores a path: key that belongs to an unrelated top-level section", () => {
+    // Only beans.path matters. A path: key nested under some other top-level
+    // key is not beans.path at all and must not be flagged, let alone reduce
+    // confidence - the CLI ignores it too.
+    const result = parseDataPath("other:\n  path: ../evil\nbeans:\n  prefix: bf-\n");
+    expect(result).toEqual({ value: ".beans", confident: true });
   });
 
   it("defaults to .beans when the value is nothing but a trailing comment", () => {
-    expect(parseDataPath("beans:\n  path: # comment only, no value\n  prefix: bf-\n")).toBe(
-      ".beans",
-    );
+    expect(parseDataPath("beans:\n  path: # comment only, no value\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
 
-  it("rejects flow-style mappings the CLI honours but this parser cannot see as a line key", () => {
-    expect(parseDataPath('beans: {path: "../evil", prefix: "bf-"}\n')).toBeNull();
+  it("is not confident about a flow-style mapping, which the CLI honours but this parser cannot see as a line key", () => {
+    const result = parseDataPath('beans: {path: "../evil", prefix: "bf-"}\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
   });
 
-  it("rejects an unterminated quote", () => {
-    expect(parseDataPath('beans:\n  path: "../evil\n')).toBeNull();
+  it("is not confident about an unterminated quote", () => {
+    const result = parseDataPath('beans:\n  path: "../evil\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
   });
 
-  it("rejects trailing junk after a closing quote that isn't a comment", () => {
-    expect(parseDataPath('beans:\n  path: "../evil" extra\n')).toBeNull();
+  it("is not confident about trailing junk after a closing quote that isn't a comment", () => {
+    const result = parseDataPath('beans:\n  path: "../evil" extra\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
   });
 
-  it("rejects a stray quote in an unquoted value", () => {
-    expect(parseDataPath('beans:\n  path: ../ev"il\n')).toBeNull();
+  it("is not confident about a stray quote in an unquoted value", () => {
+    const result = parseDataPath('beans:\n  path: ../ev"il\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
   });
 
-  it("rejects a duplicate path key rather than guessing which one the CLI would use", () => {
-    expect(parseDataPath("beans:\n  path: .beans\n  path: ../evil\n")).toBeNull();
+  it("is not confident about a duplicate path key rather than guessing which one the CLI would use", () => {
+    const result = parseDataPath("beans:\n  path: .beans\n  path: ../evil\n");
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  it("is not confident when a comment-only path: line is followed by a more-indented continuation", () => {
+    // Distinct from the plain "path:\n    value" case above: here the
+    // same-line content isn't literally empty, it's a comment, and the
+    // "blank after stripping the comment" branch must still check the
+    // following line for a continuation rather than assuming the default.
+    const result = parseDataPath("beans:\n  path: # see below\n    ../OUTSIDE\n  prefix: x-\n");
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  // Regression lock for the five parser bypasses found in round 1: each of
+  // these was accepted as ".beans"/the literal indicator text by the old
+  // line-only parser while the real CLI resolved beans.path to ../OUTSIDE -
+  // an escape that never triggered the containment check. Confirmed against
+  // the real binary (see the C4 report). None of these should be confident.
+  describe("bypass regression lock", () => {
+    it("is not confident about an unquoted value on a following, more-indented line", () => {
+      const result = parseDataPath("beans:\n  path:\n    ../OUTSIDE\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a quoted value on a following, more-indented line", () => {
+      const result = parseDataPath('beans:\n  path:\n    "../OUTSIDE"\n  prefix: bf-\n');
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a folded block scalar (>-)", () => {
+      const result = parseDataPath("beans:\n  path: >-\n    ../OUTSIDE\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a literal block scalar (|-)", () => {
+      const result = parseDataPath("beans:\n  path: |-\n    ../OUTSIDE\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a YAML alias referencing an anchor", () => {
+      const result = parseDataPath("beans:\n  x: &a ../OUTSIDE\n  path: *a\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+  });
+
+  it("is not confident about a double-quoted value containing an escape sequence", () => {
+    // YAML double-quoted scalars decode backslash escapes (/ is "/"),
+    // so the real CLI resolves this to "../OUTSIDE" - a literal string
+    // extraction that doesn't decode escapes would silently keep it inside
+    // the project directory instead.
+    const result = parseDataPath('beans:\n  path: "..\\u002fOUTSIDE"\n  prefix: bf-\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
   });
 });
 
@@ -565,23 +674,33 @@ describe("discoverProjects path containment (SEC-03)", () => {
     }
   });
 
-  it("excludes a project whose beans.path is unparseable (flow-style), keeping its sibling", async () => {
+  it("keeps a project with a flow-style beans.path, but forces --beans-path to the safe default", async () => {
+    // Round 1 dropped this project outright. Round 2: parsing failure alone
+    // no longer drops anything - the project stays discovered, but every
+    // runBeansGraphql call for it is forced onto the validated default via
+    // --beans-path, so the config's own (unreadable) declared value never
+    // reaches the CLI regardless of what it says.
     const executor = await import("../beans/executor.js");
     const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
 
-    const testRoot = mkdtempSync(join(tmpdir(), "scan-escape-flow-"));
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-flow-default-"));
     try {
       mkdirSync(join(testRoot, "evil"), { recursive: true });
       writeFileSync(
         join(testRoot, "evil", ".beans.yml"),
         'beans: {path: "../evil", prefix: "x-"}\n',
       );
-      mkdirSync(join(testRoot, "good"), { recursive: true });
-      writeFileSync(join(testRoot, "good", ".beans.yml"), "beans:\n  prefix: y-\n");
 
       const projects = await discoverProjects([testRoot], 2);
 
-      expect(projects.map((p) => p.name)).toEqual(["good"]);
+      expect(projects.map((p) => p.name)).toEqual(["evil"]);
+      const call = graphqlMock.mock.calls.find(
+        ([opts]) =>
+          (opts as { configPath: string }).configPath === join(testRoot, "evil", ".beans.yml"),
+      );
+      expect((call?.[0] as { beansPath?: string } | undefined)?.beansPath).toBe(
+        join(testRoot, "evil", ".beans"),
+      );
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
       graphqlMock.mockRestore();
@@ -682,5 +801,85 @@ describe("discoverProjects path containment (SEC-03)", () => {
       rmSync(testRoot, { recursive: true, force: true });
       graphqlMock.mockRestore();
     }
+  });
+
+  describe("bypass regression lock (round 1 parser bypasses)", () => {
+    // Each config here was accepted by the round-1 parser as ".beans" (or,
+    // for the block-scalar cases, as the literal indicator text) while the
+    // real CLI actually resolved beans.path to ../OUTSIDE - confirmed
+    // against the real binary (see the C4 report). Discovery must not be
+    // fooled into treating these as safe defaults on faith: it must still
+    // keep the project (parsing failure alone doesn't drop it) but force
+    // every runBeansGraphql call for it onto the validated default via
+    // --beans-path, never the config's own unreadable value.
+    async function expectKeptWithDefaultBeansPath(
+      testRootPrefix: string,
+      configContent: string,
+    ): Promise<void> {
+      const executor = await import("../beans/executor.js");
+      const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+      const testRoot = mkdtempSync(join(tmpdir(), testRootPrefix));
+      try {
+        mkdirSync(join(testRoot, "evil"), { recursive: true });
+        writeFileSync(join(testRoot, "evil", ".beans.yml"), configContent);
+
+        const projects = await discoverProjects([testRoot], 2);
+
+        expect(projects.map((p) => p.name)).toEqual(["evil"]);
+        const call = graphqlMock.mock.calls.find(
+          ([opts]) =>
+            (opts as { configPath: string }).configPath === join(testRoot, "evil", ".beans.yml"),
+        );
+        expect((call?.[0] as { beansPath?: string } | undefined)?.beansPath).toBe(
+          join(testRoot, "evil", ".beans"),
+        );
+      } finally {
+        rmSync(testRoot, { recursive: true, force: true });
+        graphqlMock.mockRestore();
+      }
+    }
+
+    it("forces the default for an unquoted value on a following, more-indented line", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-multiline-",
+        "beans:\n  path:\n    ../OUTSIDE\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a quoted value on a following, more-indented line", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-multiline-quoted-",
+        'beans:\n  path:\n    "../OUTSIDE"\n  prefix: x-\n',
+      );
+    });
+
+    it("forces the default for a folded block scalar (>-)", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-folded-",
+        "beans:\n  path: >-\n    ../OUTSIDE\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a literal block scalar (|-)", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-literal-",
+        "beans:\n  path: |-\n    ../OUTSIDE\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a YAML alias referencing an anchor", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-alias-",
+        "beans:\n  x: &a ../OUTSIDE\n  path: *a\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a double-quoted value containing an escape sequence", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-escape-",
+        'beans:\n  path: "..\\u002fOUTSIDE"\n  prefix: x-\n',
+      );
+    });
   });
 });

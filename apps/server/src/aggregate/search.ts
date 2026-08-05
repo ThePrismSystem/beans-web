@@ -7,6 +7,7 @@ import type { SearchHit, SearchResult } from "@beans-frontend/shared";
 
 export type RunFn = (
   configPath: string,
+  beansPath: string,
   query: string,
   variables?: Record<string, unknown>,
 ) => Promise<unknown>;
@@ -21,7 +22,7 @@ export async function globalSearch(
   const failures: string[] = [];
   const perProject = await mapWithConcurrency(projects, BEANS_CONCURRENCY, async (p) => {
     try {
-      const data = (await run(join(p.path, ".beans.yml"), QUERY, { q })) as {
+      const data = (await run(join(p.path, ".beans.yml"), p.dataPath, QUERY, { q })) as {
         beans: SearchHit["bean"][];
       };
       return data.beans.map((bean) => ({ project: p.name, bean }));

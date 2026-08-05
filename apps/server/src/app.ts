@@ -21,6 +21,7 @@ export interface AppDeps {
   listProjects: () => Promise<ProjectRecord[]>;
   runGraphql: (
     configPath: string,
+    beansPath: string,
     query: string,
     variables?: Record<string, unknown>,
     signal?: AbortSignal,

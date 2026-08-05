@@ -38,6 +38,7 @@ describe("POST /api/projects/:name/graphql", () => {
     expect(await res.json()).toEqual({ data: { beans: [{ id: "x-1" }] } });
     expect(d.runGraphql).toHaveBeenCalledWith(
       "/root/proj-a/.beans.yml",
+      project.dataPath,
       "{ beans { id } }",
       undefined,
       // The request's own signal, so a client that hangs up while queued for a
