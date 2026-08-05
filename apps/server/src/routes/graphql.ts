@@ -4,7 +4,10 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 
 import { BeansError } from "../beans/executor.js";
+import { QueueFullError } from "../util/concurrency.js";
 import { assertWithinRoot, ContainmentError } from "../util/containment.js";
+
+import { clientClosedRequest, QUEUE_FULL_RETRY_AFTER } from "./overload.js";
 
 import type { AppDeps } from "../app.js";
 import type { Hono } from "hono";
@@ -21,6 +24,7 @@ const GRAPHQL_MAX_BODY_BYTES = 262_144; // 256 KiB
 const HTTP_BAD_REQUEST = 400;
 const HTTP_NOT_FOUND = 404;
 const HTTP_PAYLOAD_TOO_LARGE = 413;
+const HTTP_SERVICE_UNAVAILABLE = 503;
 
 export function registerGraphql(app: Hono, deps: AppDeps): void {
   app.post(
@@ -74,6 +78,18 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
           return c.json({ errors: [{ message: `unknown project: ${name}` }] }, HTTP_NOT_FOUND);
         if (err instanceof BeansError)
           return c.json({ errors: err.messages.map((m) => ({ message: m })) }, HTTP_BAD_REQUEST);
+        // This route is behind the same process-wide slot gate as search and
+        // analytics, so a saturated queue has to read the same way here.
+        if (err instanceof QueueFullError) {
+          return c.json(
+            { errors: [{ message: "server is busy, retry shortly" }] },
+            HTTP_SERVICE_UNAVAILABLE,
+            QUEUE_FULL_RETRY_AFTER,
+          );
+        }
+        // Only after the specific cases: a genuine bug on a live connection
+        // has to keep surfacing as a 500.
+        if (c.req.raw.signal.aborted) return clientClosedRequest();
         throw err;
       }
     },

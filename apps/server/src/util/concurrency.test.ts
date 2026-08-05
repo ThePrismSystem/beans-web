@@ -1,16 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BEANS_CONCURRENCY, mapWithConcurrency, withBeansSlot } from "./concurrency.js";
+import {
+  BEANS_CONCURRENCY,
+  MAX_QUEUED_FOR_SLOT,
+  mapWithConcurrency,
+  QueueFullError,
+  withBeansSlot,
+} from "./concurrency.js";
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5));
 
 describe("withBeansSlot", () => {
+  // Sized to the limiter's whole capacity — BEANS_CONCURRENCY running plus
+  // MAX_QUEUED_FOR_SLOT queued — so it pins both bounds at once. It used to
+  // fire a flat 100, which only passed while the queue was unbounded; that is
+  // the behavior the queue cap deliberately removes.
   it("runs at most BEANS_CONCURRENCY callbacks at once across independent calls", async () => {
     let live = 0;
     let peak = 0;
 
     await Promise.all(
-      Array.from({ length: 100 }, () =>
+      Array.from({ length: BEANS_CONCURRENCY + MAX_QUEUED_FOR_SLOT }, () =>
         withBeansSlot(async () => {
           live += 1;
           peak = Math.max(peak, live);
@@ -318,6 +328,87 @@ describe("withBeansSlot cancellation", () => {
 
     for (const done of release) done();
     await Promise.all(holders);
+  });
+});
+
+describe("withBeansSlot queue cap", () => {
+  /**
+   * Fills every slot with callbacks that hang until released. Returns the
+   * releases, so a test can leave the pool saturated and then drain it.
+   */
+  async function saturate(): Promise<(() => void)[]> {
+    const release: (() => void)[] = [];
+    const holders = Array.from({ length: BEANS_CONCURRENCY }, () =>
+      withBeansSlot(
+        () =>
+          new Promise<void>((resolve) => {
+            release.push(resolve);
+          }),
+      ),
+    );
+    await vi.waitFor(() => {
+      expect(release).toHaveLength(BEANS_CONCURRENCY);
+    });
+    // Keep the holder promises settled once released, so a test that drains
+    // the pool doesn't leave rejections unobserved.
+    void Promise.all(holders);
+    return release;
+  }
+
+  it("serves the last caller under the cap and rejects the one past it with QueueFullError", async () => {
+    const release = await saturate();
+
+    // `acquire` enqueues synchronously, so these are all queued by the time
+    // the loop returns — no waiting needed to reach the cap exactly.
+    const queued = Array.from({ length: MAX_QUEUED_FOR_SLOT - 1 }, () =>
+      withBeansSlot(() => Promise.resolve()),
+    );
+    let servedLastUnderCap = false;
+    const lastUnderCap = withBeansSlot(() => {
+      servedLastUnderCap = true;
+      return Promise.resolve();
+    });
+
+    // The queue now holds exactly MAX_QUEUED_FOR_SLOT. One more must not join it.
+    let ranPastCap = false;
+    await expect(
+      withBeansSlot(() => {
+        ranPastCap = true;
+        return Promise.resolve();
+      }),
+    ).rejects.toBeInstanceOf(QueueFullError);
+    expect(ranPastCap).toBe(false);
+
+    for (const done of release) done();
+    await Promise.all([...queued, lastUnderCap]);
+    // Rejecting the overflow must not have cost the caller under the cap its turn.
+    expect(servedLastUnderCap).toBe(true);
+  });
+
+  it("accepts callers again once the queue has drained below the cap", async () => {
+    const release = await saturate();
+    const queued = Array.from({ length: MAX_QUEUED_FOR_SLOT }, () =>
+      withBeansSlot(() => Promise.resolve()),
+    );
+    await expect(withBeansSlot(() => Promise.resolve())).rejects.toBeInstanceOf(QueueFullError);
+
+    for (const done of release) done();
+    await Promise.all(queued);
+
+    // The cap is a ceiling on the queue, not a fuse: a drained server serves again.
+    await expect(withBeansSlot(() => Promise.resolve("served"))).resolves.toBe("served");
+  });
+
+  it("rejects with an Error, so every catch site upstream can treat it as one", async () => {
+    const release = await saturate();
+    const queued = Array.from({ length: MAX_QUEUED_FOR_SLOT }, () =>
+      withBeansSlot(() => Promise.resolve()),
+    );
+
+    await expect(withBeansSlot(() => Promise.resolve())).rejects.toThrow(/queue/i);
+
+    for (const done of release) done();
+    await Promise.all(queued);
   });
 });
 

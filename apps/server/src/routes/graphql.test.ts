@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { BeansError } from "../beans/executor.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
+import { QueueFullError } from "../util/concurrency.js";
 import { ContainmentError } from "../util/containment.js";
 
 import type { AppDeps } from "../app.js";
@@ -171,5 +172,36 @@ describe("POST /api/projects/:name/graphql", () => {
     });
     expect(res.status).toBe(413);
     expect(d.runGraphql).not.toHaveBeenCalled();
+  });
+
+  // This route sits behind the same process-wide gate as search and analytics,
+  // so a saturated queue has to read the same way here.
+  it("answers 503 with Retry-After when the beans queue is full", async () => {
+    const d = deps({ runGraphql: vi.fn(() => Promise.reject(new QueueFullError())) });
+    const res = await createApp(d).request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBeTruthy();
+    // The web client parses this route's body unconditionally, so a 503 still
+    // has to be the `{ errors: [...] }` shape rather than plain text.
+    expect(await res.json()).toEqual({ errors: [{ message: expect.any(String) }] });
+  });
+
+  it("answers 499 when the client has already hung up", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const d = deps({
+      runGraphql: vi.fn(() => Promise.reject(new Error("aborted while queued for a beans slot"))),
+    });
+    const res = await createApp(d).request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+      signal: controller.signal,
+    });
+    expect(res.status).toBe(499);
   });
 });

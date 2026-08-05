@@ -27,8 +27,11 @@ export interface AppDeps {
     variables?: Record<string, unknown>,
     signal?: AbortSignal,
   ) => Promise<unknown>;
-  search: (q: string) => Promise<SearchResult>;
-  analytics: () => Promise<Analytics>;
+  // Both fan out one `beans` invocation per project behind the process-wide
+  // slot gate, so both take the request's signal: a client that hangs up
+  // abandons whatever of its fan-out is still queued.
+  search: (q: string, signal?: AbortSignal) => Promise<SearchResult>;
+  analytics: (signal?: AbortSignal) => Promise<Analytics>;
   watcher: EventEmitter;
   trustProxy: boolean;
   allowedHosts: string[];

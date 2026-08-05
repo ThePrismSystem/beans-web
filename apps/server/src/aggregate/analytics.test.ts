@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { fakeProject } from "../testing/fixtures.js";
+import { QueueFullError } from "../util/concurrency.js";
 
 import { buildAnalytics } from "./analytics.js";
 
@@ -50,6 +51,62 @@ describe("buildAnalytics", () => {
     ]);
     expect(a.failures).toEqual(["broken"]);
     expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("forwards the signal to every run call so a queued invocation can be abandoned", async () => {
+    const controller = new AbortController();
+    const run = vi.fn(() => Promise.resolve({ beans: [] }));
+    await buildAnalytics([fakeProject("a"), fakeProject("b")], run, controller.signal);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run).toHaveBeenCalledWith(
+      "/root/a/.beans.yml",
+      "/root/a/.beans",
+      "/root",
+      expect.any(String),
+      undefined,
+      controller.signal,
+    );
+  });
+
+  it("starts no work and logs nothing when the signal has already aborted", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const run = vi.fn(() => Promise.resolve({ beans: [] }));
+
+    await expect(
+      buildAnalytics([fakeProject("a"), fakeProject("b")], run, AbortSignal.abort()),
+    ).rejects.toThrow();
+
+    expect(run).not.toHaveBeenCalled();
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("rejects rather than reporting failures when a run is abandoned mid-flight", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const controller = new AbortController();
+    const run = vi.fn(() => {
+      controller.abort();
+      return Promise.reject(new Error("aborted while queued for a beans slot"));
+    });
+
+    await expect(
+      buildAnalytics([fakeProject("a"), fakeProject("b")], run, controller.signal),
+    ).rejects.toThrow(/aborted/);
+
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("rejects with QueueFullError instead of reporting every project as failed", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const run = vi.fn(() => Promise.reject(new QueueFullError()));
+
+    await expect(buildAnalytics([fakeProject("a"), fakeProject("b")], run)).rejects.toBeInstanceOf(
+      QueueFullError,
+    );
+
+    expect(err).not.toHaveBeenCalled();
     err.mockRestore();
   });
 });
