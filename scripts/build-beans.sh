@@ -21,6 +21,12 @@ set -euo pipefail
 version="${1:?usage: build-beans.sh <beans-version> <output-path>}"
 output="${2:?usage: build-beans.sh <beans-version> <output-path>}"
 
+# Resolved to an absolute path before the `cd` below, so a relative output
+# path still lands where the caller meant it instead of inside the throwaway
+# workdir the EXIT trap deletes.
+mkdir -p "$(dirname "$output")"
+output="$(cd "$(dirname "$output")" && pwd)/$(basename "$output")"
+
 # CGO disabled so the result is a static binary that runs on any glibc/musl
 # base without extra shared libraries — the runtime stage depends on that.
 export CGO_ENABLED=0
@@ -35,5 +41,4 @@ go get "github.com/hmans/beans@${version}"
 # job goes red when these go stale, which is the signal to bump them.
 go get golang.org/x/net@v0.55.0 golang.org/x/text@v0.39.0
 
-mkdir -p "$(dirname "$output")"
 go build -o "$output" github.com/hmans/beans

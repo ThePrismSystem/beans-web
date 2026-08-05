@@ -16,7 +16,11 @@
 # Stage 1 — build the `beans` CLI. CGO is disabled so the result is a static
 # binary that runs on any glibc/musl base without extra shared libraries.
 # ---------------------------------------------------------------------------
-FROM golang:1.26-bookworm AS beans-builder
+# The Go patch version is pinned explicitly, not floated as "1.26-bookworm":
+# a newer patch can fix stdlib CVEs that the image-scan job's gobinary scan
+# would otherwise catch drifting. CI derives its toolchain from this line (see
+# .github/workflows/ci.yml) so both sides compile beans with the identical Go.
+FROM golang:1.26.5-bookworm AS beans-builder
 # Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
 # the binary CI tested against.
 ARG BEANS_VERSION=v0.4.2

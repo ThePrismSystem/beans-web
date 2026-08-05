@@ -84,17 +84,30 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Read the pinned Go toolchain version
+        id: go-version
+        run: |
+          # The Dockerfile's FROM line is the single source of truth for the
+          # Go toolchain that builds beans; deriving it here (rather than
+          # "stable") means CI compiles with the identical Go patch the image
+          # uses, so a stdlib CVE fixed only in a newer patch can't ship clean
+          # while CI still tests an older one.
+          GO_VERSION="$(sed -n 's/^FROM golang:\([^-]*\)-bookworm AS beans-builder$/\1/p' Dockerfile)"
+          test -n "$GO_VERSION" || { echo "could not read the Go version from Dockerfile"; exit 1; }
+          echo "version=$GO_VERSION" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "stable"
+          go-version: ${{ steps.go-version.outputs.version }}
           cache: false
 
       - name: Install beans
         run: |
-          # The Dockerfile's ARG is the single source of truth for the version
-          # pin, and scripts/build-beans.sh is the single source of truth for
-          # the dependency overrides that patch upstream's go.mod, so this
-          # builds the exact same binary the image ships.
+          # The Dockerfile's ARG is the single source of truth for the beans
+          # version pin, its FROM line pins the Go toolchain (read above), and
+          # scripts/build-beans.sh is the single source of truth for the
+          # dependency overrides that patch upstream's go.mod — together
+          # these guarantee this builds the exact same binary the image ships.
           BEANS_VERSION="$(sed -n 's/^ARG BEANS_VERSION=//p' Dockerfile)"
           test -n "$BEANS_VERSION" || { echo "could not read BEANS_VERSION from Dockerfile"; exit 1; }
           bash scripts/build-beans.sh "$BEANS_VERSION" "$(go env GOPATH)/bin/beans"
@@ -180,17 +193,30 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Read the pinned Go toolchain version
+        id: go-version
+        run: |
+          # The Dockerfile's FROM line is the single source of truth for the
+          # Go toolchain that builds beans; deriving it here (rather than
+          # "stable") means CI compiles with the identical Go patch the image
+          # uses, so a stdlib CVE fixed only in a newer patch can't ship clean
+          # while CI still tests an older one.
+          GO_VERSION="$(sed -n 's/^FROM golang:\([^-]*\)-bookworm AS beans-builder$/\1/p' Dockerfile)"
+          test -n "$GO_VERSION" || { echo "could not read the Go version from Dockerfile"; exit 1; }
+          echo "version=$GO_VERSION" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "stable"
+          go-version: ${{ steps.go-version.outputs.version }}
           cache: false
 
       - name: Install beans
         run: |
-          # The Dockerfile's ARG is the single source of truth for the version
-          # pin, and scripts/build-beans.sh is the single source of truth for
-          # the dependency overrides that patch upstream's go.mod, so this
-          # builds the exact same binary the image ships.
+          # The Dockerfile's ARG is the single source of truth for the beans
+          # version pin, its FROM line pins the Go toolchain (read above), and
+          # scripts/build-beans.sh is the single source of truth for the
+          # dependency overrides that patch upstream's go.mod — together
+          # these guarantee this builds the exact same binary the image ships.
           BEANS_VERSION="$(sed -n 's/^ARG BEANS_VERSION=//p' Dockerfile)"
           test -n "$BEANS_VERSION" || { echo "could not read BEANS_VERSION from Dockerfile"; exit 1; }
           bash scripts/build-beans.sh "$BEANS_VERSION" "$(go env GOPATH)/bin/beans"
