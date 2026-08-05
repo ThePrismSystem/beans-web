@@ -2,8 +2,17 @@
 
 ## Reporting a vulnerability
 
-Open a GitHub issue, or contact the maintainer directly for anything you'd rather not post
-publicly.
+Report it privately, through GitHub's private vulnerability reporting:
+**[open a draft security advisory](https://github.com/ThePrismSystem/beans-frontend/security/advisories/new)**.
+A draft advisory is visible only to you and the maintainers, so nothing is disclosed until
+there is a fix to disclose alongside it.
+
+Please don't open a public issue for a suspected vulnerability. A public issue tells everyone
+about the problem before anyone can fix it, and there is no way to take that back. Ordinary
+bugs are still welcome as issues.
+
+A useful report says which version you were running, how the server was reachable (loopback,
+LAN, reverse proxy, container), and enough detail to reproduce what you saw.
 
 ## Audit scope and findings (2026-07-31)
 
