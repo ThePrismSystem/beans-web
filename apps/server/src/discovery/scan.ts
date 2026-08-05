@@ -4,7 +4,7 @@ import { basename, join, resolve } from "node:path";
 import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-frontend/shared";
 
 import { runBeansGraphql } from "../beans/executor.js";
-import { BEANS_CONCURRENCY, mapWithConcurrency } from "../util/concurrency.js";
+import { BEANS_CONCURRENCY, mapWithConcurrency, QueueFullError } from "../util/concurrency.js";
 import { assertWithinRoot, realpathContained } from "../util/containment.js";
 
 import type { BeanStatus, BeanType, Project, ProjectCounts } from "@beans-frontend/shared";
@@ -384,6 +384,9 @@ export async function discoverProjects(
   roots: string[],
   maxDepth: number,
 ): Promise<ProjectRecord[]> {
+  // Projects this pass could not count because the shared `beans` pool was
+  // saturated, reported once for the pass below rather than per project.
+  let queueFull = 0;
   const perRoot = await Promise.all(
     roots.map(async (root) => {
       const resolvedRoot = resolve(root);
@@ -443,10 +446,22 @@ export async function discoverProjects(
               }
             }
           } catch (err) {
-            // Zeroed counts stay, but flag the failure so callers/UI can tell an
-            // errored project apart from a genuinely empty one.
-            counts.error = true;
-            console.error(`beans discovery failed for ${dir}:`, err);
+            if (err instanceof QueueFullError) {
+              // A saturated queue is a property of the server's momentary load,
+              // not of this project. Flagging it here would render every
+              // project in the UI as broken because the server was briefly
+              // busy, and log a stack trace for each one. Unlike search and
+              // analytics - which rethrow so their request answers 503 once -
+              // discovery is shared background work with no single client to
+              // answer, and it re-runs on the refresh timer, so this pass
+              // leaves the counts at zero and lets the next pass fill them in.
+              queueFull += 1;
+            } else {
+              // Zeroed counts stay, but flag the failure so callers/UI can tell an
+              // errored project apart from a genuinely empty one.
+              counts.error = true;
+              console.error(`beans discovery failed for ${dir}:`, err);
+            }
           }
           return {
             name: basename(dir),
@@ -460,6 +475,12 @@ export async function discoverProjects(
       );
     }),
   );
+
+  if (queueFull > 0) {
+    console.error(
+      `beans discovery could not count ${String(queueFull)} project(s): the beans queue was full. Their counts stay at zero until a later pass.`,
+    );
+  }
 
   const contained = perRoot.flat().filter((project): project is ProjectRecord => project !== null);
   const deduped = dedupeByPath(contained);

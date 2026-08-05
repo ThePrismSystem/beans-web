@@ -4,7 +4,7 @@ import { basename, join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BEANS_CONCURRENCY } from "../util/concurrency.js";
+import { BEANS_CONCURRENCY, QueueFullError } from "../util/concurrency.js";
 
 import { discoverProjects, findProjectDirs, parseDataPath } from "./scan.js";
 
@@ -634,6 +634,63 @@ describe("discoverProjects counts", () => {
       expect(projA.counts.openByType.feature).toBe(1);
       expect(projA.counts.openByType.bug).toBe(0);
     } finally {
+      graphqlMock.mockRestore();
+    }
+  });
+});
+
+describe("discoverProjects under a saturated beans queue", () => {
+  it("leaves every project's error flag clear and logs once for the pass, not once per project", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi
+      .spyOn(executor, "runBeansGraphql")
+      .mockRejectedValue(new QueueFullError());
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const projects = await discoverProjects([root], 4);
+
+      // Every project is still listed, and none of them is broken: the queue
+      // being full is a property of the server's load, not of any project.
+      expect(projects.map((p) => p.name).sort()).toEqual(["proj-a", "sub-b"]);
+      expect(projects.map((p) => p.counts.error)).toEqual([false, false]);
+      // One summary line for the whole pass. Not one line - and not one stack
+      // trace - per project.
+      expect(err).toHaveBeenCalledTimes(1);
+      const [message, ...extra] = err.mock.calls[0] ?? [];
+      expect(String(message)).toContain("2 project");
+      expect(extra).toEqual([]);
+    } finally {
+      err.mockRestore();
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("still flags and logs a genuine per-project failure alongside a queue-full one", async () => {
+    const executor = await import("../beans/executor.js");
+    const boom = new Error("boom");
+    const graphqlMock = vi
+      .spyOn(executor, "runBeansGraphql")
+      .mockImplementation(({ configPath }) =>
+        configPath.includes("proj-a") ? Promise.reject(boom) : Promise.reject(new QueueFullError()),
+      );
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const projects = await discoverProjects([root], 4);
+      const byName = new Map(projects.map((p) => [p.name, p]));
+
+      expect(byName.get("proj-a")?.counts.error).toBe(true);
+      expect(byName.get("sub-b")?.counts.error).toBe(false);
+      // The real failure is still reported with its error, and the queue-full
+      // project still only contributes to the one summary line.
+      expect(err).toHaveBeenCalledTimes(2);
+      expect(err).toHaveBeenCalledWith(expect.stringContaining("beans discovery failed"), boom);
+      expect(
+        err.mock.calls.filter(([m]) => String(m).includes("beans discovery failed")),
+      ).toHaveLength(1);
+    } finally {
+      err.mockRestore();
       graphqlMock.mockRestore();
     }
   });
