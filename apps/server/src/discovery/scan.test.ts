@@ -4,6 +4,8 @@ import { basename, join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BEANS_CONCURRENCY } from "../util/concurrency.js";
+
 import { discoverProjects, findProjectDirs, parseDataPath } from "./scan.js";
 
 interface FakeDirEntry {
@@ -12,106 +14,138 @@ interface FakeDirEntry {
   isFile: () => boolean;
 }
 
+// Counts readdir calls that are in flight simultaneously, so a test can assert
+// what the walk's peak concurrency actually was. Hoisted because vi.mock's
+// factory runs before the module body.
+const readdirProbe = vi.hoisted(() => ({
+  active: 0,
+  peak: 0,
+  calls: 0,
+  reset(): void {
+    this.active = 0;
+    this.peak = 0;
+    this.calls = 0;
+  },
+}));
+
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
+
+  const respond = async (
+    dir: string,
+    options?: { withFileTypes?: boolean } | string | null,
+  ): Promise<unknown> => {
+    // Normalize options for checking
+    const opts = typeof options === "object" ? options : undefined;
+
+    // For the ordering test root, return mocked directory entries in non-alphabetical order
+    // Check if this is the root directory by seeing if it ends with the temp dir prefix
+    if (
+      typeof dir === "string" &&
+      dir.includes("scan-ordering-") &&
+      !dir.endsWith("/zeta") &&
+      !dir.endsWith("/mid") &&
+      !dir.endsWith("/alpha") &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        {
+          name: "zeta",
+          isDirectory: () => true,
+          isFile: () => false,
+        },
+        {
+          name: "mid",
+          isDirectory: () => true,
+          isFile: () => false,
+        },
+        {
+          name: "alpha",
+          isDirectory: () => true,
+          isFile: () => false,
+        },
+      ];
+      return entries;
+    }
+    // For subdirectories in the ordering test (zeta/, mid/, alpha/), return .beans.yml
+    if (
+      typeof dir === "string" &&
+      dir.includes("scan-ordering-") &&
+      (dir.endsWith("/zeta") || dir.endsWith("/mid") || dir.endsWith("/alpha")) &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        {
+          name: ".beans.yml",
+          isDirectory: () => false,
+          isFile: () => true,
+        },
+      ];
+      return entries;
+    }
+    // For the tiebreak test root, list two parent directories that both
+    // contain a child named "shared" — a same-basename project pair.
+    if (
+      typeof dir === "string" &&
+      dir.includes("scan-tiebreak-") &&
+      !dir.endsWith("/parent-one") &&
+      !dir.endsWith("/parent-two") &&
+      !dir.endsWith("/parent-one/shared") &&
+      !dir.endsWith("/parent-two/shared") &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        { name: "parent-one", isDirectory: () => true, isFile: () => false },
+        { name: "parent-two", isDirectory: () => true, isFile: () => false },
+      ];
+      return entries;
+    }
+    if (
+      typeof dir === "string" &&
+      (dir.endsWith("/parent-one") || dir.endsWith("/parent-two")) &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        { name: "shared", isDirectory: () => true, isFile: () => false },
+      ];
+      return entries;
+    }
+    // "parent-one/shared" is deliberately delayed so "parent-two/shared" is
+    // pushed into the discovered-projects list first — reproducing the
+    // out-of-alphabetical discovery order that a name-only sort cannot
+    // repair for a same-named project pair. The delay has to sit on the
+    // project directory's own readdir rather than on its parent's: the walk
+    // reassembles each depth level in input order, so only the order in
+    // which two directories *at the same level* finish is still decided by
+    // timing.
+    if (typeof dir === "string" && dir.endsWith("/parent-one/shared") && opts?.withFileTypes) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const entries: FakeDirEntry[] = [
+        { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
+      ];
+      return entries;
+    }
+    if (typeof dir === "string" && dir.endsWith("/parent-two/shared") && opts?.withFileTypes) {
+      const entries: FakeDirEntry[] = [
+        { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
+      ];
+      return entries;
+    }
+    // For all other calls, use the real readdir
+    return actual.readdir(dir, options as Parameters<typeof actual.readdir>[1]);
+  };
 
   return {
     ...actual,
     readdir: vi.fn(async (dir: string, options?: { withFileTypes?: boolean } | string | null) => {
-      // Normalize options for checking
-      const opts = typeof options === "object" ? options : undefined;
-
-      // For the ordering test root, return mocked directory entries in non-alphabetical order
-      // Check if this is the root directory by seeing if it ends with the temp dir prefix
-      if (
-        typeof dir === "string" &&
-        dir.includes("scan-ordering-") &&
-        !dir.endsWith("/zeta") &&
-        !dir.endsWith("/mid") &&
-        !dir.endsWith("/alpha") &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          {
-            name: "zeta",
-            isDirectory: () => true,
-            isFile: () => false,
-          },
-          {
-            name: "mid",
-            isDirectory: () => true,
-            isFile: () => false,
-          },
-          {
-            name: "alpha",
-            isDirectory: () => true,
-            isFile: () => false,
-          },
-        ];
-        return entries;
+      readdirProbe.calls += 1;
+      readdirProbe.active += 1;
+      if (readdirProbe.active > readdirProbe.peak) readdirProbe.peak = readdirProbe.active;
+      try {
+        return await respond(dir, options);
+      } finally {
+        readdirProbe.active -= 1;
       }
-      // For subdirectories in the ordering test (zeta/, mid/, alpha/), return .beans.yml
-      if (
-        typeof dir === "string" &&
-        dir.includes("scan-ordering-") &&
-        (dir.endsWith("/zeta") || dir.endsWith("/mid") || dir.endsWith("/alpha")) &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          {
-            name: ".beans.yml",
-            isDirectory: () => false,
-            isFile: () => true,
-          },
-        ];
-        return entries;
-      }
-      // For the tiebreak test root, list two parent directories that both
-      // contain a child named "shared" — a same-basename project pair.
-      if (
-        typeof dir === "string" &&
-        dir.includes("scan-tiebreak-") &&
-        !dir.endsWith("/parent-one") &&
-        !dir.endsWith("/parent-two") &&
-        !dir.endsWith("/parent-one/shared") &&
-        !dir.endsWith("/parent-two/shared") &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          { name: "parent-one", isDirectory: () => true, isFile: () => false },
-          { name: "parent-two", isDirectory: () => true, isFile: () => false },
-        ];
-        return entries;
-      }
-      // "parent-one" is deliberately delayed so "parent-two"'s subtree
-      // resolves and is pushed into the discovered-projects list first —
-      // reproducing the out-of-alphabetical discovery order that a
-      // name-only sort cannot repair for a same-named project pair.
-      if (typeof dir === "string" && dir.endsWith("/parent-one") && opts?.withFileTypes) {
-        await new Promise((resolve) => setTimeout(resolve, 20));
-        const entries: FakeDirEntry[] = [
-          { name: "shared", isDirectory: () => true, isFile: () => false },
-        ];
-        return entries;
-      }
-      if (typeof dir === "string" && dir.endsWith("/parent-two") && opts?.withFileTypes) {
-        const entries: FakeDirEntry[] = [
-          { name: "shared", isDirectory: () => true, isFile: () => false },
-        ];
-        return entries;
-      }
-      if (
-        typeof dir === "string" &&
-        (dir.endsWith("/parent-one/shared") || dir.endsWith("/parent-two/shared")) &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
-        ];
-        return entries;
-      }
-      // For all other calls, use the real readdir
-      return actual.readdir(dir, options as Parameters<typeof actual.readdir>[1]);
     }),
   };
 });
@@ -147,6 +181,55 @@ describe("findProjectDirs", () => {
     const dirs = await findProjectDirs(root, 0);
     expect(dirs).toEqual([]);
   });
+});
+
+describe("findProjectDirs concurrency", () => {
+  const DEPTH = 5;
+  const BRANCHING = 4;
+  // 1 + 4 + 16 + 64 + 256 + 1024 directories; the widest level alone is 1024,
+  // which is what an unbounded Promise.all over each level puts in flight.
+  const TOTAL_DIRS = 1365;
+  const WIDEST_LEVEL = 1024;
+
+  function buildTree(dir: string, depth: number): void {
+    if (depth === 0) return;
+    for (let i = 0; i < BRANCHING; i++) {
+      const child = join(dir, `d${String(i)}`);
+      mkdirSync(child);
+      buildTree(child, depth - 1);
+    }
+  }
+
+  it("never exceeds the concurrency bound across the whole walk, however wide the tree", async () => {
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-walk-bound-"));
+    try {
+      buildTree(testRoot, DEPTH);
+      // A project at the very bottom, so the walk has a reason to reach the
+      // widest level rather than stopping early.
+      writeFileSync(
+        join(testRoot, ...Array.from({ length: DEPTH }, () => "d0"), ".beans.yml"),
+        "beans:\n  prefix: x-\n",
+      );
+
+      readdirProbe.reset();
+      const dirs = await findProjectDirs(testRoot, DEPTH);
+
+      // Every directory is still visited: a bound that quietly stopped
+      // descending would satisfy the peak assertion on its own.
+      expect(readdirProbe.calls).toBe(TOTAL_DIRS);
+      expect(dirs).toHaveLength(1);
+      // The bound applies to the walk as a whole, not to one directory's
+      // fan-out: the widest level is 1024 directories, and no more than
+      // BEANS_CONCURRENCY of them may be read at once.
+      expect(WIDEST_LEVEL).toBeGreaterThan(BEANS_CONCURRENCY);
+      expect(readdirProbe.peak).toBeLessThanOrEqual(BEANS_CONCURRENCY);
+      // ...and it is a bound, not a serialization: the walk still overlaps
+      // reads rather than doing one directory at a time.
+      expect(readdirProbe.peak).toBeGreaterThan(1);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
 });
 
 describe("parseDataPath", () => {

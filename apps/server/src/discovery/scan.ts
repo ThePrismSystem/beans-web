@@ -32,24 +32,45 @@ export interface ProjectRecord extends Project {
   dataPath: string;
 }
 
+/**
+ * Walks one depth level at a time, bounding each level with
+ * `mapWithConcurrency`, instead of recursing with a `Promise.all` per
+ * directory.
+ *
+ * The recursive shape put an entire level of the tree in flight at once - 6561
+ * simultaneous `readdir` calls on a 3-way tree at the supported `SCAN_DEPTH=8`
+ * - and simply wrapping that recursion in `mapWithConcurrency` would not have
+ * fixed it: each recursive call would get its own bound, and N of them run
+ * concurrently, so the total stays proportional to the tree. Here exactly one
+ * `mapWithConcurrency` is live at any moment, so `BEANS_CONCURRENCY` is the
+ * peak for the whole walk rather than for one directory's fan-out. Note that
+ * `discoverProjects` runs one walk per configured root concurrently, so the
+ * process-wide peak is (number of GIT_ROOT entries) x this bound.
+ *
+ * The bound is deliberately the same number that caps `beans` children: both
+ * exist to stop one discovery pass from consuming the host's I/O capacity, and
+ * a second knob for the cheaper of the two operations would be one more thing
+ * to tune without a reason to tune it.
+ */
 export async function findProjectDirs(root: string, maxDepth: number): Promise<string[]> {
   const found: string[] = [];
-  async function walk(dir: string, depth: number): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    if (entries.some((e) => e.isFile() && e.name === ".beans.yml")) found.push(dir);
-    if (depth >= maxDepth) return;
-    await Promise.all(
-      entries
+  let frontier = [resolve(root)];
+  for (let depth = 0; depth <= maxDepth && frontier.length > 0; depth++) {
+    const children = await mapWithConcurrency(frontier, BEANS_CONCURRENCY, async (dir) => {
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      if (entries.some((e) => e.isFile() && e.name === ".beans.yml")) found.push(dir);
+      if (depth >= maxDepth) return [];
+      return entries
         .filter((e) => e.isDirectory() && !IGNORED.has(e.name) && !e.name.startsWith("."))
-        .map((e) => walk(join(dir, e.name), depth + 1)),
-    );
+        .map((e) => join(dir, e.name));
+    });
+    frontier = children.flat();
   }
-  await walk(resolve(root), 0);
   return found;
 }
 
