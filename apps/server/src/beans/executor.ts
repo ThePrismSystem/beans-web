@@ -1,10 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 
 import { env } from "../env.js";
 import { withBeansSlot } from "../util/concurrency.js";
-
-const execFileAsync = promisify(execFile);
+import { assertDataPathStillContained } from "../util/containment.js";
 
 /**
  * Hard ceiling on a single `beans` invocation. Without it a child that blocks
@@ -13,8 +11,12 @@ const execFileAsync = promisify(execFile);
  */
 export const BEANS_EXEC_TIMEOUT_MS = 15_000;
 
-/** Hard ceiling on a single `beans` invocation's combined stdout/stderr size. */
-const MAX_STDOUT_BYTES = 33_554_432; // 32 MiB
+/**
+ * Hard ceiling on a single `beans` invocation's combined stdout/stderr size,
+ * enforced by `spawnBeans` below. Exported so its test asserts the real bound
+ * rather than a second copy of the number.
+ */
+export const MAX_BEANS_OUTPUT_BYTES = 33_554_432; // 32 MiB
 
 export class BeansError extends Error {
   constructor(
@@ -28,6 +30,25 @@ export class BeansError extends Error {
 
 export interface RunOpts {
   configPath: string;
+  /**
+   * The project's configured root. Not passed to the CLI itself - used only
+   * to re-validate `beansPath`'s containment immediately before this call
+   * spawns a `beans` child (see `assertDataPathStillContained` in
+   * `util/containment.ts`).
+   */
+  root: string;
+  /**
+   * The project's data directory, already resolved and contained by the
+   * caller (see `resolveContainedDataPath` in `discovery/scan.ts`). Passed as
+   * `--beans-path`, which the CLI honours over whatever `beans.path` says in
+   * the config at `configPath` — so a hostile or unparseable `beans.path` in
+   * that file can no longer redirect where this call actually reads or
+   * writes, regardless of what the config file says at the moment the CLI
+   * runs. Required, not optional: every call site must supply an
+   * already-validated value rather than let the CLI fall back to consulting
+   * the config itself.
+   */
+  beansPath: string;
   query: string;
   variables?: Record<string, unknown>;
   binPath?: string;
@@ -40,14 +61,115 @@ export interface RunOpts {
   signal?: AbortSignal;
 }
 
+/**
+ * The child's argv. The query is deliberately absent: `spawnBeans` writes it
+ * to the child's stdin instead, so it never appears in `/proc/<pid>/cmdline`
+ * for any local account to read while the request is in flight (SEC-06).
+ *
+ * That also retires the `--` separator this list used to end with. `--` was
+ * there so a flag-shaped query (`--beans-path=/etc`) stayed a positional and
+ * could not be reinterpreted as a beans flag; with no positional left at all,
+ * there is nothing for the CLI to reinterpret. The remaining client-controlled
+ * value is `-v`'s, which is `JSON.stringify` output and is consumed as that
+ * flag's argument regardless of its contents.
+ *
+ * `opts.variables` stays on argv because `beans graphql` v0.4.2 offers no way
+ * to pass it anywhere else — `-v` takes a literal JSON string and its decoder
+ * rejects `-`, `@file` and a bare path alike. See `docs/SECURITY.md` for what
+ * that leaves exposed.
+ */
 export function buildBeansArgs(opts: RunOpts): string[] {
-  const args = ["graphql", "--json", "--config", opts.configPath];
+  const args = ["graphql", "--json", "--config", opts.configPath, "--beans-path", opts.beansPath];
   if (opts.variables) args.push("-v", JSON.stringify(opts.variables));
-  // "--" ends beans' option parsing: everything after it is a positional, so a
-  // query that starts with "-" (e.g. "--beans-path=/etc") can never be
-  // reinterpreted as a beans flag and used to escape the configured jail.
-  args.push("--", opts.query);
   return args;
+}
+
+/**
+ * Runs one `beans` child with `query` on its stdin and resolves its stdout.
+ *
+ * This was `promisify(execFile)`, which supplied a timeout and an output cap
+ * for free. `spawn` is used instead because it is the only way to give the
+ * child a stdin, and it supplies neither, so both are reimplemented here.
+ */
+function spawnBeans(bin: string, args: string[], query: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe"] });
+
+    const outChunks: Buffer[] = [];
+    const errChunks: Buffer[] = [];
+    let bytes = 0;
+
+    // Kills the child and settles. The pipes are destroyed, not merely
+    // detached, and that distinction is the whole point: SIGKILL closes the
+    // child's own ends, but a descendant it left behind (beans links
+    // os/exec) inherits them, so the write ends can outlive the child.
+    // Dropping our `data` listeners would stop this process accumulating the
+    // output but would leave the read ends open and ref'd, and the event loop
+    // would then never drain - `execFile`'s own kill path called `destroy()`
+    // for exactly this reason. Destroying releases the handles and stops
+    // delivery, so it covers both the leak and the heap. Also idempotent, so
+    // a second call is a no-op rather than a second signal at a corpse.
+    function abort(reason: Error): void {
+      clearTimeout(timer);
+      child.stdout.destroy();
+      child.stderr.destroy();
+      child.kill("SIGKILL");
+      reject(reason);
+    }
+
+    const timer = setTimeout(() => {
+      abort(new Error(`beans timed out after ${String(BEANS_EXEC_TIMEOUT_MS)}ms`));
+    }, BEANS_EXEC_TIMEOUT_MS);
+
+    const collect =
+      (into: Buffer[]) =>
+      (chunk: Buffer): void => {
+        bytes += chunk.length;
+        if (bytes > MAX_BEANS_OUTPUT_BYTES) {
+          abort(new Error(`beans output exceeded ${String(MAX_BEANS_OUTPUT_BYTES)} bytes`));
+          return;
+        }
+        into.push(chunk);
+      };
+    // Byte counting, not character counting: the cap is a memory bound, and a
+    // decoded chunk's `length` is UTF-16 units. Decoding is deferred to the
+    // end for the same reason it is left to Buffer.concat — a multi-byte rune
+    // split across two chunks would otherwise decode to replacement
+    // characters.
+    child.stdout.on("data", collect(outChunks));
+    child.stderr.on("data", collect(errChunks));
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(Buffer.concat(outChunks).toString("utf8"));
+        return;
+      }
+      // extractBeansErrorMessage prefers an "Error:" line in stderr and falls
+      // back to `message`, so both are populated here. Deliberately not
+      // execFile's "Command failed: <argv>\n<stderr>": that put the whole
+      // command line, `-v` argument included, into an error a client is shown.
+      const stderr = Buffer.concat(errChunks).toString("utf8");
+      const trimmed = stderr.trim();
+      const message =
+        trimmed === "" ? `beans exited (code ${String(code)}, signal ${String(signal)})` : trimmed;
+      reject(Object.assign(new Error(message), { stderr }));
+    });
+
+    // A child that exits before draining its stdin makes this pipe emit
+    // EPIPE. Its own exit code and stderr are the failure worth reporting, so
+    // that is swallowed rather than left to become an 'error' event on a
+    // stream with no listener, which would crash the process.
+    child.stdin.on("error", () => {
+      // deliberately ignored; see above
+    });
+    child.stdin.end(query);
+  });
 }
 
 interface GraphqlResponse {
@@ -121,17 +243,33 @@ function extractBeansErrorMessage(err: unknown): string {
 }
 
 export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
+  // An empty --beans-path is not "no override" - the CLI treats it as absent
+  // and falls back to reading beans.path from the config file at configPath,
+  // which is exactly the trust this scheme exists to remove. beansPath is
+  // documented as required, and every caller currently derives it from
+  // resolve(), which never returns "", but that's an invariant this function
+  // asserts rather than one callers are trusted to uphold. Checked here,
+  // before withBeansSlot is even entered, so it (a) throws a plain Error,
+  // not the BeansError the catch below produces - this is a caller bug, not
+  // something to show a client as a query error - and (b) never claims a
+  // concurrency slot for a call that is guaranteed to fail.
+  if (opts.beansPath === "") {
+    throw new Error("beansPath must not be empty");
+  }
   const bin = opts.binPath ?? env.BEANS_BIN;
   // Every caller — the graphql route, search, analytics, discovery — reaches a
   // `beans` child through here, so gating at this one point bounds the whole
   // server. Doing it at the call sites would leave the graphql route unbounded.
   return withBeansSlot(async () => {
+    // Re-validated here, inside the slot, rather than by each caller before
+    // queueing for one: with the pool full, this call can wait behind up to
+    // BEANS_CONCURRENCY-1 other children - seconds, not milliseconds, under
+    // load - so a check made before the queue would leave that whole wait
+    // unguarded. See assertDataPathStillContained for what checking here,
+    // right before the spawn, narrows the window to.
+    await assertDataPathStillContained(opts.root, opts.beansPath);
     try {
-      const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
-        maxBuffer: MAX_STDOUT_BYTES,
-        timeout: BEANS_EXEC_TIMEOUT_MS,
-        killSignal: "SIGKILL",
-      });
+      const stdout = await spawnBeans(bin, buildBeansArgs(opts), opts.query);
       return parseBeansResult(stdout);
     } catch (err) {
       if (err instanceof BeansError) throw err;

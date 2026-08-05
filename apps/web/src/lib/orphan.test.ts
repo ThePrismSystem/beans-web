@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { closedAncestors, indexById, isOrphaned, orphanedIds } from "./orphan.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 function listItem(overrides: Partial<BeanListItem> & { id: string }): BeanListItem {
   return {

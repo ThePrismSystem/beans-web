@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { router } from "./router.js";
 
-import type { Project } from "@beans-frontend/shared";
+import type { Project } from "@beans-web/shared";
 
 const { useProjectsMock } = vi.hoisted(() => ({ useProjectsMock: vi.fn() }));
 

@@ -90,3 +90,41 @@ describe("env GIT_ROOT", () => {
     else process.env.GIT_ROOT = before;
   });
 });
+
+describe("env ALLOWED_HOSTS", () => {
+  async function withAllowedHosts(value: string | undefined): Promise<string[]> {
+    const before = process.env.ALLOWED_HOSTS;
+    if (value === undefined) delete process.env.ALLOWED_HOSTS;
+    else process.env.ALLOWED_HOSTS = value;
+    vi.resetModules();
+    try {
+      const { env } = await import("./env.js");
+      return env.ALLOWED_HOSTS;
+    } finally {
+      if (before === undefined) delete process.env.ALLOWED_HOSTS;
+      else process.env.ALLOWED_HOSTS = before;
+    }
+  }
+
+  it("defaults to an empty list when unset, so only the loopback defaults are trusted", async () => {
+    await expect(withAllowedHosts(undefined)).resolves.toEqual([]);
+  });
+
+  it("parses a comma-separated value into a lower-cased list", async () => {
+    await expect(withAllowedHosts("Beans.Example.com, other.example.com")).resolves.toEqual([
+      "beans.example.com",
+      "other.example.com",
+    ]);
+  });
+
+  it("drops empty entries from trailing or doubled commas", async () => {
+    await expect(withAllowedHosts("beans.example.com,,other.example.com,")).resolves.toEqual([
+      "beans.example.com",
+      "other.example.com",
+    ]);
+  });
+
+  it("treats an all-empty value as unset rather than failing", async () => {
+    await expect(withAllowedHosts(",,")).resolves.toEqual([]);
+  });
+});

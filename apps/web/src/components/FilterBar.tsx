@@ -1,4 +1,4 @@
-import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-web/shared";
 import { useState } from "react";
 
 import { CheckboxMenu } from "./CheckboxMenu.js";

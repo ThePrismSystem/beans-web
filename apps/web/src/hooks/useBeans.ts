@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 // `body` is deliberately absent: no list row renders it, and leaving it out is
@@ -46,10 +46,13 @@ export function useProjectBeans(project: string, search: string): UseQueryResult
   const trimmed = search.trim();
   return useQuery({
     queryKey: ["beans", project, trimmed],
-    queryFn: async () => {
-      const data = await projectGraphql<BeansQueryResult>(project, BEANS_QUERY, {
-        filter: trimmed.length > 0 ? { search: trimmed } : {},
-      });
+    queryFn: async ({ signal }) => {
+      const data = await projectGraphql<BeansQueryResult>(
+        project,
+        BEANS_QUERY,
+        { filter: trimmed.length > 0 ? { search: trimmed } : {} },
+        signal,
+      );
       return data.beans;
     },
   });

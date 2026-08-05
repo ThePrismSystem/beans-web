@@ -1,10 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { assertWithinRoot, discoverProjects, findProjectDirs } from "./scan.js";
+import { BEANS_CONCURRENCY, QueueFullError } from "../util/concurrency.js";
+
+import { discoverProjects, findProjectDirs, parseDataPath } from "./scan.js";
 
 interface FakeDirEntry {
   name: string;
@@ -12,106 +14,138 @@ interface FakeDirEntry {
   isFile: () => boolean;
 }
 
+// Counts readdir calls that are in flight simultaneously, so a test can assert
+// what the walk's peak concurrency actually was. Hoisted because vi.mock's
+// factory runs before the module body.
+const readdirProbe = vi.hoisted(() => ({
+  active: 0,
+  peak: 0,
+  calls: 0,
+  reset(): void {
+    this.active = 0;
+    this.peak = 0;
+    this.calls = 0;
+  },
+}));
+
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
+
+  const respond = async (
+    dir: string,
+    options?: { withFileTypes?: boolean } | string | null,
+  ): Promise<unknown> => {
+    // Normalize options for checking
+    const opts = typeof options === "object" ? options : undefined;
+
+    // For the ordering test root, return mocked directory entries in non-alphabetical order
+    // Check if this is the root directory by seeing if it ends with the temp dir prefix
+    if (
+      typeof dir === "string" &&
+      dir.includes("scan-ordering-") &&
+      !dir.endsWith("/zeta") &&
+      !dir.endsWith("/mid") &&
+      !dir.endsWith("/alpha") &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        {
+          name: "zeta",
+          isDirectory: () => true,
+          isFile: () => false,
+        },
+        {
+          name: "mid",
+          isDirectory: () => true,
+          isFile: () => false,
+        },
+        {
+          name: "alpha",
+          isDirectory: () => true,
+          isFile: () => false,
+        },
+      ];
+      return entries;
+    }
+    // For subdirectories in the ordering test (zeta/, mid/, alpha/), return .beans.yml
+    if (
+      typeof dir === "string" &&
+      dir.includes("scan-ordering-") &&
+      (dir.endsWith("/zeta") || dir.endsWith("/mid") || dir.endsWith("/alpha")) &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        {
+          name: ".beans.yml",
+          isDirectory: () => false,
+          isFile: () => true,
+        },
+      ];
+      return entries;
+    }
+    // For the tiebreak test root, list two parent directories that both
+    // contain a child named "shared" — a same-basename project pair.
+    if (
+      typeof dir === "string" &&
+      dir.includes("scan-tiebreak-") &&
+      !dir.endsWith("/parent-one") &&
+      !dir.endsWith("/parent-two") &&
+      !dir.endsWith("/parent-one/shared") &&
+      !dir.endsWith("/parent-two/shared") &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        { name: "parent-one", isDirectory: () => true, isFile: () => false },
+        { name: "parent-two", isDirectory: () => true, isFile: () => false },
+      ];
+      return entries;
+    }
+    if (
+      typeof dir === "string" &&
+      (dir.endsWith("/parent-one") || dir.endsWith("/parent-two")) &&
+      opts?.withFileTypes
+    ) {
+      const entries: FakeDirEntry[] = [
+        { name: "shared", isDirectory: () => true, isFile: () => false },
+      ];
+      return entries;
+    }
+    // "parent-one/shared" is deliberately delayed so "parent-two/shared" is
+    // pushed into the discovered-projects list first — reproducing the
+    // out-of-alphabetical discovery order that a name-only sort cannot
+    // repair for a same-named project pair. The delay has to sit on the
+    // project directory's own readdir rather than on its parent's: the walk
+    // reassembles each depth level in input order, so only the order in
+    // which two directories *at the same level* finish is still decided by
+    // timing.
+    if (typeof dir === "string" && dir.endsWith("/parent-one/shared") && opts?.withFileTypes) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const entries: FakeDirEntry[] = [
+        { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
+      ];
+      return entries;
+    }
+    if (typeof dir === "string" && dir.endsWith("/parent-two/shared") && opts?.withFileTypes) {
+      const entries: FakeDirEntry[] = [
+        { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
+      ];
+      return entries;
+    }
+    // For all other calls, use the real readdir
+    return actual.readdir(dir, options as Parameters<typeof actual.readdir>[1]);
+  };
 
   return {
     ...actual,
     readdir: vi.fn(async (dir: string, options?: { withFileTypes?: boolean } | string | null) => {
-      // Normalize options for checking
-      const opts = typeof options === "object" ? options : undefined;
-
-      // For the ordering test root, return mocked directory entries in non-alphabetical order
-      // Check if this is the root directory by seeing if it ends with the temp dir prefix
-      if (
-        typeof dir === "string" &&
-        dir.includes("scan-ordering-") &&
-        !dir.endsWith("/zeta") &&
-        !dir.endsWith("/mid") &&
-        !dir.endsWith("/alpha") &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          {
-            name: "zeta",
-            isDirectory: () => true,
-            isFile: () => false,
-          },
-          {
-            name: "mid",
-            isDirectory: () => true,
-            isFile: () => false,
-          },
-          {
-            name: "alpha",
-            isDirectory: () => true,
-            isFile: () => false,
-          },
-        ];
-        return entries;
+      readdirProbe.calls += 1;
+      readdirProbe.active += 1;
+      if (readdirProbe.active > readdirProbe.peak) readdirProbe.peak = readdirProbe.active;
+      try {
+        return await respond(dir, options);
+      } finally {
+        readdirProbe.active -= 1;
       }
-      // For subdirectories in the ordering test (zeta/, mid/, alpha/), return .beans.yml
-      if (
-        typeof dir === "string" &&
-        dir.includes("scan-ordering-") &&
-        (dir.endsWith("/zeta") || dir.endsWith("/mid") || dir.endsWith("/alpha")) &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          {
-            name: ".beans.yml",
-            isDirectory: () => false,
-            isFile: () => true,
-          },
-        ];
-        return entries;
-      }
-      // For the tiebreak test root, list two parent directories that both
-      // contain a child named "shared" — a same-basename project pair.
-      if (
-        typeof dir === "string" &&
-        dir.includes("scan-tiebreak-") &&
-        !dir.endsWith("/parent-one") &&
-        !dir.endsWith("/parent-two") &&
-        !dir.endsWith("/parent-one/shared") &&
-        !dir.endsWith("/parent-two/shared") &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          { name: "parent-one", isDirectory: () => true, isFile: () => false },
-          { name: "parent-two", isDirectory: () => true, isFile: () => false },
-        ];
-        return entries;
-      }
-      // "parent-one" is deliberately delayed so "parent-two"'s subtree
-      // resolves and is pushed into the discovered-projects list first —
-      // reproducing the out-of-alphabetical discovery order that a
-      // name-only sort cannot repair for a same-named project pair.
-      if (typeof dir === "string" && dir.endsWith("/parent-one") && opts?.withFileTypes) {
-        await new Promise((resolve) => setTimeout(resolve, 20));
-        const entries: FakeDirEntry[] = [
-          { name: "shared", isDirectory: () => true, isFile: () => false },
-        ];
-        return entries;
-      }
-      if (typeof dir === "string" && dir.endsWith("/parent-two") && opts?.withFileTypes) {
-        const entries: FakeDirEntry[] = [
-          { name: "shared", isDirectory: () => true, isFile: () => false },
-        ];
-        return entries;
-      }
-      if (
-        typeof dir === "string" &&
-        (dir.endsWith("/parent-one/shared") || dir.endsWith("/parent-two/shared")) &&
-        opts?.withFileTypes
-      ) {
-        const entries: FakeDirEntry[] = [
-          { name: ".beans.yml", isDirectory: () => false, isFile: () => true },
-        ];
-        return entries;
-      }
-      // For all other calls, use the real readdir
-      return actual.readdir(dir, options as Parameters<typeof actual.readdir>[1]);
     }),
   };
 });
@@ -149,25 +183,236 @@ describe("findProjectDirs", () => {
   });
 });
 
-describe("assertWithinRoot", () => {
-  it("accepts a path inside root", () => {
-    expect(assertWithinRoot(root, join(root, "proj-a"))).toBe(join(root, "proj-a"));
+describe("findProjectDirs concurrency", () => {
+  // A complete 4-ary tree 5 deep: 1365 directories, of which the widest level
+  // is BRANCHING ** DEPTH = 1024 - two orders of magnitude above the bound, and
+  // what an unbounded Promise.all over each level puts in flight at once.
+  const DEPTH = 5;
+  const BRANCHING = 4;
+
+  // Returns the number of directories it created, so the walk can be checked
+  // against the tree that actually exists rather than a hand-computed total.
+  function buildTree(dir: string, depth: number): number {
+    if (depth === 0) return 0;
+    let created = 0;
+    for (let i = 0; i < BRANCHING; i++) {
+      const child = join(dir, `d${String(i)}`);
+      mkdirSync(child);
+      created += 1 + buildTree(child, depth - 1);
+    }
+    return created;
+  }
+
+  it("never exceeds the concurrency bound across the whole walk, however wide the tree", async () => {
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-walk-bound-"));
+    try {
+      const created = buildTree(testRoot, DEPTH);
+      // A project at the very bottom, so the walk has a reason to reach the
+      // widest level rather than stopping early.
+      writeFileSync(
+        join(testRoot, ...Array.from({ length: DEPTH }, () => "d0"), ".beans.yml"),
+        "beans:\n  prefix: x-\n",
+      );
+
+      readdirProbe.reset();
+      const dirs = await findProjectDirs(testRoot, DEPTH);
+
+      // Every directory that exists is still read - the root plus everything
+      // buildTree made. A bound that quietly stopped descending would satisfy
+      // the peak assertion on its own.
+      expect(readdirProbe.calls).toBe(created + 1);
+      expect(dirs).toHaveLength(1);
+      // The bound applies to the walk as a whole, not to one directory's
+      // fan-out: no more than BEANS_CONCURRENCY of the widest level's 1024
+      // directories may be read at once.
+      expect(readdirProbe.peak).toBeLessThanOrEqual(BEANS_CONCURRENCY);
+      // ...and it is a bound, not a serialization: the walk still overlaps
+      // reads rather than doing one directory at a time.
+      expect(readdirProbe.peak).toBeGreaterThan(1);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
+});
+
+describe("parseDataPath", () => {
+  it("defaults to .beans when the key is absent", () => {
+    expect(parseDataPath("beans:\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
-  it("accepts the root itself", () => {
-    expect(assertWithinRoot(root, root)).toBe(root);
+
+  it("defaults to .beans when the key is present but blank", () => {
+    expect(parseDataPath("beans:\n  path:\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
-  it("throws on traversal outside root", () => {
-    expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(/outside/i);
+
+  it("parses an ordinary relative value", () => {
+    expect(parseDataPath("beans:\n  path: .beans\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
   });
-  it("names the violated root in the error message", () => {
-    expect(() => assertWithinRoot(root, join(root, "../etc"))).toThrow(
-      new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-    );
+
+  it("parses a traversal value", () => {
+    expect(parseDataPath("beans:\n  path: ../../outside\n")).toEqual({
+      value: "../../outside",
+      confident: true,
+    });
   });
-  it("accepts a directory whose name literally starts with ..", () => {
-    expect(assertWithinRoot(root, join(root, "..hidden-backup"))).toBe(
-      join(root, "..hidden-backup"),
-    );
+
+  it("parses an absolute value as-is", () => {
+    expect(parseDataPath("beans:\n  path: /etc/evil\n")).toEqual({
+      value: "/etc/evil",
+      confident: true,
+    });
+  });
+
+  it("parses a double-quoted value", () => {
+    expect(parseDataPath('beans:\n  path: "../evil"\n')).toEqual({
+      value: "../evil",
+      confident: true,
+    });
+  });
+
+  it("parses a single-quoted value", () => {
+    expect(parseDataPath("beans:\n  path: '../evil'\n")).toEqual({
+      value: "../evil",
+      confident: true,
+    });
+  });
+
+  it("strips a trailing comment on an unquoted value", () => {
+    expect(parseDataPath("beans:\n  path: ../evil # do not look here\n")).toEqual({
+      value: "../evil",
+      confident: true,
+    });
+  });
+
+  it("strips a trailing comment on a quoted value", () => {
+    expect(parseDataPath('beans:\n  path: "../evil"   # do not look here\n')).toEqual({
+      value: "../evil",
+      confident: true,
+    });
+  });
+
+  it("tolerates extra whitespace around the value", () => {
+    expect(parseDataPath("beans:\n  path:    ../evil   \n")).toEqual({
+      value: "../evil",
+      confident: true,
+    });
+  });
+
+  it("ignores a path: mention inside a full-line comment and still finds the default", () => {
+    expect(parseDataPath("beans:\n  # path: ../evil (disabled)\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
+  });
+
+  it("ignores a path: key that belongs to an unrelated top-level section", () => {
+    // Only beans.path matters. A path: key nested under some other top-level
+    // key is not beans.path at all and must not be flagged, let alone reduce
+    // confidence - the CLI ignores it too.
+    const result = parseDataPath("other:\n  path: ../evil\nbeans:\n  prefix: bf-\n");
+    expect(result).toEqual({ value: ".beans", confident: true });
+  });
+
+  it("defaults to .beans when the value is nothing but a trailing comment", () => {
+    expect(parseDataPath("beans:\n  path: # comment only, no value\n  prefix: bf-\n")).toEqual({
+      value: ".beans",
+      confident: true,
+    });
+  });
+
+  it("is not confident about a flow-style mapping, which the CLI honours but this parser cannot see as a line key", () => {
+    const result = parseDataPath('beans: {path: "../evil", prefix: "bf-"}\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  it("is not confident about an unterminated quote", () => {
+    const result = parseDataPath('beans:\n  path: "../evil\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  it("is not confident about trailing junk after a closing quote that isn't a comment", () => {
+    const result = parseDataPath('beans:\n  path: "../evil" extra\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  it("is not confident about a stray quote in an unquoted value", () => {
+    const result = parseDataPath('beans:\n  path: ../ev"il\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  it("is not confident about a duplicate path key rather than guessing which one the CLI would use", () => {
+    const result = parseDataPath("beans:\n  path: .beans\n  path: ../evil\n");
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  it("is not confident when a comment-only path: line is followed by a more-indented continuation", () => {
+    // Distinct from the plain "path:\n    value" case above: here the
+    // same-line content isn't literally empty, it's a comment, and the
+    // "blank after stripping the comment" branch must still check the
+    // following line for a continuation rather than assuming the default.
+    const result = parseDataPath("beans:\n  path: # see below\n    ../OUTSIDE\n  prefix: x-\n");
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
+  });
+
+  // Regression lock for the five parser bypasses found in round 1: each of
+  // these was accepted as ".beans"/the literal indicator text by the old
+  // line-only parser while the real CLI resolved beans.path to ../OUTSIDE -
+  // an escape that never triggered the containment check. Confirmed against
+  // the real binary (see the C4 report). None of these should be confident.
+  describe("bypass regression lock", () => {
+    it("is not confident about an unquoted value on a following, more-indented line", () => {
+      const result = parseDataPath("beans:\n  path:\n    ../OUTSIDE\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a quoted value on a following, more-indented line", () => {
+      const result = parseDataPath('beans:\n  path:\n    "../OUTSIDE"\n  prefix: bf-\n');
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a folded block scalar (>-)", () => {
+      const result = parseDataPath("beans:\n  path: >-\n    ../OUTSIDE\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a literal block scalar (|-)", () => {
+      const result = parseDataPath("beans:\n  path: |-\n    ../OUTSIDE\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+
+    it("is not confident about a YAML alias referencing an anchor", () => {
+      const result = parseDataPath("beans:\n  x: &a ../OUTSIDE\n  path: *a\n  prefix: bf-\n");
+      expect(result.confident).toBe(false);
+      expect(result.value).toBe(".beans");
+    });
+  });
+
+  it("is not confident about a double-quoted value containing an escape sequence", () => {
+    // YAML double-quoted scalars decode backslash escapes (/ is "/"),
+    // so the real CLI resolves this to "../OUTSIDE" - a literal string
+    // extraction that doesn't decode escapes would silently keep it inside
+    // the project directory instead.
+    const result = parseDataPath('beans:\n  path: "..\\u002fOUTSIDE"\n  prefix: bf-\n');
+    expect(result.confident).toBe(false);
+    expect(result.value).toBe(".beans");
   });
 });
 
@@ -394,5 +639,387 @@ describe("discoverProjects counts", () => {
     } finally {
       graphqlMock.mockRestore();
     }
+  });
+});
+
+describe("discoverProjects under a saturated beans queue", () => {
+  it("leaves every project's error flag clear and logs once for the pass, not once per project", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi
+      .spyOn(executor, "runBeansGraphql")
+      .mockRejectedValue(new QueueFullError());
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const projects = await discoverProjects([root], 4);
+
+      // Every project is still listed, and none of them is broken: the queue
+      // being full is a property of the server's load, not of any project.
+      expect(projects.map((p) => p.name).sort()).toEqual(["proj-a", "sub-b"]);
+      expect(projects.map((p) => p.counts.error)).toEqual([false, false]);
+      // One summary line for the whole pass. Not one line - and not one stack
+      // trace - per project.
+      expect(err).toHaveBeenCalledTimes(1);
+      const [message, ...extra] = err.mock.calls[0] ?? [];
+      expect(String(message)).toContain("2 project");
+      expect(extra).toEqual([]);
+    } finally {
+      err.mockRestore();
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("still flags and logs a genuine per-project failure alongside a queue-full one", async () => {
+    const executor = await import("../beans/executor.js");
+    const boom = new Error("boom");
+    const graphqlMock = vi
+      .spyOn(executor, "runBeansGraphql")
+      .mockImplementation(({ configPath }) =>
+        configPath.includes("proj-a") ? Promise.reject(boom) : Promise.reject(new QueueFullError()),
+      );
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const projects = await discoverProjects([root], 4);
+      const byName = new Map(projects.map((p) => [p.name, p]));
+
+      expect(byName.get("proj-a")?.counts.error).toBe(true);
+      expect(byName.get("sub-b")?.counts.error).toBe(false);
+      // The real failure is still reported with its error, and the queue-full
+      // project still only contributes to the one summary line.
+      expect(err).toHaveBeenCalledTimes(2);
+      expect(err).toHaveBeenCalledWith(expect.stringContaining("beans discovery failed"), boom);
+      expect(
+        err.mock.calls.filter(([m]) => String(m).includes("beans discovery failed")),
+      ).toHaveLength(1);
+    } finally {
+      err.mockRestore();
+      graphqlMock.mockRestore();
+    }
+  });
+});
+
+describe("discoverProjects path containment (SEC-03)", () => {
+  it("excludes a project whose beans.path traverses outside the root, keeping its sibling", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-escape-rel-"));
+    try {
+      mkdirSync(join(testRoot, "evil"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "evil", ".beans.yml"),
+        "beans:\n  path: ../../outside\n  prefix: x-\n",
+      );
+      mkdirSync(join(testRoot, "good"), { recursive: true });
+      writeFileSync(join(testRoot, "good", ".beans.yml"), "beans:\n  prefix: y-\n");
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual(["good"]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("excludes a project whose beans.path is an absolute path outside the root", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-escape-abs-"));
+    const outside = mkdtempSync(join(tmpdir(), "scan-escape-abs-target-"));
+    try {
+      mkdirSync(join(testRoot, "evil"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "evil", ".beans.yml"),
+        `beans:\n  path: ${outside}\n  prefix: x-\n`,
+      );
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual([]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("excludes a project whose beans.path is a quoted traversal, proving parsing wires into containment", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-escape-quoted-"));
+    try {
+      mkdirSync(join(testRoot, "evil-double"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "evil-double", ".beans.yml"),
+        'beans:\n  path: "../../outside"\n  prefix: x-\n',
+      );
+      mkdirSync(join(testRoot, "evil-single"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "evil-single", ".beans.yml"),
+        "beans:\n  path: '../../outside'\n  prefix: x-\n",
+      );
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual([]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("includes a normal project whose beans.path is the default (key absent) or explicit .beans", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-normal-"));
+    try {
+      mkdirSync(join(testRoot, "implicit"), { recursive: true });
+      writeFileSync(join(testRoot, "implicit", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(testRoot, "explicit"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "explicit", ".beans.yml"),
+        "beans:\n  path: .beans\n  prefix: y-\n",
+      );
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name).sort()).toEqual(["explicit", "implicit"]);
+      // The .beans leaf doesn't exist in either fixture, so realpathContained
+      // reconstructs it from the nearest existing ancestor plus a literal
+      // tail - this must land back on exactly the lexical path when nothing
+      // in the chain is a symlink.
+      const byName = new Map(projects.map((p) => [p.name, p]));
+      expect(byName.get("implicit")?.dataPath).toBe(join(testRoot, "implicit", ".beans"));
+      expect(byName.get("explicit")?.dataPath).toBe(join(testRoot, "explicit", ".beans"));
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("keeps a project with a flow-style beans.path, but forces --beans-path to the safe default", async () => {
+    // Round 1 dropped this project outright. Round 2: parsing failure alone
+    // no longer drops anything - the project stays discovered, but every
+    // runBeansGraphql call for it is forced onto the validated default via
+    // --beans-path, so the config's own (unreadable) declared value never
+    // reaches the CLI regardless of what it says.
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-flow-default-"));
+    try {
+      mkdirSync(join(testRoot, "evil"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "evil", ".beans.yml"),
+        'beans: {path: "../evil", prefix: "x-"}\n',
+      );
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual(["evil"]);
+      const call = graphqlMock.mock.calls.find(
+        ([opts]) =>
+          (opts as { configPath: string }).configPath === join(testRoot, "evil", ".beans.yml"),
+      );
+      expect((call?.[0] as { beansPath?: string; root?: string } | undefined)?.beansPath).toBe(
+        join(testRoot, "evil", ".beans"),
+      );
+      // root is threaded through so executor.ts's own live containment
+      // re-check (assertDataPathStillContained) can run inside the
+      // concurrency slot for this call too, the same as every other
+      // runBeansGraphql caller.
+      expect((call?.[0] as { root?: string } | undefined)?.root).toBe(testRoot);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("excludes a project whose default .beans directory is a symlink pointing outside the root", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-symlink-out-"));
+    const outside = mkdtempSync(join(tmpdir(), "scan-symlink-out-target-"));
+    try {
+      mkdirSync(join(testRoot, "evil"), { recursive: true });
+      writeFileSync(join(testRoot, "evil", ".beans.yml"), "beans:\n  prefix: x-\n");
+      // .beans is a symlink escaping the root - passes a lexical check
+      // (the literal path is still "<root>/evil/.beans") but must be
+      // rejected once symlinks are resolved.
+      symlinkSync(outside, join(testRoot, "evil", ".beans"));
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual([]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("includes a project whose .beans directory is a symlink that stays inside the root, storing the resolved real path", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-symlink-in-"));
+    try {
+      mkdirSync(join(testRoot, "real-data"), { recursive: true });
+      mkdirSync(join(testRoot, "proj"), { recursive: true });
+      writeFileSync(join(testRoot, "proj", ".beans.yml"), "beans:\n  prefix: x-\n");
+      symlinkSync(join(testRoot, "real-data"), join(testRoot, "proj", ".beans"));
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual(["proj"]);
+      // dataPath must be the *resolved* real-data directory, not the lexical
+      // "proj/.beans" symlink path: caching the unresolved candidate here
+      // would mean a later change to what "proj/.beans" points to redirects
+      // every subsequent use of the cached dataPath, whereas the resolved
+      // value keeps naming real-data regardless of what the symlink is
+      // later repointed to.
+      expect(projects[0]?.dataPath).toBe(join(testRoot, "real-data"));
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("excludes a project via a symlinked ancestor directory even when the data dir leaf doesn't exist yet", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-symlink-ancestor-"));
+    const outside = mkdtempSync(join(tmpdir(), "scan-symlink-ancestor-target-"));
+    try {
+      mkdirSync(join(testRoot, "evil"), { recursive: true });
+      writeFileSync(
+        join(testRoot, "evil", ".beans.yml"),
+        "beans:\n  path: sub/.beans\n  prefix: x-\n",
+      );
+      // "sub" is a symlink escaping the root; "sub/.beans" itself does not
+      // exist anywhere, inside the escape target or otherwise.
+      symlinkSync(outside, join(testRoot, "evil", "sub"));
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual([]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  it("excludes a project (without crashing discovery) when its data directory is an unresolvable symlink loop", async () => {
+    const executor = await import("../beans/executor.js");
+    const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-symlink-eloop-"));
+    try {
+      mkdirSync(join(testRoot, "evil"), { recursive: true });
+      writeFileSync(join(testRoot, "evil", ".beans.yml"), "beans:\n  prefix: x-\n");
+      mkdirSync(join(testRoot, "good"), { recursive: true });
+      writeFileSync(join(testRoot, "good", ".beans.yml"), "beans:\n  prefix: y-\n");
+      // ".beans" and ".beans-loop" symlink to each other, so resolving
+      // either raises ELOOP rather than ENOENT. resolveContainedDataPath
+      // must treat this the same as any other containment it cannot confirm -
+      // reject the one project, not throw out of discoverProjects.
+      symlinkSync(join(testRoot, "evil", ".beans-loop"), join(testRoot, "evil", ".beans"));
+      symlinkSync(join(testRoot, "evil", ".beans"), join(testRoot, "evil", ".beans-loop"));
+
+      const projects = await discoverProjects([testRoot], 2);
+
+      expect(projects.map((p) => p.name)).toEqual(["good"]);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      graphqlMock.mockRestore();
+    }
+  });
+
+  describe("bypass regression lock (round 1 parser bypasses)", () => {
+    // Each config here was accepted by the round-1 parser as ".beans" (or,
+    // for the block-scalar cases, as the literal indicator text) while the
+    // real CLI actually resolved beans.path to ../OUTSIDE - confirmed
+    // against the real binary (see the C4 report). Discovery must not be
+    // fooled into treating these as safe defaults on faith: it must still
+    // keep the project (parsing failure alone doesn't drop it) but force
+    // every runBeansGraphql call for it onto the validated default via
+    // --beans-path, never the config's own unreadable value.
+    async function expectKeptWithDefaultBeansPath(
+      testRootPrefix: string,
+      configContent: string,
+    ): Promise<void> {
+      const executor = await import("../beans/executor.js");
+      const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
+
+      const testRoot = mkdtempSync(join(tmpdir(), testRootPrefix));
+      try {
+        mkdirSync(join(testRoot, "evil"), { recursive: true });
+        writeFileSync(join(testRoot, "evil", ".beans.yml"), configContent);
+
+        const projects = await discoverProjects([testRoot], 2);
+
+        expect(projects.map((p) => p.name)).toEqual(["evil"]);
+        const call = graphqlMock.mock.calls.find(
+          ([opts]) =>
+            (opts as { configPath: string }).configPath === join(testRoot, "evil", ".beans.yml"),
+        );
+        expect((call?.[0] as { beansPath?: string } | undefined)?.beansPath).toBe(
+          join(testRoot, "evil", ".beans"),
+        );
+      } finally {
+        rmSync(testRoot, { recursive: true, force: true });
+        graphqlMock.mockRestore();
+      }
+    }
+
+    it("forces the default for an unquoted value on a following, more-indented line", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-multiline-",
+        "beans:\n  path:\n    ../OUTSIDE\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a quoted value on a following, more-indented line", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-multiline-quoted-",
+        'beans:\n  path:\n    "../OUTSIDE"\n  prefix: x-\n',
+      );
+    });
+
+    it("forces the default for a folded block scalar (>-)", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-folded-",
+        "beans:\n  path: >-\n    ../OUTSIDE\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a literal block scalar (|-)", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-literal-",
+        "beans:\n  path: |-\n    ../OUTSIDE\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a YAML alias referencing an anchor", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-alias-",
+        "beans:\n  x: &a ../OUTSIDE\n  path: *a\n  prefix: x-\n",
+      );
+    });
+
+    it("forces the default for a double-quoted value containing an escape sequence", async () => {
+      await expectKeptWithDefaultBeansPath(
+        "scan-bypass-escape-",
+        'beans:\n  path: "..\\u002fOUTSIDE"\n  prefix: x-\n',
+      );
+    });
   });
 });

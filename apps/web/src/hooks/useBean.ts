@@ -1,9 +1,9 @@
-import { BEAN_DETAIL_QUERY } from "@beans-frontend/shared/graphql";
+import { BEAN_DETAIL_QUERY } from "@beans-web/shared/graphql";
 import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { BeanDetail, LinkedBean } from "@beans-frontend/shared";
+import type { BeanDetail, LinkedBean } from "@beans-web/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 interface BeanDetailQueryResult {
@@ -16,11 +16,13 @@ interface BeanDetailQueryResult {
 export function useBean(project: string, id: string): UseQueryResult<BeanDetail> {
   return useQuery({
     queryKey: ["bean", project, id],
-    queryFn: async () => {
-      const data = await projectGraphql<BeanDetailQueryResult>(project, BEAN_DETAIL_QUERY, {
-        id,
-        idStr: id,
-      });
+    queryFn: async ({ signal }) => {
+      const data = await projectGraphql<BeanDetailQueryResult>(
+        project,
+        BEAN_DETAIL_QUERY,
+        { id, idStr: id },
+        signal,
+      );
       if (!data.bean) {
         throw new Error(`bean not found: ${id}`);
       }

@@ -60,8 +60,12 @@ describe("BeansWatcher", () => {
 
   it("attributes a nested project's file to the deepest matching project", () => {
     const fake = new FakeWatch();
-    const parent = { ...fakeProject("mono"), path: "/root/mono" };
-    const child = { ...fakeProject("sub"), path: "/root/mono/sub" };
+    const parent = { ...fakeProject("mono"), path: "/root/mono", dataPath: "/root/mono/.beans" };
+    const child = {
+      ...fakeProject("sub"),
+      path: "/root/mono/sub",
+      dataPath: "/root/mono/sub/.beans",
+    };
     const watcher = new BeansWatcher([parent, child], () => fake);
     const events: unknown[] = [];
     watcher.on("event", (e) => events.push(e));
@@ -69,6 +73,37 @@ describe("BeansWatcher", () => {
     fake.emit("change", "/root/mono/sub/.beans/x-1--foo.md");
 
     expect(events).toEqual([{ project: "sub", kind: "change" }]);
+  });
+
+  // A project can set beans.path in .beans.yml to a directory other than the
+  // default .beans - including, via a symlink or an ancestor-relative path
+  // like "../shared", one that resolves entirely outside project.path - in
+  // which case discovery resolves and caches it on project.dataPath (see
+  // discovery/scan.ts). The watcher must subscribe to that resolved
+  // directory, not a hardcoded join(project.path, ".beans"), AND attribute
+  // events under it back to the right project. dataPath here is deliberately
+  // NOT nested under project.path ("/elsewhere/real-data" vs "/root/custom"),
+  // the case that broke silently: matching on project.path alone (as
+  // projectFor used to) cannot match an event path that never contains
+  // project.path as a prefix at all.
+  it("fires an SSE event for a change under a dataPath that is not nested under project.path", () => {
+    const fake = new FakeWatch();
+    const project = { ...fakeProject("custom"), dataPath: "/elsewhere/real-data" };
+    let watchedPaths: string[] = [];
+    const watcher = new BeansWatcher([project], (paths) => {
+      watchedPaths = paths;
+      return fake;
+    });
+    const events: unknown[] = [];
+    watcher.on("event", (e) => events.push(e));
+
+    expect(watchedPaths).toEqual(["/elsewhere/real-data"]);
+
+    fake.emit("change", "/elsewhere/real-data/x-1--foo.md");
+    expect(events).toEqual([{ project: "custom", kind: "change" }]);
+
+    watcher.setProjects([project, fakeProject("other")]);
+    expect(fake.added).toEqual(["/root/other/.beans"]);
   });
 
   it("reconciles watched paths on setProjects()", () => {

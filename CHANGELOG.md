@@ -4,6 +4,80 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-05
+
+A full audit before the repository goes public. This closes several ways a
+malicious web page or another local account could reach the beans under
+`GIT_ROOT`, bounds the work one request can queue against the server, and moves
+the container onto a patched base image and toolchain. Read `### Upgrading` —
+reaching the UI by anything other than `localhost` now needs configuration.
+
+### Security
+
+- A page on an attacker's domain whose DNS resolved to this server could read
+  and write every bean under `GIT_ROOT`. The origin check compared two values
+  the attacker controlled together, so they always agreed. Requests are now
+  matched against a server-side allowlist of hostnames, covering `GET` as well:
+  under DNS rebinding the attacking page is same-origin as far as the browser is
+  concerned, so it can read ordinary responses too.
+- A project's `.beans.yml` could point its data directory outside `GIT_ROOT`
+  with `beans.path: ../../elsewhere`, and the CLI honoured it. Discovery now
+  resolves and contains that path, passes it explicitly on every call, and
+  re-checks it immediately before spawning — so a directory swapped for a
+  symlink after discovery is caught rather than followed.
+- `docker compose up` published the UI on every interface; it now binds
+  loopback. This UI has no authentication, so anything that can reach it can
+  read and write every mounted project.
+- The GraphQL query no longer appears in the process table. Its **variables**
+  still do — `beans` offers no way to pass them otherwise — so search terms and
+  bean titles remain readable via `/proc` by other local accounts on the host.
+  `docs/SECURITY.md` describes what that exposes.
+- Error responses no longer echo the command line. A failing `beans` call used
+  to return the whole invocation, variables included, to the API client.
+- The container moves to Node 24 and a patched Go toolchain, with `npm` removed
+  from the runtime image, and `hono` is raised past the CORS ReDoS advisory. CI
+  now fails on any fixable HIGH or CRITICAL image finding.
+
+### Fixed
+
+- A client that navigated away left its work running. Nothing cancelled a
+  request already queued for a `beans` subprocess slot, so the backlog a burst
+  of traffic built up was worked through in full long after every client had
+  gone. Queued work is now abandoned on disconnect, and the queue is bounded —
+  a saturated server sheds load with `503` and `Retry-After` instead of
+  accepting work it will still be doing a minute later. Measured on a
+  200-request burst: subprocess spawns after the last client disconnected fell
+  from 8017 to 166, and the tail from 42 s to 1.2 s.
+- The web UI never cancelled superseded requests, so the server was honouring
+  disconnects the app never performed. Typing in the search box no longer leaves
+  its earlier queries running.
+- An event-stream connection dropped by an HTTP/1.1 client with pipelining
+  enabled was never released, permanently consuming one of the 32 stream slots.
+  After enough of them, live updates stopped working until the server restarted.
+- Project discovery read an entire directory level at once, so a deep `GIT_ROOT`
+  could push peak memory to +101 MiB where it now peaks at +29 MiB.
+- A busy server briefly marked every project as broken, because a full work
+  queue was reported as a per-project failure.
+- Requests and the periodic re-scan could start two discovery passes at once,
+  scanning every project twice for one cache generation.
+
+### Changed
+
+- The project is now `beans-web`; the workspace scope is `@beans-web/*`.
+- Node 24 is required.
+
+### Upgrading
+
+- **Reaching the UI by anything other than `localhost` now requires
+  `ALLOWED_HOSTS`.** A request with an unrecognized `Host` is rejected with
+  `421`. Set it to the hostname you use. Behind a reverse proxy with
+  `TRUST_PROXY=true`, list both the internal host the proxy dials and the public
+  hostname it forwards.
+- The published port in `docker-compose.yml` is now `127.0.0.1:4780:4780`. If
+  you reached it from another machine, put an authenticating proxy in front and
+  set `ALLOWED_HOSTS`.
+- Node 24 is the new floor.
+
 ## [0.2.1] - 2026-08-03
 
 Closes the five follow-up items 0.2.0 left open. Nothing to do to upgrade.
@@ -308,11 +382,12 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
-[0.2.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.1
-[0.2.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.0
-[0.1.5]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.5
-[0.1.4]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.4
-[0.1.3]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.3
-[0.1.2]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.2
-[0.1.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.1
-[0.1.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.0
+[0.3.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.0
+[0.2.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.1
+[0.2.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.0
+[0.1.5]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.5
+[0.1.4]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.4
+[0.1.3]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.3
+[0.1.2]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.2
+[0.1.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.1
+[0.1.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.0

@@ -5,7 +5,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { Overview } from "./overview.js";
 
-import type { BeanType, Project } from "@beans-frontend/shared";
+import type { BeanType, Project } from "@beans-web/shared";
 
 const { useProjectsMock } = vi.hoisted(() => ({ useProjectsMock: vi.fn() }));
 

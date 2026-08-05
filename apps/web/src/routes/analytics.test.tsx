@@ -6,7 +6,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { AnalyticsPage } from "./analytics.js";
 
-import type { Analytics } from "@beans-frontend/shared";
+import type { Analytics } from "@beans-web/shared";
 import type { ReactElement } from "react";
 
 const { useAnalyticsMock } = vi.hoisted(() => ({ useAnalyticsMock: vi.fn() }));

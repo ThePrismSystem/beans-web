@@ -5,7 +5,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { BeanRow } from "./BeanRow.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 const bean: BeanListItem = {
   id: "t-1",

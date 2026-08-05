@@ -9,7 +9,7 @@ import { BeanRow } from "./BeanRow.js";
 
 import type { BeanNode } from "../lib/hierarchy.js";
 import type { SortDir, SortKey } from "../lib/sort.js";
-import type { BeanListItem, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanType } from "@beans-web/shared";
 import type { ReactNode } from "react";
 
 // Milestones and epics act as visual "sections": when they contain children

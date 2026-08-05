@@ -1,7 +1,9 @@
+import { IncomingMessage } from "node:http";
+
 import { streamSSE } from "hono/streaming";
 
 import type { AppDeps } from "../app.js";
-import type { ServerEvent } from "@beans-frontend/shared";
+import type { ServerEvent } from "@beans-web/shared";
 import type { Hono } from "hono";
 
 // Send a comment-only heartbeat this often so idle proxies don't drop the
@@ -50,6 +52,33 @@ function sleepUntilAborted(signal: AbortSignal, ms: number): Promise<void> {
   });
 }
 
+/**
+ * The node request behind this context, when the node adapter is what served
+ * it. `c.env` holds whatever bindings the adapter supplies — `{ incoming,
+ * outgoing }` under `@hono/node-server`, and nothing at all when the app is
+ * driven straight through `app.fetch`/`app.request` — so its shape is checked
+ * rather than assumed. A runtime without it just falls back to the abort
+ * signal, which is all this route ever had.
+ *
+ * Two ways this can start returning `undefined` where it used to return a
+ * request, both of which reinstate the leak silently rather than loudly:
+ *
+ * - **HTTP/2.** `@hono/node-server` serves those as `Http2ServerRequest`,
+ *   which is not an `IncomingMessage`. `index.ts` only ever calls `serve()`
+ *   over HTTP/1.1, and HTTP/2 has no pipelining, so there is nothing to catch
+ *   today — but moving to `createSecureServer` needs this widened.
+ * - **A middleware that awaits I/O ahead of this route.** The subscription
+ *   below assumes the request cannot already have closed, which holds only
+ *   because hono's whole chain runs inside the synchronous prefix of node's
+ *   `'request'` event. Insert an `await` upstream and the handler lands in a
+ *   later turn, where a socket that died in between leaves `'close'` already
+ *   fired, `once` never called, and the stream parked exactly as before.
+ */
+function nodeRequest(env: unknown): IncomingMessage | undefined {
+  const incoming = env instanceof Object && "incoming" in env ? env.incoming : undefined;
+  return incoming instanceof IncomingMessage ? incoming : undefined;
+}
+
 export function registerEvents(app: Hono, deps: AppDeps): void {
   let openStreams = 0;
 
@@ -59,9 +88,9 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
     }
 
     return streamSSE(c, async (stream) => {
-      // The while loop below only re-checks the abort signal after its
+      // The while loop below only re-checks for a disconnect after its
       // current heartbeat sleep resolves, so it can lag up to HEARTBEAT_MS
-      // behind an actual disconnect. Release the slot from the abort event
+      // behind an actual one. Release the slot from the disconnect event
       // itself so a torn-down connection frees capacity immediately; `release`
       // is idempotent so the `finally` below can't double-decrement.
       let released = false;
@@ -79,6 +108,24 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
         // released.
         openStreams += 1;
 
+        // `c.req.raw.signal` on its own does not notice every disconnect.
+        // node emits 'request' for a request pipelined behind an unfinished
+        // response, but queues its ServerResponse rather than attaching it to
+        // the socket — and @hono/node-server aborts the signal only from that
+        // response's 'close', which an unattached response never emits. Such a
+        // stream would hold its listener and its slot for the life of the
+        // process: no heartbeat dislodges it, because hono's writes to a dead
+        // stream resolve rather than reject. The IncomingMessage does close,
+        // since node destroys every request still queued on a socket when the
+        // socket goes, so fold that in as a second way for the same stream to
+        // end. Whichever arrives first wins; `abort()` makes the other a no-op.
+        const disconnected = new AbortController();
+        const disconnect = (): void => {
+          disconnected.abort();
+        };
+        c.req.raw.signal.addEventListener("abort", disconnect, { once: true });
+        nodeRequest(c.env)?.once("close", disconnect);
+
         const handler = (e: ServerEvent) => {
           // Drop the listener if the client has gone away mid-write rather than
           // silently discarding the rejected write and leaking the subscription.
@@ -87,13 +134,17 @@ export function registerEvents(app: Hono, deps: AppDeps): void {
           });
         };
         deps.watcher.on("event", handler);
-        c.req.raw.signal.addEventListener("abort", () => {
-          deps.watcher.off("event", handler);
-          release();
-        });
-        while (!isAborted(c.req.raw.signal)) {
-          await sleepUntilAborted(c.req.raw.signal, HEARTBEAT_MS);
-          if (isAborted(c.req.raw.signal)) break;
+        disconnected.signal.addEventListener(
+          "abort",
+          () => {
+            deps.watcher.off("event", handler);
+            release();
+          },
+          { once: true },
+        );
+        while (!isAborted(disconnected.signal)) {
+          await sleepUntilAborted(disconnected.signal, HEARTBEAT_MS);
+          if (isAborted(disconnected.signal)) break;
           // A named "ping" event keeps the connection warm without reaching the
           // client's default `onmessage` handler.
           await stream.writeSSE({ event: "ping", data: "" }).catch(() => {

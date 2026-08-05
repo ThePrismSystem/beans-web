@@ -16,8 +16,6 @@ words:
   - jsdom
   - typeof
   - devcontainer
-  - automerge
-  - renovatebot
   - codecov
   - dependabot
   - typecheck
@@ -42,7 +40,6 @@ words:
   - romn
   - mousedown
   - srgb
-  - mediabox
   - ringoutmn
   - reparents
   - navigations
@@ -84,6 +81,19 @@ words:
   - EACCES
   # cspell knows "reentrant" but not the noun.
   - reentrancy
+  - hostnames
+  - unparseable
+  # Time-of-check-to-time-of-use; the class of race a symlink swap after
+  # discovery validation exploits. cspell entries are case-insensitive, so
+  # this one covers "toctou" too. Used across discovery/, beans/, and util/.
+  - TOCTOU
+  - repointed
+  # The procfs file holding a process's argv. SECURITY.md names it as the
+  # channel GraphQL variables remain readable through.
+  - cmdline
+  # The /proc mount option that hides other users' processes; named in
+  # SECURITY.md as an operator mitigation for the same exposure.
+  - hidepid
 ignorePaths:
   - node_modules
   - dist

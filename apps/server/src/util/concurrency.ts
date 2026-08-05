@@ -4,6 +4,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * Default cap on concurrent `beans` child processes. Each project queried by
  * discovery/search/analytics spawns one process; without a bound a host with
  * many repos can exhaust file descriptors and process slots.
+ *
+ * Also reused, deliberately, as the bound on concurrent `readdir` calls in
+ * `discovery/scan.ts`'s filesystem walk - see `findProjectDirs`. A `readdir` is
+ * far cheaper than a child process, so this number is conservative there, but
+ * both caps exist to stop one discovery pass from consuming the host's I/O
+ * capacity and a second knob for the cheaper operation would be one more thing
+ * to tune with no reason to tune it. Changing this number changes both.
  */
 export const BEANS_CONCURRENCY = 8;
 
@@ -43,6 +50,41 @@ interface Waiter {
 const waiters: Waiter[] = [];
 
 /**
+ * Ceiling on callers queued for a slot.
+ *
+ * The arithmetic: `mapWithConcurrency` already caps a single request at
+ * `BEANS_CONCURRENCY` (8) outstanding `withBeansSlot` calls, so 64 queued is
+ * roughly 8 saturating requests waiting behind the 8 that are running. Every
+ * running child is bounded by `BEANS_EXEC_TIMEOUT_MS` (15 s), so even in the
+ * pathological case where each one burns its full timeout the queue drains in
+ * (64 / 8) x 15 s = 120 s rather than growing without limit.
+ *
+ * Unbounded is what made the earlier fan-out cap insufficient: it converted
+ * process exhaustion into queue starvation. 200 abandoned `GET /api/search`
+ * requests against 40 projects queued 8000 invocations, and the server worked
+ * through all of them - 42 seconds of saturated pool bought by clients that
+ * were gone within half a second.
+ */
+export const MAX_QUEUED_FOR_SLOT = 64;
+
+/**
+ * Thrown when the queue is already at `MAX_QUEUED_FOR_SLOT`.
+ *
+ * Its own type on purpose. `globalSearch` and `buildAnalytics` catch
+ * per-project errors and record the project in `failures`; a queue-full
+ * rejection arriving through that path would answer 200 with every project
+ * listed as broken - "your repos are failing" rather than "try again" - while
+ * still attempting all N. Callers rethrow this instead, so the request answers
+ * 503 once.
+ */
+export class QueueFullError extends Error {
+  constructor() {
+    super("too many callers already queued for a beans slot");
+    this.name = "QueueFullError";
+  }
+}
+
+/**
  * `AbortSignal.reason` is typed `any` and is only a `DOMException` by
  * convention — a caller can abort with anything. Normalize it so the rejection
  * is always an `Error`, which is what every catch site here expects.
@@ -65,6 +107,9 @@ async function acquire(signal?: AbortSignal): Promise<void> {
     active += 1;
     return;
   }
+  // Checked before the waiter is created, so an over-cap caller costs nothing
+  // but the throw - no promise, no abort listener, no entry to splice out.
+  if (waiters.length >= MAX_QUEUED_FOR_SLOT) throw new QueueFullError();
   // `release` hands its slot straight over, so `active` already counts this
   // caller by the time the promise resolves — deliberately not incremented
   // here. Decrementing and letting the waiter re-acquire would let a caller

@@ -7,7 +7,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { SearchPage } from "./search.js";
 
-import type { SearchHit } from "@beans-frontend/shared";
+import type { SearchHit } from "@beans-web/shared";
 
 const { useSearchMock } = vi.hoisted(() => ({ useSearchMock: vi.fn() }));
 

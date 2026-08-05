@@ -1,6 +1,6 @@
-import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-web/shared";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 export type SortKey = "type" | "title" | "status";
 export type SortDir = "asc" | "desc";

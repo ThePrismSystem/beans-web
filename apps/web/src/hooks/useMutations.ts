@@ -7,13 +7,13 @@ import {
   REMOVE_BLOCKING_MUTATION,
   SET_PARENT_MUTATION,
   UPDATE_BEAN_MUTATION,
-} from "@beans-frontend/shared/graphql";
+} from "@beans-web/shared/graphql";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
 import type { CreateBeanInput, UpdateBeanInput } from "../api/generated.js";
-import type { BeanStatus } from "@beans-frontend/shared";
+import type { BeanStatus } from "@beans-web/shared";
 import type { QueryClient, UseMutationResult } from "@tanstack/react-query";
 
 const ETAG_CONFLICT_PATTERN = /etag mismatch/i;

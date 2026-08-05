@@ -1,7 +1,7 @@
 import { QueryClientContext } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
 
-import type { ServerEvent, ServerEventKind } from "@beans-frontend/shared";
+import type { ServerEvent, ServerEventKind } from "@beans-web/shared";
 import type { QueryClient } from "@tanstack/react-query";
 
 export interface UseEventsResult {

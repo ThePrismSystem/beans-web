@@ -1,6 +1,6 @@
-import { OPEN_STATUSES } from "@beans-frontend/shared";
+import { OPEN_STATUSES } from "@beans-web/shared";
 
-import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus } from "@beans-web/shared";
 
 /** A parent in one of these states strands its open children. */
 const CLOSED_STATUSES: readonly BeanStatus[] = ["completed", "scrapped"];

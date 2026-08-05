@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { beanComparator, compareIds, defaultComparator, sortBeans } from "./sort.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 const bean = (overrides: Partial<BeanListItem> & Pick<BeanListItem, "id">): BeanListItem => ({
   slug: null,

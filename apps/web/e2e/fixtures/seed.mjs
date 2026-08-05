@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 /** @typedef {import("./seed.d.mts").SeedState} SeedState */
 
-const STATE_FILE = join(tmpdir(), "beans-frontend-e2e-state.json");
+const STATE_FILE = join(tmpdir(), "beans-web-e2e-state.json");
 
 const PROJECT_NAME = "e2e-project";
 
@@ -16,7 +16,7 @@ const PROJECT_NAME = "e2e-project";
  * Creates a fresh temp GIT_ROOT containing a single beans project, seeded
  * with a top-level "feature" bean (so the E2E flow can add a real child
  * bean under it) plus the exact `beans init` / `beans create ... -t task`
- * sequence beans-frontend's own integration tests rely on. Bean titles are
+ * sequence beans-web's own integration tests rely on. Bean titles are
  * timestamped so re-runs never collide.
  *
  * @returns {SeedState}

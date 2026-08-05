@@ -4,7 +4,7 @@ import { memo } from "react";
 import { BeanTypeTag } from "./BeanTypeTag.js";
 import { StatusDot } from "./StatusDot.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 /**
  * Memoized because it is the unit a project list is made of. `bean` identities

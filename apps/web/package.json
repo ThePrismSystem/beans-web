@@ -1,5 +1,5 @@
 {
-  "name": "@beans-frontend/web",
+  "name": "@beans-web/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@beans-frontend/shared": "workspace:*",
+    "@beans-web/shared": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.17",
     "dompurify": "^3.4.12",

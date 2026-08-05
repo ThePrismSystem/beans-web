@@ -19,6 +19,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
+    allowedHosts: [],
     ...overrides,
   };
 }
@@ -34,6 +35,7 @@ describe("GET /api/projects", () => {
     for (const entry of body) {
       expect(entry).not.toHaveProperty("path");
       expect(entry).not.toHaveProperty("root");
+      expect(entry).not.toHaveProperty("dataPath");
     }
     expect(d.listProjects).toHaveBeenCalled();
   });

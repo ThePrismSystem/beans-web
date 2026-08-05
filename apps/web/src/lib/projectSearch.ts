@@ -1,7 +1,7 @@
-import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-web/shared";
 
 import type { SortDir, SortKey } from "./sort.js";
-import type { BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanPriority, BeanStatus, BeanType } from "@beans-web/shared";
 
 export const SORT_KEYS: readonly SortKey[] = ["type", "title", "status"];
 const SORT_DIRS: readonly SortDir[] = ["asc", "desc"];

@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     codecovVitePlugin({
       enableBundleAnalysis: Boolean(process.env.CODECOV_TOKEN),
-      bundleName: "beans-frontend-web",
+      bundleName: "beans-web-web",
       uploadToken: process.env.CODECOV_TOKEN,
     }),
   ],

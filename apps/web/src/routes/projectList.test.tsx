@@ -13,7 +13,7 @@ import { validateProjectSearch } from "../lib/projectSearch.js";
 
 import { ProjectList } from "./projectList.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 const { useBeansMock } = vi.hoisted(() => ({ useBeansMock: vi.fn() }));
 

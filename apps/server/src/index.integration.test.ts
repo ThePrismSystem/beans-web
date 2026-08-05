@@ -24,8 +24,13 @@ afterAll(() => {
 });
 
 describe("server integration", () => {
-  const run = (cfg: string, q: string, v?: Record<string, unknown>) =>
-    runBeansGraphql({ configPath: cfg, query: q, variables: v });
+  const run = (
+    cfg: string,
+    beansPath: string,
+    root: string,
+    q: string,
+    v?: Record<string, unknown>,
+  ) => runBeansGraphql({ configPath: cfg, beansPath, root, query: q, variables: v });
   const listProjects = () => discoverProjects([root], 4);
 
   it("lists the discovered project", async () => {
@@ -38,6 +43,7 @@ describe("server integration", () => {
       analytics: () => Promise.resolve(fakeAnalytics()),
       watcher: new EventEmitter(),
       trustProxy: false,
+      allowedHosts: [],
     });
     const res = await app.request("/api/projects");
     const body = (await res.json()) as { name: string }[];
@@ -54,10 +60,11 @@ describe("server integration", () => {
       analytics: () => Promise.resolve(fakeAnalytics()),
       watcher: new EventEmitter(),
       trustProxy: false,
+      allowedHosts: [],
     });
     const res = await app.request("/api/projects/demo/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { title } }" }),
     });
     const body = (await res.json()) as { data: { beans: { title: string }[] } };

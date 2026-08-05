@@ -1,13 +1,15 @@
-import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-web/shared";
 import { useEffect, useRef, useState } from "react";
 
+import { useDialogFocusTrap } from "../hooks/useDialogFocusTrap.js";
+import { useResetOnOpen } from "../hooks/useResetOnOpen.js";
 import { beanPrefix, distinctPrefixes } from "../lib/prefix.js";
 
 import { BeanTypeTag } from "./BeanTypeTag.js";
 import { CheckboxMenu } from "./CheckboxMenu.js";
 import { StatusDot } from "./StatusDot.js";
 
-import type { BeanListItem, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus, BeanType } from "@beans-web/shared";
 
 export interface BeanPickerProps {
   open: boolean;
@@ -40,48 +42,9 @@ export function BeanPicker({
   const dialogRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) {
-        return;
-      }
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
-
-  // Move focus into the dialog when it opens, so keyboard users don't have
-  // to tab in from wherever focus happened to be on the page behind it — and
-  // restore focus to whatever opened it when it closes (WCAG 2.4.3).
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (open) {
-      restoreFocusRef.current = document.activeElement as HTMLElement | null;
-      searchRef.current?.focus();
-    } else {
-      restoreFocusRef.current?.focus();
-    }
-  }, [open]);
+  // Focus opens on the search field rather than the Close button that precedes
+  // it, so typing a filter is the first thing the keyboard does.
+  useDialogFocusTrap({ dialogRef, open, onClose, initialFocusRef: searchRef });
 
   // Lock background scrolling while the picker sheet is open so dragging
   // inside it doesn't also scroll the page behind the backdrop.
@@ -99,19 +62,13 @@ export function BeanPicker({
   // be reset explicitly on each closed→open transition. Without this, a
   // previous multi-select stays checked after "Add" dispatches and closes
   // the picker, and reopening lets that stale checked set be re-dispatched.
-  // Adjusted during render (not an effect) so the reset lands in the same
-  // commit as the open transition.
-  const [previousOpen, setPreviousOpen] = useState(open);
-  if (open !== previousOpen) {
-    setPreviousOpen(open);
-    if (open) {
-      setChecked([]);
-      setSearch("");
-      setTypes([]);
-      setStatuses([...OPEN_STATUSES]);
-      setPrefixes([]);
-    }
-  }
+  useResetOnOpen(open, () => {
+    setChecked([]);
+    setSearch("");
+    setTypes([]);
+    setStatuses([...OPEN_STATUSES]);
+    setPrefixes([]);
+  });
 
   if (!open) return null;
 

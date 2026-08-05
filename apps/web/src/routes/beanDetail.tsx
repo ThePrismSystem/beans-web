@@ -1,4 +1,4 @@
-import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_PRIORITIES, BEAN_STATUSES, BEAN_TYPES } from "@beans-web/shared";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useId, useMemo, useState } from "react";
 
@@ -30,7 +30,7 @@ import { renderMarkdown } from "../lib/markdown.js";
 import { closedAncestors, indexById, isOrphaned } from "../lib/orphan.js";
 
 import type { RelationChange } from "../components/RelationEditor.js";
-import type { BeanDetail, BeanListItem } from "@beans-frontend/shared";
+import type { BeanDetail, BeanListItem } from "@beans-web/shared";
 
 function formatTimestamp(value: string): string {
   const date = new Date(value);

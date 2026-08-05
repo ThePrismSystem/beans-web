@@ -1,6 +1,6 @@
 import { defaultComparator } from "./sort.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 export interface BeanNode {
   bean: BeanListItem;

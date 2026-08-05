@@ -1,6 +1,6 @@
 import { BeanRow } from "./BeanRow.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 export function FlatList({
   project,

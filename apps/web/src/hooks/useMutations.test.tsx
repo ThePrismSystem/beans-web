@@ -368,3 +368,64 @@ describe("useReopenAncestors", () => {
     expect(describeMutationError(failure)).toBe("Re-opened e-1, then failed: network exploded");
   });
 });
+
+// Queries thread the `AbortSignal` TanStack Query hands their `queryFn` so a
+// superseded read can be cancelled. Writes must not: a cancelled write is
+// abandoned while still queued for a beans slot, so the edit silently never
+// happens and nothing tells the user.
+//
+// TanStack hands a `mutationFn` a second argument, but its context is
+// `{ client, meta, mutationKey }` — no `signal` — so a mutation has none in
+// scope to forward by accident. That is not the same as being unable to pass
+// one: `projectGraphql`'s `signal` is optional and trailing, so a mutation
+// supplying `AbortSignal.timeout(…)` on purpose type-checks. These tests are
+// the only mechanical thing standing in the way of that edit.
+describe("mutations are not cancellable", () => {
+  function sentSignals(
+    mock: ReturnType<typeof vi.fn<(url: string, init: RequestInit) => Promise<Response>>>,
+  ) {
+    return mock.mock.calls.map((call) => call[1].signal);
+  }
+
+  it("sends no abort signal for a single write", async () => {
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: { updateBean: { id: "t1", etag: "e" } } }), {
+          status: 200,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useUpdateBean("demo"), { wrapper });
+    result.current.mutate({ id: "t1", etag: "old", input: { title: "New title" } });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(sentSignals(fetchMock)).toEqual([undefined]);
+  });
+
+  it("sends no abort signal on any leg of a multi-ancestor re-open", async () => {
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>((_url, init) => {
+      const body = parsedRequestBody(init.body) as { variables: { id: string } };
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ data: { updateBean: { id: body.variables.id, etag: "e" } } }),
+          { status: 200 },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
+    result.current.mutate({ ancestorIds: ["e-1", "m-1"], status: "todo" });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(sentSignals(fetchMock)).toEqual([undefined, undefined]);
+  });
+});

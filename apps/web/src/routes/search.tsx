@@ -7,7 +7,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useSearch } from "../hooks/useSearch.js";
 
-import type { SearchHit } from "@beans-frontend/shared";
+import type { SearchHit } from "@beans-web/shared";
 import type { ChangeEvent } from "react";
 
 const SEARCH_DEBOUNCE_MS = 250;

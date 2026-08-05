@@ -6,7 +6,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { HierarchyList } from "./HierarchyList.js";
 
-import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus } from "@beans-web/shared";
 
 function bean(
   id: string,

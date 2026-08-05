@@ -70,6 +70,57 @@ describe("ConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
+  it("closes on Escape after a click on its own chrome has taken focus off the buttons", async () => {
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+    render(<ConfirmDialog open title="Delete?" onConfirm={vi.fn()} onCancel={onCancel} />);
+
+    // Clicking the heading focuses nothing, so the keydown no longer
+    // originates inside the dialog subtree.
+    await user.click(screen.getByText("Delete?"));
+    expect(screen.getByRole("button", { name: "Cancel" })).not.toHaveFocus();
+
+    await user.keyboard("{Escape}");
+
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("moves focus into the dialog when it opens without a reason field", () => {
+    render(<ConfirmDialog open title="Delete?" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    // Cancel is the first focusable in DOM order, and the non-destructive one.
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  });
+
+  it("restores focus to whatever opened it when it closes", () => {
+    const props = { title: "Delete?", onConfirm: vi.fn(), onCancel: vi.fn() };
+    const { rerender } = render(
+      <>
+        <button type="button">opener</button>
+        <ConfirmDialog open={false} {...props} />
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "opener" });
+    opener.focus();
+    expect(opener).toHaveFocus();
+
+    rerender(
+      <>
+        <button type="button">opener</button>
+        <ConfirmDialog open {...props} />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+
+    rerender(
+      <>
+        <button type="button">opener</button>
+        <ConfirmDialog open={false} {...props} />
+      </>,
+    );
+    expect(opener).toHaveFocus();
+  });
+
   it("wraps focus from the last button to the first on Tab", async () => {
     const user = userEvent.setup();
     render(<ConfirmDialog open title="Delete?" onConfirm={vi.fn()} onCancel={vi.fn()} />);

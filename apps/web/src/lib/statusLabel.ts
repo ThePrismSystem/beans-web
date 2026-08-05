@@ -1,4 +1,4 @@
-import type { BeanStatus } from "@beans-frontend/shared";
+import type { BeanStatus } from "@beans-web/shared";
 
 export const STATUS_LABEL: Record<BeanStatus, string> = {
   draft: "Draft",

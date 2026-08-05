@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { applyFilter, DEFAULT_BEAN_FILTER, EMPTY_BEAN_FILTER, matchesFilter } from "./filter.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 function listItem(overrides: Partial<BeanListItem> & { id: string }): BeanListItem {
   return {

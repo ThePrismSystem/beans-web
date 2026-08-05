@@ -1,4 +1,4 @@
-# Runs beans-frontend standalone. Point the bind mount below at your projects
+# Runs beans-web standalone. Point the bind mount below at your projects
 # directory, then `docker compose up -d` and visit http://localhost:4780.
 #
 # To put it behind Traefik instead, uncomment the networks and labels blocks at
@@ -6,7 +6,7 @@
 # README.md for configuration, volume ownership, and security notes.
 
 services:
-  beans-frontend:
+  beans-web:
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,8 +14,8 @@ services:
       # over the Dockerfile's ARG default, so pinning it in both places meant
       # bumping the Dockerfile alone shipped the old binary. The Dockerfile is
       # the single source of truth; CI reads the pin from it too.
-    image: beans-frontend:latest
-    container_name: beans-frontend
+    image: beans-web:latest
+    container_name: beans-web
     restart: unless-stopped
 
     # The image already runs as non-root (`USER node`, uid 1000 — see Dockerfile).
@@ -43,14 +43,22 @@ services:
       NODE_ENV: production
       BEANS_BIN: beans # the static beans binary baked into the image (on PATH)
       TRUST_PROXY: "false" # set to "true" when a reverse proxy is the only ingress
+      # ALLOWED_HOSTS: beans.example.com # required when reaching the UI by hostname or LAN IP, not just localhost
+      # With TRUST_PROXY=true, also list any internal host the proxy rewrites
+      # Host to before forwarding (e.g. this service's name) -- both the
+      # connection host and the forwarded one must be allowed, comma-separated.
 
     volumes:
       # READ-WRITE on purpose: the UI creates / edits / scraps beans, which
       # writes to the on-disk .beans files. Point the left side at your projects.
       - /home/youruser/git:/projects
 
+    # Loopback-only by default: this UI has no authentication, so anything
+    # reachable can read and write every mounted project. Widening this
+    # requires an authenticating proxy in front (see the Traefik section
+    # below) and, once reached by hostname or LAN IP, ALLOWED_HOSTS set.
     ports:
-      - "4780:4780"
+      - "127.0.0.1:4780:4780"
 
     # Behind Traefik, drop the published port and expose it to the proxy network
     # instead:

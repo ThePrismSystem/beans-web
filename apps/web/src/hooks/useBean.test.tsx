@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useBean } from "./useBean.js";
 
-import type { BeanDetail } from "@beans-frontend/shared";
+import type { BeanDetail } from "@beans-web/shared";
 import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());
@@ -92,6 +92,26 @@ describe("useBean", () => {
       variables: Record<string, unknown>;
     };
     expect(body.variables).toMatchObject({ id: "t1", idStr: "t1" });
+  });
+
+  it("gives the graphql read the query's abort signal", async () => {
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: { bean: beanDetail, blocksInbound: [] } }), {
+          status: 200,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useBean("demo", "t1"), { wrapper });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const call = fetchMock.mock.calls[0];
+    if (!call) throw new Error("fetch was not called");
+    expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("errors when the bean is not found", async () => {

@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./AppShell.js";
 
-import type { Project, ServerEvent } from "@beans-frontend/shared";
+import type { Project, ServerEvent } from "@beans-web/shared";
 
 const { useProjectsMock, useEventsMock } = vi.hoisted(() => ({
   useProjectsMock: vi.fn(),

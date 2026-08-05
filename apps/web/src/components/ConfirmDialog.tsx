@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { useDialogFocusTrap } from "../hooks/useDialogFocusTrap.js";
+import { useResetOnOpen } from "../hooks/useResetOnOpen.js";
 
-const FOCUSABLE = 'button, input, select, textarea, [href], [tabindex]:not([tabindex="-1"])';
+import type { ReactNode } from "react";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -34,65 +35,23 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [reason, setReason] = useState("");
   const titleId = useId();
   const messageId = useId();
   const reasonId = useId();
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    // Remember what had focus so it can be restored when the dialog closes,
-    // then move focus into the dialog — onto the reason field when there is
-    // one, otherwise the non-destructive Cancel button.
-    restoreFocusRef.current = document.activeElement as HTMLElement | null;
-    dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
-    return () => {
-      restoreFocusRef.current?.focus();
-    };
-  }, [open]);
+  // No initial-focus ref: focus lands on the first focusable element, which is
+  // the reason field when there is one and otherwise the non-destructive
+  // Cancel button.
+  useDialogFocusTrap({ dialogRef, open, onClose: onCancel });
 
-  // Each opening starts from an empty field rather than the last attempt's
-  // text. Adjusted during render (not an effect) so the reset lands in the
-  // same commit as the open transition.
-  const [previousOpen, setPreviousOpen] = useState(open);
-  if (open !== previousOpen) {
-    setPreviousOpen(open);
-    if (open) {
-      setReason("");
-    }
-  }
+  // Each opening starts from an empty field rather than the last attempt's text.
+  useResetOnOpen(open, () => {
+    setReason("");
+  });
 
   if (!open) {
     return null;
-  }
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      onCancel();
-      return;
-    }
-    if (event.key !== "Tab") {
-      return;
-    }
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
-    if (!focusable || focusable.length === 0) {
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (!first || !last) {
-      return;
-    }
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
   }
 
   // Dismissing on a stray backdrop click is fine for a bare confirm, but it
@@ -119,7 +78,6 @@ export function ConfirmDialog({
         onClick={(event) => {
           event.stopPropagation();
         }}
-        onKeyDown={handleKeyDown}
       >
         <h2 id={titleId}>{title}</h2>
         {message && (

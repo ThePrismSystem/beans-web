@@ -1,13 +1,13 @@
-# beans-frontend
+# beans-web
 
-[![CI](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-frontend)
+[![CI](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ThePrismSystem/beans-web/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-web)
 [![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](tsconfig.base.json)
-[![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](.nvmrc)
+[![Node](https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white)](.nvmrc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A web UI for [`beans`](https://github.com/hmans/beans), the local-first, Markdown-backed issue
-tracker. `beans-frontend` discovers every `beans` project under a configured root directory and
+tracker. `beans-web` discovers every `beans` project under a configured root directory and
 gives each one a browsable overview, hierarchy and flat bean lists, and a detail view with inline
 editing and relationship management. It also does cross-project search and simple analytics.
 Everything reads and writes your on-disk `.beans` files directly; there is no separate database.
@@ -55,14 +55,15 @@ pnpm install
 
 Copy `.env.example` to `.env` (or export the variables directly) and adjust as needed:
 
-| Variable      | Default     | Description                                                                                                                                                                                                    |
-| ------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GIT_ROOT`    | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`).                                                                                                                   |
-| `SCAN_DEPTH`  | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                                                                                                                                    |
-| `PORT`        | `4780`      | Port the server listens on.                                                                                                                                                                                    |
-| `HOST`        | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                                                                                                                                      |
-| `BEANS_BIN`   | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                                                                                                                                  |
-| `TRUST_PROXY` | `false`     | Trust `X-Forwarded-Proto`/`X-Forwarded-Host` when checking whether a request is same-origin. Turn this on only when a reverse proxy is the only way in; see [Behind a reverse proxy](#behind-a-reverse-proxy). |
+| Variable        | Default     | Description                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_ROOT`      | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`).                                                                                                                                                                                                                                                                                                                           |
+| `SCAN_DEPTH`    | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                                                                                                                                                                                                                                                                                                                                            |
+| `PORT`          | `4780`      | Port the server listens on.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `HOST`          | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                                                                                                                                                                                                                                                                                                                                              |
+| `BEANS_BIN`     | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                                                                                                                                                                                                                                                                                                                                          |
+| `TRUST_PROXY`   | `false`     | Trust `X-Forwarded-Proto`/`X-Forwarded-Host` when checking whether a request is same-origin. Turn this on only when a reverse proxy is the only way in; see [Behind a reverse proxy](#behind-a-reverse-proxy).                                                                                                                                                                                                         |
+| `ALLOWED_HOSTS` | _(none)_    | Comma-separated hostnames (no scheme or port) this server accepts requests for, beyond the built-in `localhost`/`127.0.0.1`/`[::1]`. Required the moment you reach the UI by any other hostname or LAN IP — an unrecognized `Host` gets `421`. With `TRUST_PROXY=true`, both the internal host your proxy dials and the public host it forwards must be listed; see [Behind a reverse proxy](#behind-a-reverse-proxy). |
 
 The server never reads or writes outside a project's own configured root. Every resolved project
 path is checked against the specific root it was discovered under before use (see
@@ -88,8 +89,8 @@ one process:
 pnpm start
 ```
 
-This runs `pnpm --filter @beans-frontend/web build` followed by
-`pnpm --filter @beans-frontend/server start`. The server runs through `tsx` rather than plain
+This runs `pnpm --filter @beans-web/web build` followed by
+`pnpm --filter @beans-web/server start`. The server runs through `tsx` rather than plain
 `node`; see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-tsx-in-production) for why.
 
 ```bash
@@ -111,8 +112,8 @@ docker compose up -d
 To build the image directly instead:
 
 ```bash
-docker build -t beans-frontend:latest .
-docker build --build-arg BEANS_VERSION=v0.4.2 -t beans-frontend:latest .  # pin the CLI
+docker build -t beans-web:latest .
+docker build --build-arg BEANS_VERSION=v0.4.2 -t beans-web:latest .  # pin the CLI
 ```
 
 #### Container configuration
@@ -185,6 +186,15 @@ accept forged `X-Forwarded-*` headers, which defeats the guard entirely. Most
 proxies send both headers already; Traefik and Caddy do, and a hand-rolled nginx
 needs `proxy_set_header X-Forwarded-Proto $scheme;`.
 
+Also set `ALLOWED_HOSTS` to the hostname(s) this server should accept. With
+`TRUST_PROXY=true`, the check applies to both the connection's own `Host` header
+and the forwarded one — trusting the forwarded value alone would let a forged
+`X-Forwarded-Host` bypass the allowlist. Traefik preserves `Host` when forwarding
+by default, so for the example above `ALLOWED_HOSTS=beans.example.com` covers
+both. If your proxy rewrites `Host` to an internal name before forwarding (a
+container or service name, an internal DNS entry), list that too, comma-separated
+alongside the public one.
+
 Live updates arrive over an SSE stream at `GET /api/events`. Proxies handle this
 by default, but anything that buffers responses or imposes a short read timeout
 will break it, so exclude this service (or at least that path) from such
@@ -193,16 +203,16 @@ middleware. It runs as a single replica, so sticky sessions are unnecessary.
 #### Verifying a container
 
 ```bash
-docker run -d --name beans-frontend \
-  -p 4780:4780 \
+docker run -d --name beans-web \
+  -p 127.0.0.1:4780:4780 \
   -v /host/path/to/your/git:/projects \
   -e GIT_ROOT=/projects \
-  beans-frontend:latest
+  beans-web:latest
 
 curl -s localhost:4780/api/projects | head               # JSON array of your projects
 curl -s -o /dev/null -w '%{http_code}\n' localhost:4780/ # 200, the SPA
-docker inspect --format '{{.State.Health.Status}}' beans-frontend
-docker rm -f beans-frontend
+docker inspect --format '{{.State.Health.Status}}' beans-web
+docker rm -f beans-web
 ```
 
 The image's `HEALTHCHECK` requests the SPA root using Node's `fetch` and reports
@@ -233,7 +243,7 @@ End-to-end tests (Playwright) live in `apps/web/e2e`. The harness builds the web
 starts the production server against a seeded temp root, so a single command runs them:
 
 ```bash
-pnpm --filter @beans-frontend/web e2e
+pnpm --filter @beans-web/web e2e
 ```
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more detail on the development workflow.

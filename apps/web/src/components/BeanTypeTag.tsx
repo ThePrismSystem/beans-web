@@ -1,4 +1,4 @@
-import type { BeanType } from "@beans-frontend/shared";
+import type { BeanType } from "@beans-web/shared";
 
 export function BeanTypeTag({ type }: { type: BeanType }) {
   const color = `var(--t-${type})`;

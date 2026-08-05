@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { BeansError } from "../beans/executor.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
+import { QueueFullError } from "../util/concurrency.js";
+import { ContainmentError } from "../util/containment.js";
 
 import type { AppDeps } from "../app.js";
 
@@ -20,6 +22,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
+    allowedHosts: [],
     ...overrides,
   };
 }
@@ -30,13 +33,15 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ data: { beans: [{ id: "x-1" }] } });
     expect(d.runGraphql).toHaveBeenCalledWith(
       "/root/proj-a/.beans.yml",
+      project.dataPath,
+      project.root,
       "{ beans { id } }",
       undefined,
       // The request's own signal, so a client that hangs up while queued for a
@@ -49,7 +54,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(deps());
     const res = await app.request("/api/projects/nope/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(404);
@@ -60,7 +65,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ variables: { q: "x" } }),
     });
     expect(res.status).toBe(400);
@@ -74,7 +79,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: 'mutation { setParent(id:"a",parentId:"b"){id} }' }),
     });
     expect(res.status).toBe(400);
@@ -88,7 +93,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(500);
@@ -99,10 +104,35 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(deps({ listProjects: vi.fn(() => Promise.resolve([rogueProject])) }));
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(404);
+  });
+
+  // Regression lock for the round-3 TOCTOU finding: a project's data
+  // directory can be swapped for a symlink escaping root after discovery
+  // validated it but before a request arrives (discovery's result is cached
+  // for CACHE_TTL_MS/REFRESH_INTERVAL_MS). runGraphql (executor.ts)
+  // re-checks project.dataPath's containment live, immediately before
+  // spawning the beans child, and rejects with a ContainmentError when it no
+  // longer holds. This route must map that specifically to 404, the same as
+  // an unknown project, rather than let it fall through to the generic
+  // BeansError -> 400 path and leak a filesystem path to the client.
+  it("returns 404 when runGraphql rejects with a ContainmentError, treating a caught swap like an unknown project", async () => {
+    const d = deps({
+      runGraphql: vi.fn(() =>
+        Promise.reject(new ContainmentError("path is outside its configured root")),
+      ),
+    });
+    const app = createApp(d);
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ errors: [{ message: "unknown project: proj-a" }] });
   });
 
   // Redaction itself is covered where it happens — the unit tests on
@@ -123,7 +153,7 @@ describe("POST /api/projects/:name/graphql", () => {
 
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
 
@@ -137,10 +167,41 @@ describe("POST /api/projects/:name/graphql", () => {
     const huge = "x".repeat(300 * 1024);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: `{ beans { id } } ${huge}` }),
     });
     expect(res.status).toBe(413);
     expect(d.runGraphql).not.toHaveBeenCalled();
+  });
+
+  // This route sits behind the same process-wide gate as search and analytics,
+  // so a saturated queue has to read the same way here.
+  it("answers 503 with Retry-After when the beans queue is full", async () => {
+    const d = deps({ runGraphql: vi.fn(() => Promise.reject(new QueueFullError())) });
+    const res = await createApp(d).request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBeTruthy();
+    // The web client parses this route's body unconditionally, so a 503 still
+    // has to be the `{ errors: [...] }` shape rather than plain text.
+    expect(await res.json()).toEqual({ errors: [{ message: expect.any(String) }] });
+  });
+
+  it("answers 499 when the client has already hung up", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const d = deps({
+      runGraphql: vi.fn(() => Promise.reject(new Error("aborted while queued for a beans slot"))),
+    });
+    const res = await createApp(d).request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+      signal: controller.signal,
+    });
+    expect(res.status).toBe(499);
   });
 });

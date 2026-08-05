@@ -1,5 +1,5 @@
 {
-  "name": "beans-frontend",
+  "name": "beans-web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
-    "start": "pnpm --filter @beans-frontend/web build && pnpm --filter @beans-frontend/server start",
+    "start": "pnpm --filter @beans-web/web build && pnpm --filter @beans-web/server start",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
@@ -18,7 +18,7 @@
     "format:fix": "prettier --write .",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
-    "codegen:check": "pnpm --filter @beans-frontend/web codegen && prettier --write apps/web/src/api/generated.ts && git diff --exit-code -- apps/web/src/api/generated.ts",
+    "codegen:check": "pnpm --filter @beans-web/web codegen && prettier --write apps/web/src/api/generated.ts && git diff --exit-code -- apps/web/src/api/generated.ts",
     "knip": "pnpm -r knip",
     "spell": "cspell \"**/*.{ts,tsx,md,json}\" --no-progress",
     "check:pins": "bash scripts/check-beans-pin.sh",
