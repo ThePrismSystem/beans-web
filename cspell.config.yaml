@@ -16,8 +16,6 @@ words:
   - jsdom
   - typeof
   - devcontainer
-  - automerge
-  - renovatebot
   - codecov
   - dependabot
   - typecheck
