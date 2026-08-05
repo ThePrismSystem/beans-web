@@ -53,6 +53,17 @@ export interface RunOpts {
 }
 
 export function buildBeansArgs(opts: RunOpts): string[] {
+  // An empty --beans-path is not "no override" - the CLI treats it as absent
+  // and falls back to reading beans.path from the config file at configPath,
+  // which is exactly the trust this scheme exists to remove. beansPath is
+  // documented as required, and every caller currently derives it from
+  // resolve(), which never returns "", but that's an invariant this function
+  // asserts rather than one callers are trusted to uphold. A plain Error
+  // (not BeansError) - this is a caller bug, not something to surface to a
+  // client as a beans-side query error.
+  if (opts.beansPath === "") {
+    throw new Error("beansPath must not be empty");
+  }
   const args = ["graphql", "--json", "--config", opts.configPath, "--beans-path", opts.beansPath];
   if (opts.variables) args.push("-v", JSON.stringify(opts.variables));
   // "--" ends beans' option parsing: everything after it is a positional, so a

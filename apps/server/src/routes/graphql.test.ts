@@ -1,12 +1,14 @@
 import { EventEmitter } from "node:events";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
 import { BeansError } from "../beans/executor.js";
+import * as scan from "../discovery/scan.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
 
 import type { AppDeps } from "../app.js";
+import type { MockInstance } from "vitest";
 
 const project = fakeProject("proj-a");
 
@@ -26,6 +28,21 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
 }
 
 describe("POST /api/projects/:name/graphql", () => {
+  // The route re-validates project.dataPath's containment immediately
+  // before use (see assertDataPathStillContained in scan.ts), against the
+  // real filesystem. project.dataPath comes from fakeProject's fictional
+  // "/root/proj-a/.beans", so left un-mocked this would hit real fs calls
+  // for every test in this file. Default it to "still contained" so each
+  // test exercises the route's own logic; the swap-detection test below
+  // overrides it to reject.
+  let dataPathCheck: MockInstance<typeof scan.assertDataPathStillContained>;
+  beforeEach(() => {
+    dataPathCheck = vi.spyOn(scan, "assertDataPathStillContained").mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    dataPathCheck.mockRestore();
+  });
+
   it("forwards the query to the named project and returns data", async () => {
     const d = deps();
     const app = createApp(d);
@@ -105,6 +122,27 @@ describe("POST /api/projects/:name/graphql", () => {
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(404);
+  });
+
+  // Regression lock for the round-3 TOCTOU finding: a project's data
+  // directory can be swapped for a symlink escaping root after discovery
+  // validated it but before a request arrives (discovery's result is cached
+  // for CACHE_TTL_MS/REFRESH_INTERVAL_MS). The route must re-check
+  // project.dataPath's containment live, immediately before use, and refuse
+  // the request rather than pass the now-unsafe path to runGraphql.
+  it("returns 404 and never calls runGraphql when dataPath's containment fails on live re-check", async () => {
+    dataPathCheck.mockRejectedValue(new Error("path is outside its configured root"));
+    const d = deps();
+    const app = createApp(d);
+    const res = await app.request("/api/projects/proj-a/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ query: "{ beans { id } }" }),
+    });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ errors: [{ message: "unknown project: proj-a" }] });
+    expect(d.runGraphql).not.toHaveBeenCalled();
+    expect(dataPathCheck).toHaveBeenCalledWith(project.root, project.dataPath);
   });
 
   // Redaction itself is covered where it happens — the unit tests on

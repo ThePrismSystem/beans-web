@@ -261,32 +261,43 @@ export function parseDataPath(yml: string): ParsedDataPath {
 }
 
 /**
- * Resolves symlinks in `candidate`, tolerating the fact that it — or any
- * ancestor of it — may not exist yet: a project can be configured before its
- * data directory is created. Walks up to the nearest ancestor that does
- * exist and resolves that instead. If some existing ancestor is itself a
- * symlink pointing outside the root (e.g. a hostile `sub` directory entry
- * that is a symlink, with a not-yet-created `sub/.beans` underneath), the
- * returned path reflects that escape even though the full candidate path
- * does not exist.
+ * Resolves symlinks in `candidate`, reconstructing the full path even when
+ * it — or any ancestor of it — does not exist yet: a project can be
+ * configured before its data directory is created. Walks up to the nearest
+ * ancestor that does exist, resolves *that*, then re-appends the segments
+ * that were stripped off along the way — necessarily symlink-free, since
+ * they don't exist yet, so appending them literally is safe. If some
+ * existing ancestor is itself a symlink pointing outside the root (e.g. a
+ * hostile `sub` directory entry that is a symlink, with a not-yet-created
+ * `sub/.beans` underneath), the returned path reflects that escape even
+ * though the full candidate path does not exist.
+ *
+ * Callers must keep this *resolved* result, not the original candidate
+ * string, wherever the result is going to be reused later (cached on a
+ * `ProjectRecord`, for instance): the candidate is just a path string, and a
+ * plain directory today can become a symlink by the time anything acts on
+ * that string again.
  */
-async function realpathNearestExisting(candidate: string): Promise<string> {
+async function realpathContained(candidate: string): Promise<string> {
   let current = candidate;
+  const tail: string[] = [];
   for (;;) {
     try {
-      return await realpath(current);
+      const real = await realpath(current);
+      return tail.length === 0 ? real : join(real, ...tail);
     } catch (err) {
       const e = err as { code?: unknown };
       if (e.code !== "ENOENT") throw err;
       const parent = dirname(current);
-      if (parent === current) return current;
+      if (parent === current) return join(current, ...tail);
+      tail.unshift(basename(current));
       current = parent;
     }
   }
 }
 
 interface ContainedDataPath {
-  /** Absolute, symlink-resolved-checked, guaranteed within `root`. */
+  /** Absolute, symlink-resolved, guaranteed within `root` as of the moment this was computed. */
   path: string;
   confident: boolean;
   reason?: string;
@@ -305,6 +316,14 @@ interface ContainedDataPath {
  * genuinely hostile (or has a broken/malicious data directory) and must be
  * dropped, not merely flagged, because there is no safe value left to hand
  * the CLI via `--beans-path` for it.
+ *
+ * The returned `path` is the *resolved* value (see `realpathContained`), not
+ * the lexical candidate: this result gets cached on a `ProjectRecord` and
+ * reused for the project's whole cache lifetime, so it must be the value
+ * that was actually validated, not a path string that still names whatever
+ * happens to be there when something later acts on it. This function alone
+ * still can't close the gap between validating that and something later
+ * acting on it - see `assertDataPathStillContained`.
  */
 async function resolveContainedDataPath(
   root: string,
@@ -313,9 +332,42 @@ async function resolveContainedDataPath(
 ): Promise<ContainedDataPath> {
   const parsed = parseDataPath(yml);
   const candidate = assertWithinRoot(root, resolve(dir, parsed.value));
-  const real = await realpathNearestExisting(candidate);
+  const real = await realpathContained(candidate);
   assertWithinRoot(root, real);
-  return { path: candidate, confident: parsed.confident, reason: parsed.reason };
+  return { path: real, confident: parsed.confident, reason: parsed.reason };
+}
+
+/**
+ * Re-validates that `dataPath` — already resolved and contained once by
+ * `resolveContainedDataPath` — is *still* contained within `root` right now.
+ *
+ * Discovery's result is cached for `dataPath`'s whole cache lifetime
+ * (`CACHE_TTL_MS` / `REFRESH_INTERVAL_MS` in `index.ts`). Within that
+ * window, an operator with write access inside `root` - the same access
+ * SEC-03 already assumes a hostile project can arrive with - could delete
+ * the data directory discovery validated and replace it with a symlink
+ * pointing outside `root`, then swap it back before the next scheduled
+ * discovery pass notices. `resolveContainedDataPath` storing the resolved
+ * path instead of the lexical candidate does not close this: at the moment
+ * discovery validates an ordinary, not-yet-swapped directory, the resolved
+ * and lexical forms are identical, so caching either one is equally
+ * vulnerable to a swap that happens strictly *after* that validation.
+ *
+ * Calling this again immediately before a request actually uses `dataPath`
+ * - specifically, the one mutation-capable, directly client-triggered path,
+ * `POST /api/projects/:name/graphql` - re-checks against the filesystem as
+ * it is right now rather than as it was when discovery last ran, narrowing
+ * the exploitable window from the whole cache lifetime down to the moment
+ * between this call and the `beans` child process actually reading the
+ * directory a few milliseconds later. That residual gap cannot be closed
+ * from here: only the child process itself could avoid re-resolving the
+ * path string, e.g. by receiving an already-open file descriptor instead of
+ * a path, which is a materially different design not attempted here.
+ * Throws if containment no longer holds.
+ */
+export async function assertDataPathStillContained(root: string, dataPath: string): Promise<void> {
+  const real = await realpathContained(dataPath);
+  assertWithinRoot(root, real);
 }
 
 function emptyCounts(): ProjectCounts {

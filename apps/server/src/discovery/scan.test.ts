@@ -4,7 +4,13 @@ import { basename, join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { assertWithinRoot, discoverProjects, findProjectDirs, parseDataPath } from "./scan.js";
+import {
+  assertDataPathStillContained,
+  assertWithinRoot,
+  discoverProjects,
+  findProjectDirs,
+  parseDataPath,
+} from "./scan.js";
 
 interface FakeDirEntry {
   name: string;
@@ -668,6 +674,13 @@ describe("discoverProjects path containment (SEC-03)", () => {
       const projects = await discoverProjects([testRoot], 2);
 
       expect(projects.map((p) => p.name).sort()).toEqual(["explicit", "implicit"]);
+      // The .beans leaf doesn't exist in either fixture, so realpathContained
+      // reconstructs it from the nearest existing ancestor plus a literal
+      // tail - this must land back on exactly the lexical path when nothing
+      // in the chain is a symlink.
+      const byName = new Map(projects.map((p) => [p.name, p]));
+      expect(byName.get("implicit")?.dataPath).toBe(join(testRoot, "implicit", ".beans"));
+      expect(byName.get("explicit")?.dataPath).toBe(join(testRoot, "explicit", ".beans"));
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
       graphqlMock.mockRestore();
@@ -731,7 +744,7 @@ describe("discoverProjects path containment (SEC-03)", () => {
     }
   });
 
-  it("includes a project whose .beans directory is a symlink that stays inside the root", async () => {
+  it("includes a project whose .beans directory is a symlink that stays inside the root, storing the resolved real path", async () => {
     const executor = await import("../beans/executor.js");
     const graphqlMock = vi.spyOn(executor, "runBeansGraphql").mockResolvedValue({ beans: [] });
 
@@ -745,6 +758,13 @@ describe("discoverProjects path containment (SEC-03)", () => {
       const projects = await discoverProjects([testRoot], 2);
 
       expect(projects.map((p) => p.name)).toEqual(["proj"]);
+      // dataPath must be the *resolved* real-data directory, not the lexical
+      // "proj/.beans" symlink path: caching the unresolved candidate here
+      // would mean a later change to what "proj/.beans" points to redirects
+      // every subsequent use of the cached dataPath, whereas the resolved
+      // value keeps naming real-data regardless of what the symlink is
+      // later repointed to.
+      expect(projects[0]?.dataPath).toBe(join(testRoot, "real-data"));
     } finally {
       rmSync(testRoot, { recursive: true, force: true });
       graphqlMock.mockRestore();
@@ -881,5 +901,61 @@ describe("discoverProjects path containment (SEC-03)", () => {
         'beans:\n  path: "..\\u002fOUTSIDE"\n  prefix: x-\n',
       );
     });
+  });
+});
+
+describe("assertDataPathStillContained (round-3 TOCTOU re-check)", () => {
+  it("resolves for a data path that is still an ordinary directory inside root", async () => {
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-toctou-ok-"));
+    try {
+      const dataPath = join(testRoot, "proj", ".beans");
+      mkdirSync(dataPath, { recursive: true });
+
+      await expect(assertDataPathStillContained(testRoot, dataPath)).resolves.toBeUndefined();
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves for a data path that does not exist yet", async () => {
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-toctou-missing-"));
+    try {
+      mkdirSync(join(testRoot, "proj"), { recursive: true });
+
+      await expect(
+        assertDataPathStillContained(testRoot, join(testRoot, "proj", ".beans")),
+      ).resolves.toBeUndefined();
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+    }
+  });
+
+  // Regression lock for the round-3 finding: discovery validates a data
+  // directory once and caches the result for its whole cache lifetime
+  // (CACHE_TTL_MS/REFRESH_INTERVAL_MS in index.ts). Reproduces exactly what
+  // an operator with write access inside root could do in that window -
+  // delete the validated directory and replace it with a symlink escaping
+  // root - and confirms this function catches it when re-run immediately
+  // before use, which is what routes/graphql.ts now does on every request.
+  it("throws once a previously-validated data directory is swapped for a symlink escaping root", async () => {
+    const testRoot = mkdtempSync(join(tmpdir(), "scan-toctou-swap-"));
+    const outside = mkdtempSync(join(tmpdir(), "scan-toctou-swap-target-"));
+    try {
+      const dataPath = join(testRoot, "proj", ".beans");
+      mkdirSync(dataPath, { recursive: true });
+
+      // Discovery validates it here, while it's still an ordinary directory.
+      await expect(assertDataPathStillContained(testRoot, dataPath)).resolves.toBeUndefined();
+
+      // The swap: delete the validated directory, replace the same path
+      // with a symlink pointing outside root.
+      rmSync(dataPath, { recursive: true, force: true });
+      symlinkSync(outside, dataPath);
+
+      await expect(assertDataPathStillContained(testRoot, dataPath)).rejects.toThrow(/outside/i);
+    } finally {
+      rmSync(testRoot, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 });

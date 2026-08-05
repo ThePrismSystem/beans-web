@@ -102,6 +102,20 @@ describe("buildBeansArgs", () => {
     expect(flagIndex).toBeLessThan(sep);
     expect(args[flagIndex + 1]).toBe("/x/.beans");
   });
+
+  // An empty --beans-path makes the CLI fall back to trusting the config
+  // file's own beans.path - the exact bypass the --beans-path scheme exists
+  // to close. Nothing today passes "" (dataPath always comes from resolve()),
+  // but that's an invariant worth asserting rather than leaving unstated.
+  it("refuses to build args when beansPath is empty, rather than silently omitting the override", () => {
+    expect(() =>
+      buildBeansArgs({
+        configPath: "/x/.beans.yml",
+        beansPath: "",
+        query: "q",
+      }),
+    ).toThrow(/beansPath must not be empty/);
+  });
 });
 
 describe("parseBeansResult", () => {

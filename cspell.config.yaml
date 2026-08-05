@@ -86,6 +86,11 @@ words:
   - reentrancy
   - hostnames
   - unparseable
+  # Time-of-check-to-time-of-use; the class of race a symlink swap after
+  # discovery validation exploits. Used in scan.ts/scan.test.ts/graphql.test.ts.
+  - TOCTOU
+  - toctou
+  - repointed
 ignorePaths:
   - node_modules
   - dist

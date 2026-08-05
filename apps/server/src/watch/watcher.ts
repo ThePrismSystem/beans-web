@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { join, sep } from "node:path";
+import { sep } from "node:path";
 
 import chokidar from "chokidar";
 
@@ -17,7 +17,7 @@ const defaultFactory: WatchFactory = (paths) =>
   chokidar.watch(paths, { ignoreInitial: true, depth: 0 });
 
 function beansDir(project: ProjectRecord): string {
-  return join(project.path, ".beans");
+  return project.dataPath;
 }
 
 export class BeansWatcher extends EventEmitter {

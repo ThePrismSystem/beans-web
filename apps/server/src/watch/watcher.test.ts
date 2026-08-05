@@ -71,6 +71,26 @@ describe("BeansWatcher", () => {
     expect(events).toEqual([{ project: "sub", kind: "change" }]);
   });
 
+  // A project can set beans.path in .beans.yml to a directory other than the
+  // default .beans, in which case discovery resolves and caches it on
+  // project.dataPath (see discovery/scan.ts). The watcher must subscribe to
+  // that resolved directory, not a hardcoded join(project.path, ".beans"), or
+  // SSE silently never fires for such a project.
+  it("subscribes to project.dataPath rather than a hardcoded .beans, so a custom beans.path fires SSE", () => {
+    const fake = new FakeWatch();
+    const project = { ...fakeProject("custom"), dataPath: "/root/custom/data" };
+    let watchedPaths: string[] = [];
+    const watcher = new BeansWatcher([project], (paths) => {
+      watchedPaths = paths;
+      return fake;
+    });
+
+    expect(watchedPaths).toEqual(["/root/custom/data"]);
+
+    watcher.setProjects([project, fakeProject("other")]);
+    expect(fake.added).toEqual(["/root/other/.beans"]);
+  });
+
   it("reconciles watched paths on setProjects()", () => {
     const fake = new FakeWatch();
     const watcher = new BeansWatcher([fakeProject("a")], () => fake);
