@@ -18,6 +18,7 @@ docs/superpowers/
 .env.local
 # IDE
 .idea/
+.impeccable.md
 *.key
 *.log
 .next/
