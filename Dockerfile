@@ -16,13 +16,20 @@
 # Stage 1 — build the `beans` CLI. CGO is disabled so the result is a static
 # binary that runs on any glibc/musl base without extra shared libraries.
 # ---------------------------------------------------------------------------
-FROM golang:1.24-bookworm AS beans-builder
+# The Go patch version is pinned explicitly, not floated as "1.26-bookworm":
+# a newer patch can fix stdlib CVEs that the image-scan job's gobinary scan
+# would otherwise catch drifting. CI derives its toolchain from this line (see
+# .github/workflows/ci.yml) so both sides compile beans with the identical Go.
+FROM golang:1.26.5-bookworm AS beans-builder
 # Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
 # the binary CI tested against.
 ARG BEANS_VERSION=v0.4.2
-ENV CGO_ENABLED=0
-RUN go install "github.com/hmans/beans@${BEANS_VERSION}"
-# -> /go/bin/beans
+# scripts/build-beans.sh is the single source of truth for the x/net and
+# x/text version overrides that patch the CVEs in upstream's own go.mod; CI's
+# "Install beans" steps call the same script so the image and CI build the
+# same binary.
+COPY scripts/build-beans.sh /usr/local/bin/build-beans.sh
+RUN bash /usr/local/bin/build-beans.sh "${BEANS_VERSION}" /go/bin/beans
 # Keep the upstream Apache-2.0 license so the redistributed binary ships with
 # its attribution (the module cache dir name embeds the resolved version).
 RUN cp "$(go env GOMODCACHE)"/github.com/hmans/beans@*/LICENSE /beans-LICENSE
@@ -30,7 +37,7 @@ RUN cp "$(go env GOMODCACHE)"/github.com/hmans/beans@*/LICENSE /beans-LICENSE
 # ---------------------------------------------------------------------------
 # Stage 2 — install workspace deps and build the web SPA.
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS app-builder
+FROM node:24-bookworm-slim AS app-builder
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable
 WORKDIR /app
@@ -50,8 +57,13 @@ RUN pnpm --filter @beans-frontend/web build
 # Stage 3 — runtime. Debian (glibc) base to match the Node ecosystem; the
 # beans binary is static so it runs here regardless.
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 RUN corepack enable
+
+# The app runs pnpm through corepack and never invokes npm, but the base image's
+# bundled npm still ships its own dependency tree — and its CVEs — into the scan
+# surface. Removing it is what keeps the image clean as npm's deps churn.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 
 # The beans CLI, plus its Apache-2.0 license for redistribution attribution.

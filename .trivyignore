@@ -1,0 +1,10 @@
+# Suppressions for `trivy image` in the image-scan CI job.
+#
+# Every entry needs a CVE, a one-line reason it cannot be fixed, and an expiry
+# date. An ignore file without justifications becomes the place findings go to
+# die — if you cannot write the reason, fix the finding instead.
+#
+# Format:
+#   CVE-YYYY-NNNNN exp:YYYY-MM-DD  # reason
+#
+# Empty on purpose: as of 2026-08-04 the image scans clean at HIGH and CRITICAL.
