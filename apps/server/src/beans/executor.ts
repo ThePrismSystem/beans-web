@@ -99,15 +99,20 @@ function spawnBeans(bin: string, args: string[], query: string): Promise<string>
     const errChunks: Buffer[] = [];
     let bytes = 0;
 
-    // Kills the child and settles. Dropping the data listeners first pauses
-    // the streams, which both stops a flooding child's output accumulating in
-    // this process's heap and makes a second call a no-op — the child can
-    // still emit whatever the pipe already held, but nothing is left to react
-    // to it or to signal a process that is already dying.
+    // Kills the child and settles. The pipes are destroyed, not merely
+    // detached, and that distinction is the whole point: SIGKILL closes the
+    // child's own ends, but a descendant it left behind (beans links
+    // os/exec) inherits them, so the write ends can outlive the child.
+    // Dropping our `data` listeners would stop this process accumulating the
+    // output but would leave the read ends open and ref'd, and the event loop
+    // would then never drain - `execFile`'s own kill path called `destroy()`
+    // for exactly this reason. Destroying releases the handles and stops
+    // delivery, so it covers both the leak and the heap. Also idempotent, so
+    // a second call is a no-op rather than a second signal at a corpse.
     function abort(reason: Error): void {
       clearTimeout(timer);
-      child.stdout.removeAllListeners("data");
-      child.stderr.removeAllListeners("data");
+      child.stdout.destroy();
+      child.stderr.destroy();
       child.kill("SIGKILL");
       reject(reason);
     }

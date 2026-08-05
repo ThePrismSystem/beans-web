@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { BEANS_CONCURRENCY } from "../util/concurrency.js";
+import { BEANS_CONCURRENCY, MAX_QUEUED_FOR_SLOT, QueueFullError } from "../util/concurrency.js";
 
 import {
   BEANS_EXEC_TIMEOUT_MS,
@@ -39,9 +40,25 @@ interface Outcome {
   stderr?: string;
 }
 
+/**
+ * Real `Readable`s, not bare EventEmitters. The executor destroys these to
+ * release the pipe handles, and a hand-rolled `destroy` would be a stub of the
+ * very behavior under test — the gap that let the leak ship in the first
+ * place. `read` is a no-op because tests drive delivery by emitting `data`
+ * directly, which keeps their ordering synchronous; everything that matters
+ * here (`destroy`, `destroyed`) is the stream's own.
+ */
+function fakePipe(): Readable {
+  return new Readable({
+    read() {
+      // nothing to pull; tests emit "data" themselves
+    },
+  });
+}
+
 class FakeChild extends EventEmitter {
-  readonly stdout = new EventEmitter();
-  readonly stderr = new EventEmitter();
+  readonly stdout = fakePipe();
+  readonly stderr = fakePipe();
   readonly stdin = new FakeStdin();
   readonly killed: string[] = [];
   kill(signal?: string): boolean {
@@ -240,6 +257,11 @@ describe("runBeansGraphql child limits", () => {
 
       const err = await settled;
       expect(child.killed).toEqual(["SIGKILL"]);
+      // The timeout path is where a leaked pipe handle costs the most: the
+      // call has already waited 15s, and a descendant holding the write end
+      // would keep the read end alive indefinitely after it.
+      expect(child.stdout.destroyed).toBe(true);
+      expect(child.stderr.destroyed).toBe(true);
       if (!(err instanceof BeansError)) throw new Error("expected a BeansError");
       expect(err.message).toMatch(/timed out after 15000ms/);
     } finally {
@@ -270,7 +292,48 @@ describe("runBeansGraphql child limits", () => {
     }
   });
 
-  it("kills a child that floods stdout past MAX_BEANS_OUTPUT_BYTES and stops reading it", async () => {
+  // The two tests above only reach the `close` handler's clearTimeout. These
+  // two cover the other paths that can settle with the timer still pending:
+  // the output cap (which fires while the timer is genuinely live) and a
+  // spawn that fails outright. Removing either clearTimeout leaves a 15 s
+  // timer holding the event loop open, and nothing else here would notice.
+  it("clears the timeout timer when the output cap kills the child", async () => {
+    vi.useFakeTimers();
+    holdChildren = true;
+    try {
+      const spawnHappened = nextSpawn();
+      const settled = runBeansGraphql(OPTS).catch((e: unknown) => e);
+      await spawnHappened;
+      expect(vi.getTimerCount()).toBe(1);
+
+      lastChild().stdout.emit("data", Buffer.alloc(MAX_BEANS_OUTPUT_BYTES + 1));
+
+      await settled;
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the timeout timer when the child fails to spawn", async () => {
+    vi.useFakeTimers();
+    holdChildren = true;
+    try {
+      const spawnHappened = nextSpawn();
+      const settled = runBeansGraphql(OPTS).catch((e: unknown) => e);
+      await spawnHappened;
+      expect(vi.getTimerCount()).toBe(1);
+
+      lastChild().emit("error", new Error("spawn beans ENOENT"));
+
+      await settled;
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("kills a child that floods stdout past MAX_BEANS_OUTPUT_BYTES and releases its pipes", async () => {
     holdChildren = true;
     const spawnHappened = nextSpawn();
     const settled = runBeansGraphql(OPTS).catch((e: unknown) => e);
@@ -281,10 +344,12 @@ describe("runBeansGraphql child limits", () => {
 
     const err = await settled;
     expect(child.killed).toEqual(["SIGKILL"]);
-    // Detached rather than left accumulating: whatever the dying child has
-    // already pushed into the pipe must not keep growing the server's heap.
-    expect(child.stdout.listenerCount("data")).toBe(0);
-    expect(child.stderr.listenerCount("data")).toBe(0);
+    // Destroyed, not just detached. Detaching would stop the output growing
+    // this process's heap but would leave the read ends of the pipes open and
+    // ref'd — and SIGKILL does not close them if the child left a descendant
+    // holding the write ends, so the event loop would never drain.
+    expect(child.stdout.destroyed).toBe(true);
+    expect(child.stderr.destroyed).toBe(true);
     if (!(err instanceof BeansError)) throw new Error("expected a BeansError");
     expect(err.message).toMatch(/exceeded 33554432 bytes/);
   });
@@ -437,6 +502,93 @@ describe("runBeansGraphql concurrency", () => {
     await Promise.all(calls);
 
     expect(peakInFlight).toBeLessThanOrEqual(BEANS_CONCURRENCY);
+  });
+
+  // Task C5's property, which nothing asserted anywhere: the BeansError
+  // try/catch lives INSIDE withBeansSlot's callback, so a queue-full rejection
+  // — thrown by acquire(), before the callback runs at all — escapes
+  // unwrapped. It has to. globalSearch and buildAnalytics catch per-project
+  // errors and record the project as failed, so a QueueFullError arriving as a
+  // BeansError would answer 200 with every project listed broken ("your repos
+  // are failing") instead of one 503 ("try again"). Moving the try/catch to
+  // wrap withBeansSlot passes every other test in this file.
+  it("lets a queue-full rejection escape as QueueFullError, not wrapped in a BeansError", async () => {
+    holdChildren = true;
+    // Slots and queue are both filled synchronously: acquire() increments
+    // `active` and pushes its waiter before returning, so by the time these
+    // calls have been made the pool is saturated and the queue is exactly
+    // full — no waiting, nothing timing-dependent.
+    const running = Array.from({ length: BEANS_CONCURRENCY }, () =>
+      runBeansGraphql(OPTS).catch(() => undefined),
+    );
+    const queued = Array.from({ length: MAX_QUEUED_FOR_SLOT }, () =>
+      runBeansGraphql(OPTS).catch(() => undefined),
+    );
+
+    const err = await runBeansGraphql(OPTS).then(
+      () => {
+        throw new Error("expected runBeansGraphql to reject");
+      },
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(QueueFullError);
+    expect(err).not.toBeInstanceOf(BeansError);
+
+    let remaining = running.length + queued.length;
+    while (remaining > 0) {
+      const next = held.shift();
+      if (!next) {
+        await vi.waitFor(() => {
+          expect(held.length).toBeGreaterThan(0);
+        });
+        continue;
+      }
+      next();
+      remaining -= 1;
+    }
+    await Promise.all([...running, ...queued]);
+  });
+
+  // The empty-beansPath check runs before withBeansSlot is entered, so a call
+  // guaranteed to fail never claims a slot or a queue place. Asserted by
+  // saturating the pool first: with the check inside the slot callback this
+  // call would queue behind eight held children and never settle, so the test
+  // times out rather than passing. The `never spawns` assertion alone cannot
+  // see the difference — a queued call has not spawned either.
+  it("rejects an empty beansPath without claiming a slot, even with the pool saturated", async () => {
+    holdChildren = true;
+    const blockers = Array.from({ length: BEANS_CONCURRENCY }, () =>
+      runBeansGraphql(OPTS).catch(() => undefined),
+    );
+    await vi.waitFor(() => {
+      expect(held.length).toBe(BEANS_CONCURRENCY);
+    });
+
+    const err = await runBeansGraphql({ ...OPTS, beansPath: "" }).then(
+      () => {
+        throw new Error("expected runBeansGraphql to reject");
+      },
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(BeansError);
+    expect((err as Error).message).toMatch(/beansPath must not be empty/);
+
+    let remaining = blockers.length;
+    while (remaining > 0) {
+      const next = held.shift();
+      if (!next) {
+        await vi.waitFor(() => {
+          expect(held.length).toBeGreaterThan(0);
+        });
+        continue;
+      }
+      next();
+      remaining -= 1;
+    }
+    await Promise.all(blockers);
   });
 });
 
