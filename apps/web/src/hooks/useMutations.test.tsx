@@ -370,11 +370,16 @@ describe("useReopenAncestors", () => {
 });
 
 // Queries thread the `AbortSignal` TanStack Query hands their `queryFn` so a
-// superseded read can be cancelled. Writes must not: a cancelled `beans`
-// mutation can leave a half-written bean on disk. TanStack's `MutationFunction`
-// takes only the variables — there is no context to destructure a signal from —
-// so the guarantee is structural, and these pin it against a future edit that
-// tries to pass one anyway.
+// superseded read can be cancelled. Writes must not: a cancelled write is
+// abandoned while still queued for a beans slot, so the edit silently never
+// happens and nothing tells the user.
+//
+// TanStack hands a `mutationFn` a second argument, but its context is
+// `{ client, meta, mutationKey }` — no `signal` — so a mutation has none in
+// scope to forward by accident. That is not the same as being unable to pass
+// one: `projectGraphql`'s `signal` is optional and trailing, so a mutation
+// supplying `AbortSignal.timeout(…)` on purpose type-checks. These tests are
+// the only mechanical thing standing in the way of that edit.
 describe("mutations are not cancellable", () => {
   function sentSignals(
     mock: ReturnType<typeof vi.fn<(url: string, init: RequestInit) => Promise<Response>>>,

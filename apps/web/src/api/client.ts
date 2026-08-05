@@ -11,8 +11,16 @@ export async function fetchProjects(signal?: AbortSignal): Promise<Project[]> {
 
 /**
  * `signal` is optional because this route serves both reads and writes. Reads
- * pass the one TanStack Query hands their `queryFn`; writes pass nothing, so a
- * mutation cannot be cancelled mid-flight and leave a half-written bean behind.
+ * pass the one TanStack Query hands their `queryFn`; writes pass nothing.
+ *
+ * A cancelled write cannot corrupt a bean — the server never forwards the
+ * signal to the `beans` child (see `beans/executor.ts`), so a disconnect can
+ * only abandon work still queued for a slot. What it costs is the edit
+ * silently never happening, with nothing surfaced to the user.
+ *
+ * The type system does not enforce this: `signal` is optional and trailing, so
+ * a `mutationFn` that passes one compiles cleanly. The "mutations are not
+ * cancellable" tests in `hooks/useMutations.test.tsx` are what hold it.
  */
 export async function projectGraphql<T>(
   project: string,
