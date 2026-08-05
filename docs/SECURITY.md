@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report it privately, through GitHub's private vulnerability reporting:
-**[open a draft security advisory](https://github.com/ThePrismSystem/beans-frontend/security/advisories/new)**.
+**[open a draft security advisory](https://github.com/ThePrismSystem/beans-web/security/advisories/new)**.
 A draft advisory is visible only to you and the maintainers, so nothing is disclosed until
 there is a fix to disclose alongside it.
 
@@ -239,7 +239,7 @@ build input.
 
 ### No authentication
 
-`beans-frontend` has no authentication or authorization layer (`apps/server/src/env.ts`). It's a
+`beans-web` has no authentication or authorization layer (`apps/server/src/env.ts`). It's a
 local-first, single-user tool intended to run on `127.0.0.1`, which is the default `HOST` binding,
 though an operator can change `HOST` through the environment. **Setting `HOST` to a non-loopback
 address exposes the API to anything that can reach that address, with no access control. That

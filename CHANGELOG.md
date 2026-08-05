@@ -308,11 +308,11 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
-[0.2.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.1
-[0.2.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.2.0
-[0.1.5]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.5
-[0.1.4]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.4
-[0.1.3]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.3
-[0.1.2]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.2
-[0.1.1]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.1
-[0.1.0]: https://github.com/ThePrismSystem/beans-frontend/releases/tag/v0.1.0
+[0.2.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.1
+[0.2.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.0
+[0.1.5]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.5
+[0.1.4]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.4
+[0.1.3]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.3
+[0.1.2]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.2
+[0.1.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.1
+[0.1.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.1.0

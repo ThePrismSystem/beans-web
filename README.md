@@ -1,13 +1,13 @@
-# beans-frontend
+# beans-web
 
-[![CI](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-frontend/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-frontend)
+[![CI](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ThePrismSystem/beans-web/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-web)
 [![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](.nvmrc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A web UI for [`beans`](https://github.com/hmans/beans), the local-first, Markdown-backed issue
-tracker. `beans-frontend` discovers every `beans` project under a configured root directory and
+tracker. `beans-web` discovers every `beans` project under a configured root directory and
 gives each one a browsable overview, hierarchy and flat bean lists, and a detail view with inline
 editing and relationship management. It also does cross-project search and simple analytics.
 Everything reads and writes your on-disk `.beans` files directly; there is no separate database.
@@ -112,8 +112,8 @@ docker compose up -d
 To build the image directly instead:
 
 ```bash
-docker build -t beans-frontend:latest .
-docker build --build-arg BEANS_VERSION=v0.4.2 -t beans-frontend:latest .  # pin the CLI
+docker build -t beans-web:latest .
+docker build --build-arg BEANS_VERSION=v0.4.2 -t beans-web:latest .  # pin the CLI
 ```
 
 #### Container configuration
@@ -203,16 +203,16 @@ middleware. It runs as a single replica, so sticky sessions are unnecessary.
 #### Verifying a container
 
 ```bash
-docker run -d --name beans-frontend \
+docker run -d --name beans-web \
   -p 127.0.0.1:4780:4780 \
   -v /host/path/to/your/git:/projects \
   -e GIT_ROOT=/projects \
-  beans-frontend:latest
+  beans-web:latest
 
 curl -s localhost:4780/api/projects | head               # JSON array of your projects
 curl -s -o /dev/null -w '%{http_code}\n' localhost:4780/ # 200, the SPA
-docker inspect --format '{{.State.Health.Status}}' beans-frontend
-docker rm -f beans-frontend
+docker inspect --format '{{.State.Health.Status}}' beans-web
+docker rm -f beans-web
 ```
 
 The image's `HEALTHCHECK` requests the SPA root using Node's `fetch` and reports

@@ -69,7 +69,7 @@ const refresh = setInterval(() => {
 refresh.unref();
 
 const server = serve({ fetch: app.fetch, hostname: env.HOST, port: env.PORT }, (info) => {
-  console.info(`beans-frontend server on http://${env.HOST}:${String(info.port)}`);
+  console.info(`beans-web server on http://${env.HOST}:${String(info.port)}`);
 });
 
 function shutdown(): void {

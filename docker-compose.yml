@@ -1,4 +1,4 @@
-# Runs beans-frontend standalone. Point the bind mount below at your projects
+# Runs beans-web standalone. Point the bind mount below at your projects
 # directory, then `docker compose up -d` and visit http://localhost:4780.
 #
 # To put it behind Traefik instead, uncomment the networks and labels blocks at
@@ -6,7 +6,7 @@
 # README.md for configuration, volume ownership, and security notes.
 
 services:
-  beans-frontend:
+  beans-web:
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,8 +14,8 @@ services:
       # over the Dockerfile's ARG default, so pinning it in both places meant
       # bumping the Dockerfile alone shipped the old binary. The Dockerfile is
       # the single source of truth; CI reads the pin from it too.
-    image: beans-frontend:latest
-    container_name: beans-frontend
+    image: beans-web:latest
+    container_name: beans-web
     restart: unless-stopped
 
     # The image already runs as non-root (`USER node`, uid 1000 — see Dockerfile).

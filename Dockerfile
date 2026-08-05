@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# beans-frontend production image.
+# beans-web production image.
 #
 # Runtime dependencies that make this app unusual:
 #   * It shells out to the `beans` Go CLI (github.com/hmans/beans) per project,

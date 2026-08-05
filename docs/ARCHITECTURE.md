@@ -2,7 +2,7 @@
 
 ## Overview
 
-`beans-frontend` is a pnpm monorepo with three packages:
+`beans-web` is a pnpm monorepo with three packages:
 
 - **`apps/server`** is a small [Hono](https://hono.dev) API server that owns no data of its own.
   It discovers `beans` projects on disk and shells out to the `beans` CLI's GraphQL interface per
@@ -157,6 +157,6 @@ involved, and they are not interchangeable:
   the flag-to-path mapping lives in the Codecov dashboard rather than in the repo.
 - **The README badge's token (`N7I7FNHSIO`)** is a different kind of token: a Codecov *graph
   token*, scoped only to fetching a badge SVG
-  (`https://codecov.io/gh/ThePrismSystem/beans-frontend/graph/badge.svg?token=...`), not to
+  (`https://codecov.io/gh/ThePrismSystem/beans-web/graph/badge.svg?token=...`), not to
   uploading data. It's public by design and safe to embed directly in `README.md`. It is unrelated
   to `CODECOV_TOKEN`; rotating one has no effect on the other.

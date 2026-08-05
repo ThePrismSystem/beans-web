@@ -297,14 +297,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build the production image
-        run: docker build -t beans-frontend:ci .
+        run: docker build -t beans-web:ci .
 
       # Fails the build on any fixable HIGH or CRITICAL. Suppressions live in
       # .trivyignore and must carry a reason and an expiry date.
       - name: Scan the image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: beans-frontend:ci
+          image-ref: beans-web:ci
           format: table
           exit-code: "1"
           severity: HIGH,CRITICAL

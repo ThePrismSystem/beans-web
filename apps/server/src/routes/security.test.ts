@@ -169,9 +169,9 @@ describe("cross-origin guard with TRUST_PROXY on", () => {
     // the public name it forwards must be allowed — not just the forwarded
     // one — so this deployment needs both listed.
     const res = await createApp(
-      deps({ trustProxy: true, allowedHosts: ["beans.example.com", "beans-frontend"] }),
+      deps({ trustProxy: true, allowedHosts: ["beans.example.com", "beans-web"] }),
     ).request(
-      "http://beans-frontend:4780/api/projects/proj-a/graphql",
+      "http://beans-web:4780/api/projects/proj-a/graphql",
       proxiedPost({
         origin: "https://beans.example.com",
         "x-forwarded-proto": "https",
