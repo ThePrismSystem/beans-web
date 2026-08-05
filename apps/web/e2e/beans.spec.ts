@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 
 import { readSeedState } from "./fixtures/seed.mjs";
 
+import type { Request } from "@playwright/test";
+
+const PROJECT_GRAPHQL_PATH = /^\/api\/projects\/[^/]+\/graphql$/;
+
 // The whole scenario is one linear flow: each step depends on state produced
 // by the previous one (the created child bean, the edited title, etc.), so it
 // runs as a single test rather than several independent ones sharing a page.
@@ -44,11 +48,36 @@ test("core client-visible contract", async ({ page }) => {
 
   const editedTitle = `${featureTitle} (edited)`;
   await test.step("edit the bean's title", async () => {
+    // The request count pins current behavior rather than guarding a fixed bug.
+    // Committing with Enter unmounts the focused title input, and Chromium does
+    // fire a native blur when a focused element is removed — but React never
+    // routes it to that input's onBlur, because it does not dispatch synthetic
+    // events to a node it is deleting. So the input's blur-commit path does not
+    // run and Enter saves exactly once. That rests on a React implementation
+    // detail, not a documented guarantee, so it is worth holding in place: the
+    // rendered title below is identical whether the mutation fires once or
+    // twice, and only a request count can tell those apart.
+    let updateBeanRequests = 0;
+    const countUpdateBean = (request: Request) => {
+      if (request.method() !== "POST") return;
+      if (!PROJECT_GRAPHQL_PATH.test(new URL(request.url()).pathname)) return;
+      if (request.postData()?.includes("updateBean") === true) {
+        updateBeanRequests += 1;
+      }
+    };
+    page.on("request", countUpdateBean);
+
     await page.locator("button.bean-detail-title").click();
     const titleInput = page.getByLabel("Title", { exact: true });
     await titleInput.fill(editedTitle);
     await titleInput.press("Enter");
     await expect(page.locator("button.bean-detail-title")).toHaveText(editedTitle);
+
+    // The heading only re-renders once the mutation resolved and the bean
+    // refetched, so a second commit fired from the unmount would have been
+    // issued — and counted — well before this point.
+    page.off("request", countUpdateBean);
+    expect(updateBeanRequests).toBe(1);
   });
 
   await test.step("edit the body via the rendered/raw toggle", async () => {
