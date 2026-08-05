@@ -94,6 +94,26 @@ describe("useBean", () => {
     expect(body.variables).toMatchObject({ id: "t1", idStr: "t1" });
   });
 
+  it("gives the graphql read the query's abort signal", async () => {
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: { bean: beanDetail, blocksInbound: [] } }), {
+          status: 200,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useBean("demo", "t1"), { wrapper });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const call = fetchMock.mock.calls[0];
+    if (!call) throw new Error("fetch was not called");
+    expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("errors when the bean is not found", async () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve(new Response(JSON.stringify({ data: { bean: null } }), { status: 200 })),

@@ -46,7 +46,41 @@ describe("useSearch", () => {
     });
 
     expect(hook.current.data).toEqual(searchResult);
-    expect(fetchMock).toHaveBeenCalledWith("/api/search?q=bell");
+    expect(fetchMock).toHaveBeenCalledWith("/api/search?q=bell", {
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  // The request the user's last keystroke produces queues behind every request
+  // its prefixes started. Unless the superseded ones are cancelled, the server
+  // is still working through them when the one that matters arrives.
+  it("aborts the in-flight request when a new query supersedes it", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
+      (_url, init) => {
+        signals.push(init?.signal);
+        // Never settles: the request is still in flight when the key changes.
+        return new Promise<Response>(() => undefined);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = renderHook(({ q }: { q: string }) => useSearch(q), {
+      wrapper,
+      initialProps: { q: "bel" },
+    });
+    await waitFor(() => {
+      expect(signals).toHaveLength(1);
+    });
+    expect(signals[0]?.aborted).toBe(false);
+
+    rerender({ q: "bell" });
+
+    await waitFor(() => {
+      expect(signals[0]?.aborted).toBe(true);
+    });
+    expect(signals).toHaveLength(2);
+    expect(signals[1]?.aborted).toBe(false);
   });
 
   it("does not fetch when the query is empty or whitespace", () => {

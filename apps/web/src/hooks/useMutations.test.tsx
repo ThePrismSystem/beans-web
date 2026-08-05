@@ -368,3 +368,59 @@ describe("useReopenAncestors", () => {
     expect(describeMutationError(failure)).toBe("Re-opened e-1, then failed: network exploded");
   });
 });
+
+// Queries thread the `AbortSignal` TanStack Query hands their `queryFn` so a
+// superseded read can be cancelled. Writes must not: a cancelled `beans`
+// mutation can leave a half-written bean on disk. TanStack's `MutationFunction`
+// takes only the variables — there is no context to destructure a signal from —
+// so the guarantee is structural, and these pin it against a future edit that
+// tries to pass one anyway.
+describe("mutations are not cancellable", () => {
+  function sentSignals(
+    mock: ReturnType<typeof vi.fn<(url: string, init: RequestInit) => Promise<Response>>>,
+  ) {
+    return mock.mock.calls.map((call) => call[1].signal);
+  }
+
+  it("sends no abort signal for a single write", async () => {
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: { updateBean: { id: "t1", etag: "e" } } }), {
+          status: 200,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useUpdateBean("demo"), { wrapper });
+    result.current.mutate({ id: "t1", etag: "old", input: { title: "New title" } });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(sentSignals(fetchMock)).toEqual([undefined]);
+  });
+
+  it("sends no abort signal on any leg of a multi-ancestor re-open", async () => {
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>((_url, init) => {
+      const body = parsedRequestBody(init.body) as { variables: { id: string } };
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ data: { updateBean: { id: body.variables.id, etag: "e" } } }),
+          { status: 200 },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useReopenAncestors("demo"), { wrapper });
+    result.current.mutate({ ancestorIds: ["e-1", "m-1"], status: "todo" });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(sentSignals(fetchMock)).toEqual([undefined, undefined]);
+  });
+});

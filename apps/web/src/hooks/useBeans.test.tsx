@@ -78,6 +78,18 @@ describe("useProjectBeans", () => {
     expect(sentBody(fetchMock).query).not.toMatch(/\bbody\b/);
   });
 
+  it("gives the graphql read the query's abort signal", async () => {
+    const fetchMock = mockFetch();
+    const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const call = fetchMock.mock.calls[0];
+    if (!call) throw new Error("fetch was not called");
+    expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("returns the beans from the response", async () => {
     mockFetch();
     const { result } = renderHook(() => useProjectBeans("demo", ""), { wrapper });

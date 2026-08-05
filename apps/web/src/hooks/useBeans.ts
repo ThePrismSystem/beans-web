@@ -46,10 +46,13 @@ export function useProjectBeans(project: string, search: string): UseQueryResult
   const trimmed = search.trim();
   return useQuery({
     queryKey: ["beans", project, trimmed],
-    queryFn: async () => {
-      const data = await projectGraphql<BeansQueryResult>(project, BEANS_QUERY, {
-        filter: trimmed.length > 0 ? { search: trimmed } : {},
-      });
+    queryFn: async ({ signal }) => {
+      const data = await projectGraphql<BeansQueryResult>(
+        project,
+        BEANS_QUERY,
+        { filter: trimmed.length > 0 ? { search: trimmed } : {} },
+        signal,
+      );
       return data.beans;
     },
   });

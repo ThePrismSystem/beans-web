@@ -16,11 +16,13 @@ interface BeanDetailQueryResult {
 export function useBean(project: string, id: string): UseQueryResult<BeanDetail> {
   return useQuery({
     queryKey: ["bean", project, id],
-    queryFn: async () => {
-      const data = await projectGraphql<BeanDetailQueryResult>(project, BEAN_DETAIL_QUERY, {
-        id,
-        idStr: id,
-      });
+    queryFn: async ({ signal }) => {
+      const data = await projectGraphql<BeanDetailQueryResult>(
+        project,
+        BEAN_DETAIL_QUERY,
+        { id, idStr: id },
+        signal,
+      );
       if (!data.bean) {
         throw new Error(`bean not found: ${id}`);
       }
