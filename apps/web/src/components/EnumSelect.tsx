@@ -1,5 +1,3 @@
-import { parseEnumValue } from "../lib/enum.js";
-
 export interface EnumSelectProps<T extends string> {
   id?: string;
   ariaLabel?: string;
@@ -21,9 +19,16 @@ export function EnumSelect<T extends string>({
       aria-label={ariaLabel}
       value={value}
       onChange={(event) => {
-        const next = parseEnumValue(event.target.value, options);
-        if (next) {
-          onChange(next);
+        // The <option>s below are rendered from `options` and nothing else, so
+        // the selected value is always a member. Handing back the member itself
+        // keeps the call typed as `T` without narrowing the event's string —
+        // which is what used to need a "didn't match" branch no caller could
+        // reach.
+        for (const option of options) {
+          if (option === event.target.value) {
+            onChange(option);
+            break;
+          }
         }
       }}
     >

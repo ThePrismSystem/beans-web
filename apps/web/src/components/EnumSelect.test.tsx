@@ -36,6 +36,7 @@ describe("EnumSelect", () => {
     await user.selectOptions(screen.getByLabelText("Color"), "blue");
 
     expect(onChange).toHaveBeenCalledWith("blue");
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it("reflects the current value prop", () => {
