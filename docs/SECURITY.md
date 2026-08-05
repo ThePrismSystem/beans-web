@@ -93,19 +93,62 @@ message leaves the server (`redactPaths`, `apps/server/src/beans/executor.ts`), 
 still identifies the offending file without disclosing the OS username or the location of
 `GIT_ROOT`.
 
+#### GraphQL variables in the host process table
+
+**This is an open exposure, not a closed finding.** Every `beans` child is spawned with its
+GraphQL *variables* on its command line (`-v '{"…"}'`), so for as long as that child lives —
+milliseconds under normal use, up to the 15 s subprocess timeout at worst — they are readable
+from `/proc/<pid>/cmdline`.
+
+What it exposes is whatever the request's variables carry: in practice the user's search text,
+and on mutations the title and body of the bean being written. Who can read it is any other
+local account on the host, and any process sharing the container's PID namespace. It is not
+reachable over the network, and it needs no privilege beyond a local login — reading another
+user's `/proc/<pid>/cmdline` is allowed by default on Linux, and `/proc` on a stock install is
+mounted without `hidepid`.
+
+The GraphQL *query document* is no longer exposed; it is written to the child's stdin. That
+half was worth closing on its own because `POST /api/projects/:name/graphql` passes the
+client's own query string straight through, so a caller that puts literal values inline instead of
+using variables would otherwise put that data in argv too.
+
+The variables cannot follow it. `beans graphql` (v0.4.2) accepts the query on stdin but offers
+no way at all to pass variables off argv: `-v/--variables` takes a literal JSON string, and its
+decoder rejects `-`, `@file` and a bare path alike — verified against the binary, along with
+the whole flag surface of the subcommand. Inlining the variables into the query document to get
+them off argv is not an acceptable workaround either: serializing a multi-line, user-controlled
+bean body into a query string reintroduces exactly the injection class that parameterized
+variables exist to prevent, which would be a worse bug than this one. Closing this properly
+needs an upstream `beans` change.
+
+Two operator mitigations, both checked rather than assumed:
+
+- **Don't share the host's PID namespace.** A Docker container gets its own PID namespace by
+  default, and `docker-compose.yml` does not set `pid:`. Running with `pid: host` (or
+  `--pid=host`) would expose these command lines to everything else in that namespace.
+- **Mount `/proc` with `hidepid`** on a multi-user host, which stops unprivileged users from
+  seeing other users' processes at all (`hidepid=2`, or the equivalent `hidepid=invisible` on
+  Linux 5.8+). That is a host-level decision affecting every process on the machine, not
+  something this project can set for you.
+
+Neither is needed on the deployment this tool is designed for — a single-user machine whose
+only local account is the one running it. On a shared host, treat the exposure as real.
+
 ### Command and argument injection
 
-The `beans` CLI is invoked via `execFile` (`apps/server/src/beans/executor.ts`), which does not
+The `beans` CLI is invoked via `spawn` (`apps/server/src/beans/executor.ts`), which does not
 spawn a shell. `buildBeansArgs` assembles the arguments as an array and hands them straight to
-`execFileAsync` with no string interpolation, so nothing can be reinterpreted as shell syntax —
+`spawn` with no string interpolation, so nothing can be reinterpreted as shell syntax —
 _shell_ injection is not possible.
 
-Separately, _argument_ injection is prevented by passing the client-supplied GraphQL query after a
-`--` end-of-options separator. Without it, a query beginning with `-` (e.g. `--beans-path=/etc`)
-was parsed by the `beans` CLI as a flag and could redirect it to read outside the configured jail;
-after `--`, every remaining token is a positional, so such a query is treated as a literal
-(invalid) GraphQL string and rejected. This is distinct from — and not covered by — the shell-safety
-argument above.
+_Argument_ injection was previously prevented by passing the client-supplied GraphQL query after
+a `--` end-of-options separator. Without it, a query beginning with `-` (e.g.
+`--beans-path=/etc`) was parsed by the `beans` CLI as a flag and could redirect it to read
+outside the configured jail. The query is now written to the child's **stdin** rather than argv
+(see _GraphQL variables in the host process table_ below), so there is no positional argument
+left for the CLI to reinterpret and the separator has been retired along with the class of bug
+it defused. The only client-controlled argument remaining is the value of `-v`, which is
+`JSON.stringify` output and is consumed as that flag's argument whatever it contains.
 
 ### Transport hardening
 
@@ -144,7 +187,11 @@ argument above.
   plus a self-only Content-Security-Policy with `frame-ancestors 'none'` (`apps/server/src/app.ts`).
 - **Request body cap:** the graphql route rejects bodies over 256 KB with `413` before parsing.
 - **Subprocess timeout:** each `beans` invocation has a 15 s timeout and is `SIGKILL`ed on expiry,
-  so a child that blocks (e.g. on stdin) cannot leak a process slot.
+  so a child that blocks (e.g. on stdin) cannot leak a process slot. The server enforces this
+  itself rather than relying on `execFile`, which it no longer uses.
+- **Subprocess output cap:** a child's combined stdout and stderr is capped at 32 MiB, counted
+  in bytes as it arrives; past that the child is `SIGKILL`ed and the streams are detached, so a
+  runaway child cannot buffer its output into the server's heap.
 - **Subprocess ceiling:** every `beans` invocation acquires one of
   `BEANS_CONCURRENCY` process-wide slots (`apps/server/src/util/concurrency.ts`), so
   concurrent requests queue rather than multiplying child processes. The cap bounds the

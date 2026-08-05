@@ -55,10 +55,26 @@ describe("runBeansGraphql (real binary)", () => {
     expect(err.messages[0]).not.toContain("Command failed");
   });
 
+  it("passes variables to the real binary with the query on stdin", async () => {
+    // The unit tests mock the child, so only this one proves that `beans
+    // graphql` v0.4.2 accepts the query on stdin and `-v` on argv together —
+    // the split SEC-06's fix depends on.
+    const data = (await runBeansGraphql({
+      configPath: cfg,
+      root: dir,
+      beansPath: join(dir, ".beans"),
+      query: "query S($q: String){ beans(filter: { search: $q }) { title } }",
+      variables: { q: "Integration seed" },
+    })) as { beans: { title: string }[] };
+    expect(data.beans.map((b) => b.title)).toEqual(["Integration seed"]);
+  });
+
   it("does not let a flag-shaped query escape the config's project (F-01)", async () => {
     // Pre-fix, this query was parsed as a `--beans-path` flag and would have
-    // returned the OTHER project's beans, escaping the jail. With the "--"
-    // separator it is a literal (invalid) GraphQL query and must reject.
+    // returned the OTHER project's beans, escaping the jail. It was first
+    // defused by a "--" separator; now the query never reaches argv at all
+    // (SEC-06 — it goes to the child on stdin), so beans reads it as a literal
+    // GraphQL document, fails to parse it, and the call must reject.
     const result = await runBeansGraphql({
       configPath: cfg,
       root: dir,

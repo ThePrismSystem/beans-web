@@ -1,11 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 
 import { env } from "../env.js";
 import { withBeansSlot } from "../util/concurrency.js";
 import { assertDataPathStillContained } from "../util/containment.js";
-
-const execFileAsync = promisify(execFile);
 
 /**
  * Hard ceiling on a single `beans` invocation. Without it a child that blocks
@@ -14,8 +11,12 @@ const execFileAsync = promisify(execFile);
  */
 export const BEANS_EXEC_TIMEOUT_MS = 15_000;
 
-/** Hard ceiling on a single `beans` invocation's combined stdout/stderr size. */
-const MAX_STDOUT_BYTES = 33_554_432; // 32 MiB
+/**
+ * Hard ceiling on a single `beans` invocation's combined stdout/stderr size,
+ * enforced by `spawnBeans` below. Exported so its test asserts the real bound
+ * rather than a second copy of the number.
+ */
+export const MAX_BEANS_OUTPUT_BYTES = 33_554_432; // 32 MiB
 
 export class BeansError extends Error {
   constructor(
@@ -60,14 +61,110 @@ export interface RunOpts {
   signal?: AbortSignal;
 }
 
+/**
+ * The child's argv. The query is deliberately absent: `spawnBeans` writes it
+ * to the child's stdin instead, so it never appears in `/proc/<pid>/cmdline`
+ * for any local account to read while the request is in flight (SEC-06).
+ *
+ * That also retires the `--` separator this list used to end with. `--` was
+ * there so a flag-shaped query (`--beans-path=/etc`) stayed a positional and
+ * could not be reinterpreted as a beans flag; with no positional left at all,
+ * there is nothing for the CLI to reinterpret. The remaining client-controlled
+ * value is `-v`'s, which is `JSON.stringify` output and is consumed as that
+ * flag's argument regardless of its contents.
+ *
+ * `opts.variables` stays on argv because `beans graphql` v0.4.2 offers no way
+ * to pass it anywhere else — `-v` takes a literal JSON string and its decoder
+ * rejects `-`, `@file` and a bare path alike. See `docs/SECURITY.md` for what
+ * that leaves exposed.
+ */
 export function buildBeansArgs(opts: RunOpts): string[] {
   const args = ["graphql", "--json", "--config", opts.configPath, "--beans-path", opts.beansPath];
   if (opts.variables) args.push("-v", JSON.stringify(opts.variables));
-  // "--" ends beans' option parsing: everything after it is a positional, so a
-  // query that starts with "-" (e.g. "--beans-path=/etc") can never be
-  // reinterpreted as a beans flag and used to escape the configured jail.
-  args.push("--", opts.query);
   return args;
+}
+
+/**
+ * Runs one `beans` child with `query` on its stdin and resolves its stdout.
+ *
+ * This was `promisify(execFile)`, which supplied a timeout and an output cap
+ * for free. `spawn` is used instead because it is the only way to give the
+ * child a stdin, and it supplies neither, so both are reimplemented here.
+ */
+function spawnBeans(bin: string, args: string[], query: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe"] });
+
+    const outChunks: Buffer[] = [];
+    const errChunks: Buffer[] = [];
+    let bytes = 0;
+
+    // Kills the child and settles. Dropping the data listeners first pauses
+    // the streams, which both stops a flooding child's output accumulating in
+    // this process's heap and makes a second call a no-op — the child can
+    // still emit whatever the pipe already held, but nothing is left to react
+    // to it or to signal a process that is already dying.
+    function abort(reason: Error): void {
+      clearTimeout(timer);
+      child.stdout.removeAllListeners("data");
+      child.stderr.removeAllListeners("data");
+      child.kill("SIGKILL");
+      reject(reason);
+    }
+
+    const timer = setTimeout(() => {
+      abort(new Error(`beans timed out after ${String(BEANS_EXEC_TIMEOUT_MS)}ms`));
+    }, BEANS_EXEC_TIMEOUT_MS);
+
+    const collect =
+      (into: Buffer[]) =>
+      (chunk: Buffer): void => {
+        bytes += chunk.length;
+        if (bytes > MAX_BEANS_OUTPUT_BYTES) {
+          abort(new Error(`beans output exceeded ${String(MAX_BEANS_OUTPUT_BYTES)} bytes`));
+          return;
+        }
+        into.push(chunk);
+      };
+    // Byte counting, not character counting: the cap is a memory bound, and a
+    // decoded chunk's `length` is UTF-16 units. Decoding is deferred to the
+    // end for the same reason it is left to Buffer.concat — a multi-byte rune
+    // split across two chunks would otherwise decode to replacement
+    // characters.
+    child.stdout.on("data", collect(outChunks));
+    child.stderr.on("data", collect(errChunks));
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(Buffer.concat(outChunks).toString("utf8"));
+        return;
+      }
+      // extractBeansErrorMessage prefers an "Error:" line in stderr and falls
+      // back to `message`, so both are populated here. Deliberately not
+      // execFile's "Command failed: <argv>\n<stderr>": that put the whole
+      // command line, `-v` argument included, into an error a client is shown.
+      const stderr = Buffer.concat(errChunks).toString("utf8");
+      const trimmed = stderr.trim();
+      const message =
+        trimmed === "" ? `beans exited (code ${String(code)}, signal ${String(signal)})` : trimmed;
+      reject(Object.assign(new Error(message), { stderr }));
+    });
+
+    // A child that exits before draining its stdin makes this pipe emit
+    // EPIPE. Its own exit code and stderr are the failure worth reporting, so
+    // that is swallowed rather than left to become an 'error' event on a
+    // stream with no listener, which would crash the process.
+    child.stdin.on("error", () => {
+      // deliberately ignored; see above
+    });
+    child.stdin.end(query);
+  });
 }
 
 interface GraphqlResponse {
@@ -167,11 +264,7 @@ export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
     // right before the spawn, narrows the window to.
     await assertDataPathStillContained(opts.root, opts.beansPath);
     try {
-      const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
-        maxBuffer: MAX_STDOUT_BYTES,
-        timeout: BEANS_EXEC_TIMEOUT_MS,
-        killSignal: "SIGKILL",
-      });
+      const stdout = await spawnBeans(bin, buildBeansArgs(opts), opts.query);
       return parseBeansResult(stdout);
     } catch (err) {
       if (err instanceof BeansError) throw err;

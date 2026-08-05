@@ -91,6 +91,12 @@ words:
   # this one covers "toctou" too. Used across discovery/, beans/, and util/.
   - TOCTOU
   - repointed
+  # The procfs file holding a process's argv. SECURITY.md names it as the
+  # channel GraphQL variables remain readable through.
+  - cmdline
+  # The /proc mount option that hides other users' processes; named in
+  # SECURITY.md as an operator mitigation for the same exposure.
+  - hidepid
 ignorePaths:
   - node_modules
   - dist
