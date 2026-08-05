@@ -157,7 +157,7 @@ _Argument_ injection was previously prevented by passing the client-supplied Gra
 a `--` end-of-options separator. Without it, a query beginning with `-` (e.g.
 `--beans-path=/etc`) was parsed by the `beans` CLI as a flag and could redirect it to read
 outside the configured jail. The query is now written to the child's **stdin** rather than argv
-(see _GraphQL variables in the host process table_ below), so there is no positional argument
+(see _GraphQL variables in the host process table_ above), so there is no positional argument
 left for the CLI to reinterpret and the separator has been retired along with the class of bug
 it defused. The only client-controlled argument remaining is the value of `-v`, which is
 `JSON.stringify` output and is consumed as that flag's argument whatever it contains.
@@ -249,6 +249,8 @@ those mutations, but it is not a substitute for authentication against a direct 
 expose `HOST` outside a trusted, isolated network — put a real auth layer (e.g. an SSO proxy) in
 front of it if you must.
 
-The Docker image binds `HOST=0.0.0.0` inside the container by design — see Container hardening
-above — so this default is enforced differently there: `docker-compose.yml` publishes the port
-to `127.0.0.1` only, and widening that publish carries the same risk as changing `HOST` above.
+The Docker image binds `HOST=0.0.0.0` inside the container by design: a container has its own
+network namespace, so binding loopback inside it would put the port somewhere nothing outside
+the container can reach, published mapping included. The loopback default is enforced on the
+host side instead — `docker-compose.yml` publishes the port as `127.0.0.1:4780:4780` — and
+widening that publish carries the same risk as changing `HOST` above.
