@@ -204,7 +204,7 @@ middleware. It runs as a single replica, so sticky sessions are unnecessary.
 
 ```bash
 docker run -d --name beans-frontend \
-  -p 4780:4780 \
+  -p 127.0.0.1:4780:4780 \
   -v /host/path/to/your/git:/projects \
   -e GIT_ROOT=/projects \
   beans-frontend:latest

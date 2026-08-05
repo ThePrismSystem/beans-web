@@ -163,3 +163,7 @@ queries and mutations.** The cross-origin guard above stops a browser on another
 those mutations, but it is not a substitute for authentication against a direct client. Don't
 expose `HOST` outside a trusted, isolated network — put a real auth layer (e.g. an SSO proxy) in
 front of it if you must.
+
+The Docker image binds `HOST=0.0.0.0` inside the container by design — see Container hardening
+above — so this default is enforced differently there: `docker-compose.yml` publishes the port
+to `127.0.0.1` only, and widening that publish carries the same risk as changing `HOST` above.
