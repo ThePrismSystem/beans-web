@@ -3,7 +3,7 @@
 [![CI](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ThePrismSystem/beans-web/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-web)
 [![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](tsconfig.base.json)
-[![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](.nvmrc)
+[![Node](https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white)](.nvmrc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A web UI for [`beans`](https://github.com/hmans/beans), the local-first, Markdown-backed issue

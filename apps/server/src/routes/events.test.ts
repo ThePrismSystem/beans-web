@@ -231,7 +231,6 @@ describe("GET /api/events", () => {
     expect((await app.request("/api/events")).status).toBe(503);
 
     const [firstController] = controllers;
-    expect(firstController).toBeDefined();
     firstController?.abort();
     await vi.waitFor(async () => {
       expect((await app.request("/api/events")).status).toBe(200);

@@ -11,7 +11,6 @@ import { createProjectCache } from "./discovery/cache.js";
 import { discoverProjects } from "./discovery/scan.js";
 import { env } from "./env.js";
 import { registerStatic } from "./routes/static.js";
-import { assertWithinRoot } from "./util/containment.js";
 import { BeansWatcher } from "./watch/watcher.js";
 
 // Discovery spawns one `beans` process per project, so serve requests from a
@@ -53,9 +52,6 @@ const app = createApp({
 
 const here = dirname(fileURLToPath(import.meta.url));
 if (env.NODE_ENV === "production") registerStatic(app, resolve(here, "../../web/dist"));
-
-// touch assertWithinRoot so the jail is exercised at startup for each project
-for (const p of projects) assertWithinRoot(p.root, p.path);
 
 const refresh = setInterval(() => {
   void (async () => {

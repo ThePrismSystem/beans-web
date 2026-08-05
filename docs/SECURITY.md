@@ -48,7 +48,7 @@ Re-verified clean on 2026-08-05.
 ### Path traversal
 
 Every filesystem path built from a client-supplied value goes through
-`assertWithinRoot()` (`apps/server/src/discovery/scan.ts`), which resolves both the configured
+`assertWithinRoot()` (`apps/server/src/util/containment.ts`), which resolves both the configured
 root and the candidate path and throws unless the candidate is the root or strictly under it. The
 one route that builds a per-project filesystem path from client input,
 `POST /api/projects/:name/graphql` (`apps/server/src/routes/graphql.ts`), looks the project up by
@@ -202,8 +202,10 @@ it defused. The only client-controlled argument remaining is the value of `-v`, 
   so a child that blocks (e.g. on stdin) cannot leak a process slot. The server enforces this
   itself rather than relying on `execFile`, which it no longer uses.
 - **Subprocess output cap:** a child's combined stdout and stderr is capped at 32 MiB, counted
-  in bytes as it arrives; past that the child is `SIGKILL`ed and the streams are detached, so a
-  runaway child cannot buffer its output into the server's heap.
+  in bytes as it arrives; past that the child is `SIGKILL`ed and its stdout and stderr are
+  destroyed, so a runaway child cannot buffer its output into the server's heap. Destroying the
+  pipes rather than merely detaching the listeners matters: detaching leaves the read ends open
+  and ref'd, and the event loop never drains.
 - **Subprocess ceiling:** every `beans` invocation acquires one of
   `BEANS_CONCURRENCY` process-wide slots (`apps/server/src/util/concurrency.ts`), so
   concurrent requests queue rather than multiplying child processes. The cap bounds the

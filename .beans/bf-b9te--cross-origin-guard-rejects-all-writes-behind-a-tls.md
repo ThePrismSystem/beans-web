@@ -115,7 +115,7 @@ defense for proxied deployments. It should be made to work correctly, not bypass
   `/api/events` were unaffected (200, `text/event-stream`, no buffering through the
   proxy). GraphQL reads are `POST`s and were not exempt.
 - No Compose-side change is required or sufficient; this is an app-layer fix.
-- Discovered 2026-08-02 while auditing a mediabox-dc deployment after rebuilding the
+- Discovered 2026-08-02 while auditing a self-hosted deployment after rebuilding the
   image onto v0.1.0. The previously running image predated the security work, which is
   why the deployment had been writing fine until the rebuild.
 

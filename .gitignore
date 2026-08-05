@@ -1,41 +1,48 @@
-
 *~
+.DS_Store
+*.swo
+*.swp
+
 # Agent config (per-contributor)
-build/
-# Build output
 .claude/
 CLAUDE.md
-coverage/
-test-report.junit.xml
-# Dependencies
-dist/
 docs/superpowers/
-.DS_Store
+.impeccable.md
+.superpowers/
+
+# Build output
+build/
+dist/
+.next/
+out/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment and secrets
 .env
 .env.*
 !.env.example
-# Environment and secrets
 .env.local
+*.key
+*.pem
+
 # IDE
 .idea/
-.impeccable.md
-*.key
-*.log
-.next/
-node_modules/
-.nyc_output/
-out/
-*.patch
-*.pem
-.pnpm-store/
+.vscode/
+
 # Security audit reports (local working artifacts)
 security/
-.superpowers/
-*.swo
-*.swp
+
 # Temporary files
-# Testing
-test-results/
-playwright-report/
+*.log
+*.patch
 .tmp/
-.vscode/
+
+# Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-report.junit.xml
+test-results/

@@ -43,7 +43,7 @@ and merging the results:
 
 Live updates go out over SSE (`GET /api/events`, `apps/server/src/routes/events.ts`).
 `BeansWatcher` (`apps/server/src/watch/watcher.ts`) uses `chokidar` to watch each project's
-`.beans/` directory non-recursively. It maps any add/change/unlink back to its owning project and
+resolved data directory non-recursively — `.beans/` unless the project's `.beans.yml` moves it. It maps any add/change/unlink back to its owning project and
 re-emits it as a `{ project, kind }` event, which the SSE route relays to every connected client. The web app's `useEvents` hook consumes this to invalidate its TanStack Query caches, so
 edits made outside the browser (e.g. via the `beans` CLI or another tab) show up without a
 manual refresh.
@@ -52,7 +52,7 @@ manual refresh.
 
 The configured `GIT_ROOT` directories are the only trees the server is allowed to touch. Every
 project path used to build a `--config` argument or serve a file goes through
-`assertWithinRoot(root, candidate)` (`apps/server/src/discovery/scan.ts`), which resolves both
+`assertWithinRoot(root, candidate)` (`apps/server/src/util/containment.ts`), which resolves both
 paths and rejects the candidate when the first segment of its path relative to `root` is `..`.
 That covers anything outside the root, whether it got there by symlink traversal or a crafted
 `:name` route param. Comparing the first segment rather than testing the relative path with
@@ -63,6 +63,20 @@ Each project validates against the specific root it was discovered under (`Proje
 once at discovery) rather than against any configured root, so a project found under one root
 cannot borrow another root's permission. The server therefore cannot read or execute `beans`
 against arbitrary filesystem paths even if a project name or path were attacker controlled.
+
+The project directory is only half of it. A project's `.beans.yml` chooses where its bean files
+live, and `beans.path: ../../elsewhere` is a perfectly valid thing to write there — the CLI
+honours it. Containing the project directory would do nothing if the data directory could point
+anywhere. So discovery resolves that path through `realpathContained` and stores the result on
+the project record, and every `beans` invocation passes it explicitly as `--beans-path` rather
+than letting the child re-read the config and decide for itself. That closes the config as an
+input: whatever `.beans.yml` says, the child operates on the directory the server chose.
+
+One check is not enough, because discovery's answer is cached and the filesystem is not. Between
+a directory being resolved and a subprocess acting on it, that directory can be replaced with a
+symlink pointing out of the root. `assertDataPathStillContained` therefore re-resolves the path
+inside the subprocess slot, immediately before spawning (`apps/server/src/beans/executor.ts`),
+so the window between the check and the use is as small as the code can make it.
 
 ## The web app: an SPA typed from the `beans` schema
 

@@ -36,17 +36,18 @@ reaching the UI by anything other than `localhost` now needs configuration.
   to return the whole invocation, variables included, to the API client.
 - The container moves to Node 24 and a patched Go toolchain, with `npm` removed
   from the runtime image, and `hono` is raised past the CORS ReDoS advisory. CI
-  now fails on a HIGH or CRITICAL image finding.
+  now fails on any fixable HIGH or CRITICAL image finding.
 
 ### Fixed
 
-- A client that navigated away left its work running: one browser tab closing
-  could keep the server spawning `beans` processes for 42 seconds. Queued work
-  is now abandoned when the client disconnects, and the queue is bounded — a
-  saturated server sheds load with `503` and `Retry-After` instead of accepting
-  work it will still be doing a minute later. Measured on a 200-request burst:
-  spawns after every client was gone fell from 8017 to 166, and the tail from
-  42 s to 1.2 s.
+- A client that navigated away left its work running. Nothing cancelled a
+  request already queued for a `beans` subprocess slot, so the backlog a burst
+  of traffic built up was worked through in full long after every client had
+  gone. Queued work is now abandoned on disconnect, and the queue is bounded —
+  a saturated server sheds load with `503` and `Retry-After` instead of
+  accepting work it will still be doing a minute later. Measured on a
+  200-request burst: subprocess spawns after the last client disconnected fell
+  from 8017 to 166, and the tail from 42 s to 1.2 s.
 - The web UI never cancelled superseded requests, so the server was honouring
   disconnects the app never performed. Typing in the search box no longer leaves
   its earlier queries running.
