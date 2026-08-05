@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { fetchSearch } from "../api/client.js";
 
-import type { SearchResult } from "@beans-frontend/shared";
+import type { SearchResult } from "@beans-web/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 export function useSearch(query: string): UseQueryResult<SearchResult> {

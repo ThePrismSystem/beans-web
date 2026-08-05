@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { StatusDot } from "./StatusDot.js";
 
-import type { BeanStatus } from "@beans-frontend/shared";
+import type { BeanStatus } from "@beans-web/shared";
 
 describe("StatusDot", () => {
   it("renders the label for each status", () => {

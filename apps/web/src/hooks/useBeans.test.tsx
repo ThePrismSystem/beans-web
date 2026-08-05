@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useProjectBeans } from "./useBeans.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());

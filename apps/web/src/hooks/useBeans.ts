@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 // `body` is deliberately absent: no list row renders it, and leaving it out is

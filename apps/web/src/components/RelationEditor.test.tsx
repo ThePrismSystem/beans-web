@@ -6,7 +6,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { RelationEditor } from "./RelationEditor.js";
 
-import type { Bean, BeanDetail, LinkedBean } from "@beans-frontend/shared";
+import type { Bean, BeanDetail, LinkedBean } from "@beans-web/shared";
 
 const base: BeanDetail = {
   id: "x1",

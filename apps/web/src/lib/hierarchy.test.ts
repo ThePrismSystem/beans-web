@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildTree, pruneTreeToMatches, withAncestors } from "./hierarchy.js";
 
-import type { BeanListItem, BeanStatus } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus } from "@beans-web/shared";
 
 const bean = (
   id: string,

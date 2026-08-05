@@ -1,5 +1,5 @@
 {
-  "name": "@beans-frontend/server",
+  "name": "@beans-web/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@beans-frontend/shared": "workspace:*",
+    "@beans-web/shared": "workspace:*",
     "@hono/node-server": "^2.0.12",
     "@t3-oss/env-core": "^0.13.0",
     "chokidar": "^4.0.0",

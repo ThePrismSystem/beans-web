@@ -3,7 +3,7 @@ import { IncomingMessage } from "node:http";
 import { streamSSE } from "hono/streaming";
 
 import type { AppDeps } from "../app.js";
-import type { ServerEvent } from "@beans-frontend/shared";
+import type { ServerEvent } from "@beans-web/shared";
 import type { Hono } from "hono";
 
 // Send a comment-only heartbeat this often so idle proxies don't drop the

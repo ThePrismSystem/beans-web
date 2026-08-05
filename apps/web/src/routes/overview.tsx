@@ -1,10 +1,10 @@
-import { BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_TYPES } from "@beans-web/shared";
 import { Link } from "@tanstack/react-router";
 
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useProjects } from "../hooks/useProjects.js";
 
-import type { BeanType, Project } from "@beans-frontend/shared";
+import type { BeanType, Project } from "@beans-web/shared";
 
 function ProjectRow({ project }: { project: Project }) {
   // Widened to Partial: `openByType` crosses the GraphQL boundary, so a type

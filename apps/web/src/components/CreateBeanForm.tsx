@@ -4,13 +4,13 @@ import {
   BEAN_TYPES,
   canParent,
   validParentTypes,
-} from "@beans-frontend/shared";
+} from "@beans-web/shared";
 import { useRef, useState } from "react";
 
 import { EnumSelect } from "./EnumSelect.js";
 
 import type { CreateBeanInput } from "../api/generated.js";
-import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-web/shared";
 import type { ChangeEvent, SubmitEvent } from "react";
 
 const TITLE_ERROR_ID = "create-bean-title-error";

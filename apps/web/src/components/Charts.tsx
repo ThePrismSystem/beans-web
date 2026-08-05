@@ -1,4 +1,4 @@
-import { BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES } from "@beans-web/shared";
 import { useId } from "react";
 import {
   Area,
@@ -15,7 +15,7 @@ import {
 
 import { STATUS_LABEL } from "../lib/statusLabel.js";
 
-import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { Analytics, BeanStatus, BeanType } from "@beans-web/shared";
 import type { ReactNode } from "react";
 import type { BarShapeProps } from "recharts";
 

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CreateBeanForm } from "./CreateBeanForm.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 const base: BeanListItem = {
   id: "x1",

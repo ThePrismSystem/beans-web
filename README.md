@@ -89,8 +89,8 @@ one process:
 pnpm start
 ```
 
-This runs `pnpm --filter @beans-frontend/web build` followed by
-`pnpm --filter @beans-frontend/server start`. The server runs through `tsx` rather than plain
+This runs `pnpm --filter @beans-web/web build` followed by
+`pnpm --filter @beans-web/server start`. The server runs through `tsx` rather than plain
 `node`; see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-tsx-in-production) for why.
 
 ```bash
@@ -243,7 +243,7 @@ End-to-end tests (Playwright) live in `apps/web/e2e`. The harness builds the web
 starts the production server against a seeded temp root, so a single command runs them:
 
 ```bash
-pnpm --filter @beans-frontend/web e2e
+pnpm --filter @beans-web/web e2e
 ```
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more detail on the development workflow.

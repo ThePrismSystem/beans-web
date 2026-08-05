@@ -4,7 +4,7 @@ import { sep } from "node:path";
 import chokidar from "chokidar";
 
 import type { ProjectRecord } from "../discovery/scan.js";
-import type { ServerEvent } from "@beans-frontend/shared";
+import type { ServerEvent } from "@beans-web/shared";
 
 export interface WatchLike extends EventEmitter {
   add(paths: string | string[]): unknown;

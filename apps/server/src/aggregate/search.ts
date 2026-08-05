@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { BEANS_CONCURRENCY, mapWithConcurrency, QueueFullError } from "../util/concurrency.js";
 
 import type { ProjectRecord } from "../discovery/scan.js";
-import type { SearchHit, SearchResult } from "@beans-frontend/shared";
+import type { SearchHit, SearchResult } from "@beans-web/shared";
 
 export type RunFn = (
   configPath: string,

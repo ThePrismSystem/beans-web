@@ -1,8 +1,8 @@
-import { OPEN_STATUSES } from "@beans-frontend/shared";
+import { OPEN_STATUSES } from "@beans-web/shared";
 
 import { beanPrefix } from "./prefix.js";
 
-import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-web/shared";
 
 export interface BeanFilterInput {
   type: BeanType[];

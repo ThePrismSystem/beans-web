@@ -1,7 +1,7 @@
-import { BEAN_STATUSES, BEAN_TYPES, zeroCounts } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES, zeroCounts } from "@beans-web/shared";
 
 import type { ProjectRecord } from "../discovery/scan.js";
-import type { Analytics, ProjectCounts } from "@beans-frontend/shared";
+import type { Analytics, ProjectCounts } from "@beans-web/shared";
 
 function fakeCounts(): ProjectCounts {
   return {

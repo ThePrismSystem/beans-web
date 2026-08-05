@@ -1,13 +1,13 @@
 import { readFile, readdir } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
-import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES, zeroCounts } from "@beans-web/shared";
 
 import { runBeansGraphql } from "../beans/executor.js";
 import { BEANS_CONCURRENCY, mapWithConcurrency, QueueFullError } from "../util/concurrency.js";
 import { assertWithinRoot, realpathContained } from "../util/containment.js";
 
-import type { BeanStatus, BeanType, Project, ProjectCounts } from "@beans-frontend/shared";
+import type { BeanStatus, BeanType, Project, ProjectCounts } from "@beans-web/shared";
 
 const IGNORED = new Set(["node_modules", ".git", ".beans", "dist", ".next", "coverage"]);
 
@@ -15,7 +15,7 @@ const IGNORED = new Set(["node_modules", ".git", ".beans", "dist", ".next", "cov
  * A discovered project plus the host filesystem details the server needs
  * internally (to resolve each project's `.beans.yml` and enforce the path
  * jail). These fields are stripped before the project reaches any API client;
- * see the wire-facing `Project` type in `@beans-frontend/shared`.
+ * see the wire-facing `Project` type in `@beans-web/shared`.
  */
 export interface ProjectRecord extends Project {
   path: string;

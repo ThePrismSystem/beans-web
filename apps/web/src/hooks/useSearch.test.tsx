@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useSearch } from "./useSearch.js";
 
-import type { SearchResult } from "@beans-frontend/shared";
+import type { SearchResult } from "@beans-web/shared";
 import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());

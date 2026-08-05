@@ -51,7 +51,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Bring in the sources and build the web bundle (apps/web/dist).
 COPY . .
-RUN pnpm --filter @beans-frontend/web build
+RUN pnpm --filter @beans-web/web build
 
 # ---------------------------------------------------------------------------
 # Stage 3 — runtime. Debian (glibc) base to match the Node ecosystem; the
@@ -102,4 +102,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 ENV HOME=/home/node
 USER node
 
-CMD ["pnpm", "--filter", "@beans-frontend/server", "start"]
+CMD ["pnpm", "--filter", "@beans-web/server", "start"]

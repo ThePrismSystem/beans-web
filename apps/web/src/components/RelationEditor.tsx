@@ -1,11 +1,11 @@
-import { canParent, validParentTypes } from "@beans-frontend/shared";
+import { canParent, validParentTypes } from "@beans-web/shared";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { BeanPicker } from "./BeanPicker.js";
 import { BeanTypeTag } from "./BeanTypeTag.js";
 
-import type { BeanDetail, BeanListItem, LinkedBean } from "@beans-frontend/shared";
+import type { BeanDetail, BeanListItem, LinkedBean } from "@beans-web/shared";
 
 /**
  * Which bean's file declares an edge. beans stores a blocking link on whichever

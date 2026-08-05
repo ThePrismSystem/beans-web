@@ -1,9 +1,9 @@
-import { BEAN_DETAIL_QUERY } from "@beans-frontend/shared/graphql";
+import { BEAN_DETAIL_QUERY } from "@beans-web/shared/graphql";
 import { useQuery } from "@tanstack/react-query";
 
 import { projectGraphql } from "../api/client.js";
 
-import type { BeanDetail, LinkedBean } from "@beans-frontend/shared";
+import type { BeanDetail, LinkedBean } from "@beans-web/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 interface BeanDetailQueryResult {

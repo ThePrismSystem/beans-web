@@ -2,7 +2,7 @@ import { Charts } from "../components/Charts.js";
 import { useAnalytics } from "../hooks/useAnalytics.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 
-import type { Analytics } from "@beans-frontend/shared";
+import type { Analytics } from "@beans-web/shared";
 
 function totals(analytics: Analytics): { total: number; open: number } {
   return analytics.perProject.reduce(

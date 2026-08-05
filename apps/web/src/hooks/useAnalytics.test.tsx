@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useAnalytics } from "./useAnalytics.js";
 
-import type { Analytics } from "@beans-frontend/shared";
+import type { Analytics } from "@beans-web/shared";
 import type { ReactNode } from "react";
 
 afterEach(() => vi.restoreAllMocks());

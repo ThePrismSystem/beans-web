@@ -118,7 +118,7 @@ GIT_ROOT  ─scan──▶  │  discovery │ passthrough │ aggregate│ ─S
 
 ## Why `tsx` in production
 
-`apps/server` consumes `@beans-frontend/shared` as **TypeScript source**
+`apps/server` consumes `@beans-web/shared` as **TypeScript source**
 (`"main": "./src/index.ts"` in its `package.json`, not a compiled `dist/`). Plain `node` running
 compiled server output cannot resolve those `.ts` imports at runtime (`ERR_MODULE_NOT_FOUND`), so
 the server's `start` script runs `NODE_ENV=production tsx src/index.ts`. That is the same
@@ -147,7 +147,7 @@ involved, and they are not interchangeable:
   `Boolean(process.env.CODECOV_TOKEN)` treats `""` the same as unset and skips analysis, so those
   builds still no-op cleanly instead of attempting an upload with a blank token. Bundle analysis
   can also be triggered manually outside CI, e.g. `CODECOV_TOKEN=<token> pnpm --filter
-  @beans-frontend/web build`.
+  @beans-web/web build`.
 - **`flags: shared` / `flags: server` / `flags: web`** scope each upload step to exactly one
   package's report, tagged with exactly one flag, so Codecov keeps the three packages' coverage
   and test results separate instead of blending them into one repo-wide number. In the Codecov UI

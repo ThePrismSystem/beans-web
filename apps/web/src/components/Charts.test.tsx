@@ -1,11 +1,11 @@
-import { BEAN_STATUSES, BEAN_TYPES } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES } from "@beans-web/shared";
 import { render, screen } from "@testing-library/react";
 import { cloneElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Charts } from "./Charts.js";
 
-import type { Analytics, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { Analytics, BeanStatus, BeanType } from "@beans-web/shared";
 import type { ComponentProps, ReactElement } from "react";
 
 // jsdom has no layout engine, so Recharts' ResponsiveContainer measures a 0x0

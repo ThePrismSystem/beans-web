@@ -1,6 +1,6 @@
 import { STATUS_LABEL } from "../lib/statusLabel.js";
 
-import type { BeanStatus } from "@beans-frontend/shared";
+import type { BeanStatus } from "@beans-web/shared";
 
 export function StatusDot({ status }: { status: BeanStatus }) {
   return (

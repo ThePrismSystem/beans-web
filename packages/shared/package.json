@@ -1,5 +1,5 @@
 {
-  "name": "@beans-frontend/shared",
+  "name": "@beans-web/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",

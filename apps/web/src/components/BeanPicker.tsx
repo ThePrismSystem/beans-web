@@ -1,4 +1,4 @@
-import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-frontend/shared";
+import { BEAN_STATUSES, BEAN_TYPES, OPEN_STATUSES } from "@beans-web/shared";
 import { useEffect, useRef, useState } from "react";
 
 import { useDialogFocusTrap } from "../hooks/useDialogFocusTrap.js";
@@ -9,7 +9,7 @@ import { BeanTypeTag } from "./BeanTypeTag.js";
 import { CheckboxMenu } from "./CheckboxMenu.js";
 import { StatusDot } from "./StatusDot.js";
 
-import type { BeanListItem, BeanStatus, BeanType } from "@beans-frontend/shared";
+import type { BeanListItem, BeanStatus, BeanType } from "@beans-web/shared";
 
 export interface BeanPickerProps {
   open: boolean;

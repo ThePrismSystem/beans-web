@@ -6,7 +6,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { Sidebar } from "./Sidebar.js";
 
-import type { Project } from "@beans-frontend/shared";
+import type { Project } from "@beans-web/shared";
 
 const projects: Project[] = [
   {

@@ -12,8 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BeanDetailPage } from "./beanDetail.js";
 
-import type { Bean } from "@beans-frontend/shared";
-import type { BeanDetail } from "@beans-frontend/shared";
+import type { Bean } from "@beans-web/shared";
+import type { BeanDetail } from "@beans-web/shared";
 
 const {
   useBeanMock,

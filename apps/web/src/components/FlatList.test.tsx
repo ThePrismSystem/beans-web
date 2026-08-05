@@ -5,7 +5,7 @@ import { renderWithRouter } from "../test/renderWithRouter.js";
 
 import { FlatList } from "./FlatList.js";
 
-import type { BeanListItem } from "@beans-frontend/shared";
+import type { BeanListItem } from "@beans-web/shared";
 
 function bean(id: string, title: string): BeanListItem {
   return {

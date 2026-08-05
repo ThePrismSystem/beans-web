@@ -13,7 +13,7 @@ import { registerSecurity } from "./routes/security.js";
 import { withoutQuery, writeLog } from "./util/logging.js";
 
 import type { ProjectRecord } from "./discovery/scan.js";
-import type { Analytics, SearchResult } from "@beans-frontend/shared";
+import type { Analytics, SearchResult } from "@beans-web/shared";
 
 export interface AppDeps {
   roots: string[];
