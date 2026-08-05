@@ -40,7 +40,10 @@ blocks merges. All findings known at the time of this audit were fixed:
 - `@hono/node-server` is a direct dependency, bumped 1.x → 2.x to fix a path-traversal advisory
   in `serve-static` (GHSA-frvp-7c67-39w9).
 
-`pnpm audit --audit-level moderate` currently reports no known vulnerabilities.
+`pnpm audit --audit-level moderate` currently reports no known vulnerabilities. That claim was
+not true on the date in this heading: a CORS ReDoS in `hono` (GHSA-8j4g-w8fx-2239) was
+outstanding and unnoticed, and stayed that way until the version floor was raised past it.
+Re-verified clean on 2026-08-05.
 
 ### Path traversal
 
