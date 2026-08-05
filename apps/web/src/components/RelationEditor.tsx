@@ -104,6 +104,76 @@ function RelationRowItem({
   );
 }
 
+/**
+ * One direction of the blocking relation: a list, a Remove per row, and a
+ * multi-select picker to add more. The two directions differ only in their
+ * copy and in which `RelationChange` they emit, so both are passed in — the
+ * section itself never names a `kind`, which is what keeps the two from
+ * getting crossed.
+ */
+function RelationListSection({
+  project,
+  label,
+  rows,
+  addLabel,
+  pickerTitle,
+  pickerOpen,
+  options,
+  removeLabel,
+  onOpenPicker,
+  onClosePicker,
+  onAdd,
+  onRemove,
+}: {
+  project: string;
+  label: string;
+  rows: RelationRow[];
+  addLabel: string;
+  pickerTitle: string;
+  pickerOpen: boolean;
+  options: BeanListItem[];
+  removeLabel: (row: RelationRow) => string;
+  onOpenPicker: () => void;
+  onClosePicker: () => void;
+  onAdd: (targetId: string) => void;
+  onRemove: (row: RelationRow) => void;
+}) {
+  return (
+    <div className="relation-editor-section">
+      <h3 className="relation-editor-label">{label}</h3>
+      <ul className="relation-editor-list">
+        {rows.map((row) => (
+          <RelationRowItem
+            key={row.id}
+            project={project}
+            row={row}
+            removeLabel={removeLabel(row)}
+            onRemove={() => {
+              onRemove(row);
+            }}
+          />
+        ))}
+      </ul>
+      <button type="button" onClick={onOpenPicker}>
+        {addLabel}
+      </button>
+      <BeanPicker
+        open={pickerOpen}
+        title={pickerTitle}
+        candidates={options}
+        mode="multi"
+        onClose={onClosePicker}
+        onPick={(ids) => {
+          onClosePicker();
+          ids.forEach((targetId) => {
+            onAdd(targetId);
+          });
+        }}
+      />
+    </div>
+  );
+}
+
 type Picker = null | "parent" | "blocking" | "blockedBy";
 
 export function RelationEditor({ project, bean, candidates, onChange }: RelationEditorProps) {
@@ -167,85 +237,51 @@ export function RelationEditor({ project, bean, candidates, onChange }: Relation
         </div>
       )}
 
-      <div className="relation-editor-section">
-        <h3 className="relation-editor-label">Blocks</h3>
-        <ul className="relation-editor-list">
-          {blocksRows.map((row) => (
-            <RelationRowItem
-              key={row.id}
-              project={project}
-              row={row}
-              removeLabel={`Remove ${row.title} from blocks`}
-              onRemove={() => {
-                onChange({ kind: "removeBlocking", targetId: row.id, origin: row.origin });
-              }}
-            />
-          ))}
-        </ul>
-        <button
-          type="button"
-          onClick={() => {
-            setPicker("blocking");
-          }}
-        >
-          Add blocks
-        </button>
-        <BeanPicker
-          open={picker === "blocking"}
-          title="Add blocks"
-          candidates={blockingOptions}
-          mode="multi"
-          onClose={() => {
-            setPicker(null);
-          }}
-          onPick={(ids) => {
-            setPicker(null);
-            ids.forEach((targetId) => {
-              onChange({ kind: "addBlocking", targetId });
-            });
-          }}
-        />
-      </div>
+      <RelationListSection
+        project={project}
+        label="Blocks"
+        rows={blocksRows}
+        addLabel="Add blocks"
+        pickerTitle="Add blocks"
+        pickerOpen={picker === "blocking"}
+        options={blockingOptions}
+        removeLabel={(row) => `Remove ${row.title} from blocks`}
+        onOpenPicker={() => {
+          setPicker("blocking");
+        }}
+        onClosePicker={() => {
+          setPicker(null);
+        }}
+        onAdd={(targetId) => {
+          onChange({ kind: "addBlocking", targetId });
+        }}
+        onRemove={(row) => {
+          onChange({ kind: "removeBlocking", targetId: row.id, origin: row.origin });
+        }}
+      />
 
-      <div className="relation-editor-section">
-        <h3 className="relation-editor-label">Blocked by</h3>
-        <ul className="relation-editor-list">
-          {blockedByRows.map((row) => (
-            <RelationRowItem
-              key={row.id}
-              project={project}
-              row={row}
-              removeLabel={`Remove ${row.title} from blocked by`}
-              onRemove={() => {
-                onChange({ kind: "removeBlockedBy", targetId: row.id, origin: row.origin });
-              }}
-            />
-          ))}
-        </ul>
-        <button
-          type="button"
-          onClick={() => {
-            setPicker("blockedBy");
-          }}
-        >
-          Add blocked by
-        </button>
-        <BeanPicker
-          open={picker === "blockedBy"}
-          title="Add blocked by"
-          candidates={blockedByOptions}
-          mode="multi"
-          onClose={() => {
-            setPicker(null);
-          }}
-          onPick={(ids) => {
-            setPicker(null);
-            ids.forEach((targetId) => {
-              onChange({ kind: "addBlockedBy", targetId });
-            });
-          }}
-        />
-      </div>
+      <RelationListSection
+        project={project}
+        label="Blocked by"
+        rows={blockedByRows}
+        addLabel="Add blocked by"
+        pickerTitle="Add blocked by"
+        pickerOpen={picker === "blockedBy"}
+        options={blockedByOptions}
+        removeLabel={(row) => `Remove ${row.title} from blocked by`}
+        onOpenPicker={() => {
+          setPicker("blockedBy");
+        }}
+        onClosePicker={() => {
+          setPicker(null);
+        }}
+        onAdd={(targetId) => {
+          onChange({ kind: "addBlockedBy", targetId });
+        }}
+        onRemove={(row) => {
+          onChange({ kind: "removeBlockedBy", targetId: row.id, origin: row.origin });
+        }}
+      />
 
       {bean.children.length > 0 && (
         <div className="relation-editor-section">

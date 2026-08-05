@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -89,6 +89,46 @@ describe("RelationEditor", () => {
     await user.click(screen.getByRole("button", { name: "Add 1" }));
 
     expect(onChange).toHaveBeenCalledWith({ kind: "addBlocking", targetId: "b1" });
+  });
+
+  it("adds a blocked-by link through the multi-select picker", async () => {
+    const task = { ...base, id: "t1", type: "task" as const };
+    const candidates: Bean[] = [
+      { ...base, id: "b1", type: "task", status: "todo", title: "Blocker one" },
+    ];
+    const user = userEvent.setup();
+    const onChange = render(task, candidates);
+
+    await user.click(await screen.findByRole("button", { name: /add blocked by/i }));
+    await user.click(screen.getByLabelText("Select Blocker one"));
+    await user.click(screen.getByRole("button", { name: "Add 1" }));
+
+    // The two sections' pickers are structurally identical, so crossing their
+    // kinds would look right in review and only show up here.
+    expect(onChange).toHaveBeenCalledWith({ kind: "addBlockedBy", targetId: "b1" });
+  });
+
+  it("offers each section only the candidates that section can still take", async () => {
+    const task = { ...base, id: "t1", type: "task" as const, blockingIds: ["b1"] };
+    const candidates: Bean[] = [
+      { ...base, id: "b1", type: "task", status: "todo", title: "Blocked one" },
+      { ...base, id: "b2", type: "task", status: "todo", title: "Unrelated one" },
+    ];
+    const user = userEvent.setup();
+    render(task, candidates);
+
+    // b1 is already blocked, so only "Add blocks" should have dropped it.
+    await user.click(await screen.findByRole("button", { name: /add blocks/i }));
+    const blocksPicker = within(screen.getByRole("dialog", { name: "Add blocks" }));
+    expect(blocksPicker.queryByText("Blocked one")).not.toBeInTheDocument();
+    expect(blocksPicker.getByText("Unrelated one")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await user.click(screen.getByRole("button", { name: /add blocked by/i }));
+    const blockedByPicker = within(screen.getByRole("dialog", { name: "Add blocked by" }));
+    expect(blockedByPicker.getByText("Blocked one")).toBeInTheDocument();
+    expect(blockedByPicker.getByText("Unrelated one")).toBeInTheDocument();
   });
 });
 
