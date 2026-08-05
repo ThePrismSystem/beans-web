@@ -7,13 +7,12 @@ import { buildAnalytics } from "./aggregate/analytics.js";
 import { globalSearch } from "./aggregate/search.js";
 import { createApp } from "./app.js";
 import { runBeansGraphql } from "./beans/executor.js";
+import { createProjectCache } from "./discovery/cache.js";
 import { discoverProjects } from "./discovery/scan.js";
 import { env } from "./env.js";
 import { registerStatic } from "./routes/static.js";
 import { assertWithinRoot } from "./util/containment.js";
 import { BeansWatcher } from "./watch/watcher.js";
-
-import type { ProjectRecord } from "./discovery/scan.js";
 
 // Discovery spawns one `beans` process per project, so serve requests from a
 // short-lived cache instead of re-scanning on every /search and /analytics call.
@@ -32,25 +31,10 @@ const run = (
 
 const discover = () => discoverProjects(env.GIT_ROOT, env.SCAN_DEPTH);
 
-let cache: { at: number; projects: ProjectRecord[] } | null = null;
-// A discovery pass fans out one `beans` child per project. Without this, every
-// request arriving on a cold or just-expired cache starts its own pass, so K
-// concurrent requests queue K x N children for the same answer. Callers share
-// the in-flight promise instead and the stampede collapses to one pass.
-let inFlight: Promise<ProjectRecord[]> | null = null;
-const listProjects = async (): Promise<ProjectRecord[]> => {
-  const now = Date.now();
-  if (cache && now - cache.at < CACHE_TTL_MS) return cache.projects;
-  inFlight ??= discover()
-    .then((projects) => {
-      cache = { at: Date.now(), projects };
-      return projects;
-    })
-    .finally(() => {
-      inFlight = null;
-    });
-  return inFlight;
-};
+const { get: listProjects, refresh: refreshProjects } = createProjectCache({
+  discover,
+  ttlMs: CACHE_TTL_MS,
+});
 
 const projects = await listProjects();
 const watcher = new BeansWatcher(projects);
@@ -76,9 +60,7 @@ for (const p of projects) assertWithinRoot(p.root, p.path);
 const refresh = setInterval(() => {
   void (async () => {
     try {
-      const next = await discover();
-      cache = { at: Date.now(), projects: next };
-      watcher.setProjects(next);
+      watcher.setProjects(await refreshProjects());
     } catch (err) {
       console.error("project refresh failed:", err);
     }
