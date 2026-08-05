@@ -51,6 +51,10 @@ export interface ProjectRecord extends Project {
  * exist to stop one discovery pass from consuming the host's I/O capacity, and
  * a second knob for the cheaper of the two operations would be one more thing
  * to tune without a reason to tune it.
+ *
+ * `maxDepth` is assumed to be zero or greater, which `SCAN_DEPTH` (1 to 8)
+ * guarantees for the only non-test caller. A negative value reads nothing at
+ * all here, where the old recursion would still have read `root` itself.
  */
 export async function findProjectDirs(root: string, maxDepth: number): Promise<string[]> {
   const found: string[] = [];

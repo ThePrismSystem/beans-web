@@ -4,6 +4,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * Default cap on concurrent `beans` child processes. Each project queried by
  * discovery/search/analytics spawns one process; without a bound a host with
  * many repos can exhaust file descriptors and process slots.
+ *
+ * Also reused, deliberately, as the bound on concurrent `readdir` calls in
+ * `discovery/scan.ts`'s filesystem walk - see `findProjectDirs`. A `readdir` is
+ * far cheaper than a child process, so this number is conservative there, but
+ * both caps exist to stop one discovery pass from consuming the host's I/O
+ * capacity and a second knob for the cheaper operation would be one more thing
+ * to tune with no reason to tune it. Changing this number changes both.
  */
 export const BEANS_CONCURRENCY = 8;
 

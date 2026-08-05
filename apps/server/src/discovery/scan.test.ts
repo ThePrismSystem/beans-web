@@ -184,26 +184,29 @@ describe("findProjectDirs", () => {
 });
 
 describe("findProjectDirs concurrency", () => {
+  // A complete 4-ary tree 5 deep: 1365 directories, of which the widest level
+  // is BRANCHING ** DEPTH = 1024 - two orders of magnitude above the bound, and
+  // what an unbounded Promise.all over each level puts in flight at once.
   const DEPTH = 5;
   const BRANCHING = 4;
-  // 1 + 4 + 16 + 64 + 256 + 1024 directories; the widest level alone is 1024,
-  // which is what an unbounded Promise.all over each level puts in flight.
-  const TOTAL_DIRS = 1365;
-  const WIDEST_LEVEL = 1024;
 
-  function buildTree(dir: string, depth: number): void {
-    if (depth === 0) return;
+  // Returns the number of directories it created, so the walk can be checked
+  // against the tree that actually exists rather than a hand-computed total.
+  function buildTree(dir: string, depth: number): number {
+    if (depth === 0) return 0;
+    let created = 0;
     for (let i = 0; i < BRANCHING; i++) {
       const child = join(dir, `d${String(i)}`);
       mkdirSync(child);
-      buildTree(child, depth - 1);
+      created += 1 + buildTree(child, depth - 1);
     }
+    return created;
   }
 
   it("never exceeds the concurrency bound across the whole walk, however wide the tree", async () => {
     const testRoot = mkdtempSync(join(tmpdir(), "scan-walk-bound-"));
     try {
-      buildTree(testRoot, DEPTH);
+      const created = buildTree(testRoot, DEPTH);
       // A project at the very bottom, so the walk has a reason to reach the
       // widest level rather than stopping early.
       writeFileSync(
@@ -214,14 +217,14 @@ describe("findProjectDirs concurrency", () => {
       readdirProbe.reset();
       const dirs = await findProjectDirs(testRoot, DEPTH);
 
-      // Every directory is still visited: a bound that quietly stopped
-      // descending would satisfy the peak assertion on its own.
-      expect(readdirProbe.calls).toBe(TOTAL_DIRS);
+      // Every directory that exists is still read - the root plus everything
+      // buildTree made. A bound that quietly stopped descending would satisfy
+      // the peak assertion on its own.
+      expect(readdirProbe.calls).toBe(created + 1);
       expect(dirs).toHaveLength(1);
       // The bound applies to the walk as a whole, not to one directory's
-      // fan-out: the widest level is 1024 directories, and no more than
-      // BEANS_CONCURRENCY of them may be read at once.
-      expect(WIDEST_LEVEL).toBeGreaterThan(BEANS_CONCURRENCY);
+      // fan-out: no more than BEANS_CONCURRENCY of the widest level's 1024
+      // directories may be read at once.
       expect(readdirProbe.peak).toBeLessThanOrEqual(BEANS_CONCURRENCY);
       // ...and it is a bound, not a serialization: the walk still overlaps
       // reads rather than doing one directory at a time.
