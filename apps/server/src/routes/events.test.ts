@@ -1,5 +1,7 @@
 import { EventEmitter } from "node:events";
+import net from "node:net";
 
+import { serve } from "@hono/node-server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
@@ -8,6 +10,8 @@ import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
 import { MAX_SSE_CLIENTS } from "./events.js";
 
 import type { AppDeps } from "../app.js";
+import type { ServerType } from "@hono/node-server";
+import type { Hono } from "hono";
 
 // hono's StreamingApi.write() swallows every error internally (bare
 // `try { await this.writer.write(...) } catch {}`, never rethrown), so
@@ -52,6 +56,50 @@ function deps(watcher: EventEmitter, overrides: Partial<AppDeps> = {}): AppDeps 
     allowedHosts: [],
     ...overrides,
   };
+}
+
+const LOOPBACK = "127.0.0.1";
+
+/**
+ * Boots the app on the real node adapter. `app.request()` dispatches straight
+ * into hono and never produces the adapter's bindings or a real socket, and
+ * the disconnect these tests cover is defined entirely by which node events a
+ * `ServerResponse` does and does not emit — so it is only visible over a
+ * genuine connection. Port 0 so concurrent runs can't collide.
+ */
+function listen(app: Hono): Promise<{ server: ServerType; port: number }> {
+  return new Promise((resolve) => {
+    const server = serve({ fetch: app.fetch, port: 0, hostname: LOOPBACK }, (info) => {
+      resolve({ server, port: info.port });
+    });
+  });
+}
+
+/**
+ * Two pipelined `GET /api/events` on one socket, then a hard destroy. Node
+ * emits `'request'` for the second one but queues its `ServerResponse` behind
+ * the first instead of attaching it to the socket, which is the state the
+ * route has to survive.
+ */
+function pipelineThenDestroy(port: number): Promise<void> {
+  const request = `GET /api/events HTTP/1.1\r\nHost: ${LOOPBACK}:${String(port)}\r\n\r\n`;
+  return new Promise((resolve) => {
+    const socket = net.connect(port, LOOPBACK, () => {
+      socket.write(request + request);
+      // Give the server a turn to accept both before the connection dies;
+      // resolving on the write would race the second 'request' event.
+      setTimeout(() => {
+        socket.destroy();
+        resolve();
+      }, 100);
+    });
+  });
+}
+
+function openStream(port: number, signal: AbortSignal): Promise<number> {
+  return fetch(`http://${LOOPBACK}:${String(port)}/api/events`, { signal }).then(
+    (res) => res.status,
+  );
 }
 
 describe("GET /api/events", () => {
@@ -246,6 +294,78 @@ describe("GET /api/events", () => {
       controller.abort();
     } finally {
       failNextWrite = false;
+    }
+  });
+
+  it("releases the listener and the slot when a dead connection's response never opens", async () => {
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const { server, port } = await listen(app);
+
+    try {
+      await pipelineThenDestroy(port);
+
+      // The queued request's ServerResponse is never attached to the socket,
+      // so it never emits 'close' — the only event @hono/node-server aborts
+      // the request signal from. With the abort signal as the sole way out,
+      // this stream sits here holding its listener for the life of the
+      // process, and no heartbeat or write failure ever dislodges it.
+      await vi.waitFor(() => {
+        expect(watcher.listenerCount("event")).toBe(0);
+      });
+
+      // ...and its MAX_SSE_CLIENTS slot came back with it: every one of the
+      // cap's worth of fresh streams is still admitted, none refused with 503.
+      const controllers = Array.from({ length: MAX_SSE_CLIENTS }, () => new AbortController());
+      const statuses = await Promise.all(
+        controllers.map((controller) => openStream(port, controller.signal)),
+      );
+      expect(statuses).toEqual(Array.from({ length: MAX_SSE_CLIENTS }, () => 200));
+
+      controllers.forEach((controller) => {
+        controller.abort();
+      });
+      await vi.waitFor(() => {
+        expect(watcher.listenerCount("event")).toBe(0);
+      });
+    } finally {
+      server.close();
+    }
+  });
+
+  it("keeps a live connection's listener and delivery while the client is still reading", async () => {
+    const watcher = new EventEmitter();
+    const app = createApp(deps(watcher));
+    const { server, port } = await listen(app);
+    const controller = new AbortController();
+
+    try {
+      const res = await fetch(`http://${LOOPBACK}:${String(port)}/api/events`, {
+        signal: controller.signal,
+      });
+      expect(res.status).toBe(200);
+      expect(watcher.listenerCount("event")).toBe(1);
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("expected a readable body");
+
+      watcher.emit("event", { project: "proj-a", kind: "change" });
+      const { value } = await reader.read();
+      expect(new TextDecoder().decode(value)).toBe(
+        'data: {"project":"proj-a","kind":"change"}\n\n',
+      );
+
+      // Tearing down on a connection-level signal must not fire for a client
+      // that is simply sitting there reading: this is the case the leak fix
+      // would be far worse than the leak if it got wrong.
+      expect(watcher.listenerCount("event")).toBe(1);
+
+      controller.abort();
+      await vi.waitFor(() => {
+        expect(watcher.listenerCount("event")).toBe(0);
+      });
+    } finally {
+      server.close();
     }
   });
 });
