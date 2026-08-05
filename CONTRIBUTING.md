@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Node.js 22+, pnpm, and the `beans` CLI on your `PATH`. See the [README](README.md#prerequisites).
+Node.js 24+, pnpm, and the `beans` CLI on your `PATH`. See the [README](README.md#prerequisites).
 
 ```bash
 pnpm install

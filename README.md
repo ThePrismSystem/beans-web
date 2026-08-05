@@ -27,7 +27,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
 ## Prerequisites
 
-- **Node.js 22+** (see `.nvmrc`)
+- **Node.js 24+** (see `.nvmrc`)
 - **pnpm** (see [pnpm.io/installation](https://pnpm.io/installation); this repo was built against
   pnpm 10)
 - The **`beans`** CLI binary on your `PATH`. Install it with:
