@@ -47,6 +47,21 @@ builds a filesystem path from client input. Static file serving
 (`apps/server/src/routes/static.ts`) relies on `@hono/node-server`'s own `serveStatic` traversal
 guard, patched as above.
 
+The jail also covers where each project's **data directory** lives, not just where its
+`.beans.yml` lives. `.beans.yml` can set `beans.path` to redirect the CLI's data directory
+anywhere on disk, relative to the config file, with no containment of its own — the CLI applies
+none. Discovery (`discoverProjects` in `apps/server/src/discovery/scan.ts`) reads that value out
+of each `.beans.yml` it finds, resolves it against the project directory, and drops the project
+outright if the result escapes the configured root, so a hostile config cannot break discovery
+for its siblings. There is no YAML dependency in this workspace, so the value is read with a
+regex parser rather than a real parser; that parser is deliberately fail-closed — a `path:` key
+it can see but cannot confidently resolve to a clean scalar (for example, flow-style
+`beans: {path: x}`, which the real CLI honours identically to block style) rejects the project
+rather than falling back to the default. The containment check also resolves symlinks, walking up
+to the nearest existing ancestor when the data directory itself doesn't exist yet, so a data
+directory that is lexically inside the root but is (or sits under) a symlink pointing outside it
+is still caught.
+
 Discovery dedups projects across configured roots by comparing `path.resolve()`d strings, not
 `realpath()`, so two roots that reach the same physical directory through different symlinks are
 treated as distinct projects rather than deduped. This has no security impact: each entry still
