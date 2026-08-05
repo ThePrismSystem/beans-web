@@ -259,3 +259,24 @@ jobs:
       # generated.ts cannot reach main. Run `pnpm codegen:check` locally to fix.
       - name: Check generated GraphQL types are current
         run: pnpm codegen:check
+
+  image-scan:
+    name: Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the production image
+        run: docker build -t beans-frontend:ci .
+
+      # Fails the build on any fixable HIGH or CRITICAL. Suppressions live in
+      # .trivyignore and must carry a reason and an expiry date.
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: beans-frontend:ci
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
