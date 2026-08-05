@@ -170,6 +170,18 @@ function CompletedOverTimeChart({ data }: { data: Analytics["completedByMonth"] 
   );
 }
 
+/**
+ * Paints each bar from its own row's `fillClass` — a class, not a `fill` prop,
+ * for the reason at the top of this file. `props.index` indexes the same array
+ * the chart was handed, so the class stays aligned with the row it paints.
+ */
+function barShape(rows: readonly { fillClass: string }[]) {
+  return function FilledBar(props: BarShapeProps) {
+    const row = rows[props.index];
+    return <Rectangle {...props} className={row?.fillClass} />;
+  };
+}
+
 function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
   // Widened to Partial: `data` crosses the GraphQL boundary, so a status the
   // server omitted (rather than sent as 0) must not throw on lookup here.
@@ -178,11 +190,8 @@ function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
     status,
     label: STATUS_LABEL[status],
     count: counts[status] ?? 0,
+    fillClass: `chart-fill-${status}`,
   }));
-  function renderBar(props: BarShapeProps) {
-    const row = rows[props.index];
-    return <Rectangle {...props} className={row ? `chart-fill-${row.status}` : undefined} />;
-  }
   return (
     <ChartSection
       title="Beans by status"
@@ -196,7 +205,7 @@ function ByStatusChart({ data }: { data: Record<BeanStatus, number> }) {
         <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
         <YAxis type="category" dataKey="label" tick={AXIS_TICK} width={90} />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
-        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]} shape={renderBar} />
+        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]} shape={barShape(rows)} />
       </BarChart>
     </ChartSection>
   );
@@ -206,11 +215,11 @@ function ByTypeChart({ data }: { data: Record<BeanType, number> }) {
   // Widened to Partial: `data` crosses the GraphQL boundary, so a type the
   // server omitted (rather than sent as 0) must not throw on lookup here.
   const counts: Partial<Record<BeanType, number>> = data;
-  const rows = BEAN_TYPES.map((type) => ({ type, count: counts[type] ?? 0 }));
-  function renderBar(props: BarShapeProps) {
-    const row = rows[props.index];
-    return <Rectangle {...props} className={row ? `chart-fill-${row.type}` : undefined} />;
-  }
+  const rows = BEAN_TYPES.map((type) => ({
+    type,
+    count: counts[type] ?? 0,
+    fillClass: `chart-fill-${type}`,
+  }));
   return (
     <ChartSection
       title="Beans by type"
@@ -224,7 +233,7 @@ function ByTypeChart({ data }: { data: Record<BeanType, number> }) {
         <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
         <YAxis type="category" dataKey="type" tick={AXIS_TICK} width={90} />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={TOOLTIP_CURSOR} />
-        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]} shape={renderBar} />
+        <Bar dataKey="count" name="Beans" radius={[0, 4, 4, 0]} shape={barShape(rows)} />
       </BarChart>
     </ChartSection>
   );
