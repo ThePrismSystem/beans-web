@@ -61,6 +61,7 @@ const app = createApp({
   analytics: async () => buildAnalytics(await listProjects(), run),
   watcher,
   trustProxy: env.TRUST_PROXY,
+  allowedHosts: env.ALLOWED_HOSTS,
 });
 
 const here = dirname(fileURLToPath(import.meta.url));

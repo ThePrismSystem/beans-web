@@ -17,6 +17,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
+    allowedHosts: [],
     ...overrides,
   };
 }
@@ -45,7 +46,7 @@ describe("request logging", () => {
 
     await createApp(deps()).request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: `{ beans { ${secret} } }`, variables: { note: secret } }),
     });
 

@@ -38,6 +38,7 @@ describe("server integration", () => {
       analytics: () => Promise.resolve(fakeAnalytics()),
       watcher: new EventEmitter(),
       trustProxy: false,
+      allowedHosts: [],
     });
     const res = await app.request("/api/projects");
     const body = (await res.json()) as { name: string }[];
@@ -54,10 +55,11 @@ describe("server integration", () => {
       analytics: () => Promise.resolve(fakeAnalytics()),
       watcher: new EventEmitter(),
       trustProxy: false,
+      allowedHosts: [],
     });
     const res = await app.request("/api/projects/demo/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { title } }" }),
     });
     const body = (await res.json()) as { data: { beans: { title: string }[] } };

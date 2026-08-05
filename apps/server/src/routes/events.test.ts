@@ -49,6 +49,7 @@ function deps(watcher: EventEmitter, overrides: Partial<AppDeps> = {}): AppDeps 
     analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher,
     trustProxy: false,
+    allowedHosts: [],
     ...overrides,
   };
 }

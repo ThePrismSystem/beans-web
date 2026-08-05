@@ -35,6 +35,19 @@ export const env = createEnv({
       .enum(["true", "false", "1", "0"])
       .default("false")
       .transform((value) => value === "true" || value === "1"),
+    // Comma-separated hostnames, beyond the built-in loopback defaults, the
+    // host-allowlist guard accepts on incoming requests (see security.ts).
+    // Unset means "loopback only" — an operator reaching the UI by hostname
+    // or LAN IP must opt that name in explicitly.
+    ALLOWED_HOSTS: z
+      .string()
+      .default("")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((h) => h.trim().toLowerCase())
+          .filter((h) => h.length > 0),
+      ),
   },
   runtimeEnv: process.env,
 });

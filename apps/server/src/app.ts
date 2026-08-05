@@ -29,6 +29,7 @@ export interface AppDeps {
   analytics: () => Promise<Analytics>;
   watcher: EventEmitter;
   trustProxy: boolean;
+  allowedHosts: string[];
 }
 
 export function createApp(deps: AppDeps): Hono {
@@ -60,7 +61,7 @@ export function createApp(deps: AppDeps): Hono {
       writeLog(withoutQuery(message));
     }),
   );
-  registerSecurity(app, deps.trustProxy);
+  registerSecurity(app, deps.trustProxy, deps.allowedHosts);
   registerProjects(app, deps);
   registerGraphql(app, deps);
   registerSearch(app, deps);

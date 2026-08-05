@@ -83,19 +83,32 @@ argument above.
 
 ### Transport hardening
 
+- **Host allowlist:** every `/api/*` request — `GET`/`HEAD` included — is checked against a
+  server-controlled list of hostnames before anything else runs
+  (`apps/server/src/routes/security.ts`). By default only `localhost`, `127.0.0.1`, and `[::1]`
+  are accepted; `ALLOWED_HOSTS` (`apps/server/src/env.ts`) adds more for reverse-proxy or LAN
+  deployments. Anything else gets `421` before the origin comparison below even runs. This is
+  the actual defense against DNS rebinding: a page served from attacker-controlled DNS that
+  resolves to this server can make its `Host` and `Origin` headers agree with each other, which
+  is all the origin comparison checks, but it cannot make `Host` agree with this list. The
+  allowlist covers `GET`/`HEAD` specifically because a rebound page is same-origin as far as the
+  browser is concerned, so — unlike a normal cross-origin request — it can read those responses.
 - **Cross-origin requests:** state-changing (`/api/*`, non-GET/HEAD) requests must have an
   `application/json` content-type — compared by MIME essence, so a CORS-safelisted type
-  cannot satisfy it via a parameter — and, when an `Origin` header is present, it must match
-  the server's own origin (`apps/server/src/routes/security.ts`). GET/HEAD reads are left
-  open; their responses are never cross-origin readable.
+  cannot satisfy it via a parameter — and an `Origin` header that matches the server's own
+  origin (`apps/server/src/routes/security.ts`); a missing `Origin` is rejected rather than
+  skipped. GET/HEAD reads are left open here on the assumption that their responses are never
+  cross-origin readable — an assumption that only holds because the host allowlist above has
+  already ruled out DNS rebinding.
 - **Proxy-aware origin comparison:** "the server's own origin" comes from the inbound connection,
   which behind a TLS-terminating proxy is the internal plain-HTTP hop rather than the public URL the
   browser used. `TRUST_PROXY=true` (`apps/server/src/env.ts`) switches the comparison to the first
   value of `X-Forwarded-Proto` and `X-Forwarded-Host`, falling back to the connection when a header
-  is absent or empty. It defaults to `false`: a client that can reach the port directly can set
-  those headers to anything, so trusting them unconditionally would let that client satisfy the
-  check and the guard would stop meaning anything. Turning the flag on asserts that no such direct
-  path exists. Nothing else in the server reads forwarded headers.
+  is absent or empty; it switches the host allowlist above to the same forwarded host. It defaults
+  to `false`: a client that can reach the port directly can set those headers to anything, so
+  trusting them unconditionally would let that client satisfy the check and the guard would stop
+  meaning anything. Turning the flag on asserts that no such direct path exists. Nothing else in
+  the server reads forwarded headers.
 - **Security headers:** all responses carry `secureHeaders` defaults (`nosniff`, `X-Frame-Options`)
   plus a self-only Content-Security-Policy with `frame-ancestors 'none'` (`apps/server/src/app.ts`).
 - **Request body cap:** the graphql route rejects bodies over 256 KB with `413` before parsing.

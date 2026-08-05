@@ -55,14 +55,15 @@ pnpm install
 
 Copy `.env.example` to `.env` (or export the variables directly) and adjust as needed:
 
-| Variable      | Default     | Description                                                                                                                                                                                                    |
-| ------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GIT_ROOT`    | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`).                                                                                                                   |
-| `SCAN_DEPTH`  | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                                                                                                                                    |
-| `PORT`        | `4780`      | Port the server listens on.                                                                                                                                                                                    |
-| `HOST`        | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                                                                                                                                      |
-| `BEANS_BIN`   | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                                                                                                                                  |
-| `TRUST_PROXY` | `false`     | Trust `X-Forwarded-Proto`/`X-Forwarded-Host` when checking whether a request is same-origin. Turn this on only when a reverse proxy is the only way in; see [Behind a reverse proxy](#behind-a-reverse-proxy). |
+| Variable        | Default     | Description                                                                                                                                                                                                                                    |
+| --------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_ROOT`      | `~/git`     | Comma-separated root directories scanned for `beans` projects (any dir with a `.beans.yml`).                                                                                                                                                   |
+| `SCAN_DEPTH`    | `1`         | Max recursion depth (1–8) when scanning each `GIT_ROOT` entry for projects.                                                                                                                                                                    |
+| `PORT`          | `4780`      | Port the server listens on.                                                                                                                                                                                                                    |
+| `HOST`          | `127.0.0.1` | Bind address. Keep this loopback unless you intend to expose it on a LAN.                                                                                                                                                                      |
+| `BEANS_BIN`     | `beans`     | Path to (or name of) the `beans` binary; defaults to resolving it via `PATH`.                                                                                                                                                                  |
+| `TRUST_PROXY`   | `false`     | Trust `X-Forwarded-Proto`/`X-Forwarded-Host` when checking whether a request is same-origin. Turn this on only when a reverse proxy is the only way in; see [Behind a reverse proxy](#behind-a-reverse-proxy).                                 |
+| `ALLOWED_HOSTS` | _(none)_    | Comma-separated hostnames (no scheme or port) this server accepts requests for, beyond the built-in `localhost`/`127.0.0.1`/`[::1]`. Required the moment you reach the UI by any other hostname or LAN IP — an unrecognized `Host` gets `421`. |
 
 The server never reads or writes outside a project's own configured root. Every resolved project
 path is checked against the specific root it was discovered under before use (see

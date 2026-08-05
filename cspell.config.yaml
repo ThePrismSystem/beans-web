@@ -84,6 +84,8 @@ words:
   - EACCES
   # cspell knows "reentrant" but not the noun.
   - reentrancy
+  - hostnames
+  - unparseable
 ignorePaths:
   - node_modules
   - dist

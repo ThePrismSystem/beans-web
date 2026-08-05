@@ -19,6 +19,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
+    allowedHosts: [],
     ...overrides,
   };
 }

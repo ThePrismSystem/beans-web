@@ -20,6 +20,7 @@ function deps(overrides: Partial<AppDeps> = {}): AppDeps {
     analytics: vi.fn(() => Promise.resolve(fakeAnalytics())),
     watcher: new EventEmitter(),
     trustProxy: false,
+    allowedHosts: [],
     ...overrides,
   };
 }
@@ -30,7 +31,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(200);
@@ -49,7 +50,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(deps());
     const res = await app.request("/api/projects/nope/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(404);
@@ -60,7 +61,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ variables: { q: "x" } }),
     });
     expect(res.status).toBe(400);
@@ -74,7 +75,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: 'mutation { setParent(id:"a",parentId:"b"){id} }' }),
     });
     expect(res.status).toBe(400);
@@ -88,7 +89,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(d);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(500);
@@ -99,7 +100,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const app = createApp(deps({ listProjects: vi.fn(() => Promise.resolve([rogueProject])) }));
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
     expect(res.status).toBe(404);
@@ -123,7 +124,7 @@ describe("POST /api/projects/:name/graphql", () => {
 
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: "{ beans { id } }" }),
     });
 
@@ -137,7 +138,7 @@ describe("POST /api/projects/:name/graphql", () => {
     const huge = "x".repeat(300 * 1024);
     const res = await app.request("/api/projects/proj-a/graphql", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: "http://localhost" },
       body: JSON.stringify({ query: `{ beans { id } } ${huge}` }),
     });
     expect(res.status).toBe(413);
