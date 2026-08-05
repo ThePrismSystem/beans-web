@@ -91,11 +91,13 @@ jobs:
 
       - name: Install beans
         run: |
-          # The Dockerfile's ARG is the single source of truth for this pin, so
-          # CI always tests the version the image ships.
+          # The Dockerfile's ARG is the single source of truth for the version
+          # pin, and scripts/build-beans.sh is the single source of truth for
+          # the dependency overrides that patch upstream's go.mod, so this
+          # builds the exact same binary the image ships.
           BEANS_VERSION="$(sed -n 's/^ARG BEANS_VERSION=//p' Dockerfile)"
           test -n "$BEANS_VERSION" || { echo "could not read BEANS_VERSION from Dockerfile"; exit 1; }
-          go install "github.com/hmans/beans@${BEANS_VERSION}"
+          bash scripts/build-beans.sh "$BEANS_VERSION" "$(go env GOPATH)/bin/beans"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - run: pnpm install --frozen-lockfile
@@ -185,11 +187,13 @@ jobs:
 
       - name: Install beans
         run: |
-          # The Dockerfile's ARG is the single source of truth for this pin, so
-          # CI always tests the version the image ships.
+          # The Dockerfile's ARG is the single source of truth for the version
+          # pin, and scripts/build-beans.sh is the single source of truth for
+          # the dependency overrides that patch upstream's go.mod, so this
+          # builds the exact same binary the image ships.
           BEANS_VERSION="$(sed -n 's/^ARG BEANS_VERSION=//p' Dockerfile)"
           test -n "$BEANS_VERSION" || { echo "could not read BEANS_VERSION from Dockerfile"; exit 1; }
-          go install "github.com/hmans/beans@${BEANS_VERSION}"
+          bash scripts/build-beans.sh "$BEANS_VERSION" "$(go env GOPATH)/bin/beans"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - run: pnpm install --frozen-lockfile
