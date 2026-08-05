@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 
 import { BeansError } from "../beans/executor.js";
-import { assertDataPathStillContained, assertWithinRoot } from "../discovery/scan.js";
+import { assertWithinRoot, ContainmentError } from "../util/containment.js";
 
 import type { AppDeps } from "../app.js";
 import type { Hono } from "hono";
@@ -39,21 +39,6 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
 
       const configPath = join(assertWithinRoot(project.root, project.path), ".beans.yml");
 
-      // project.dataPath was resolved and contained once at discovery time,
-      // then cached - up to CACHE_TTL_MS/REFRESH_INTERVAL_MS old by the time
-      // a request actually arrives. Re-checking it against the filesystem as
-      // it is right now, immediately before use, catches a data directory
-      // that was swapped for a symlink after discovery validated it (see
-      // assertDataPathStillContained). A stale-but-otherwise-unknown project
-      // is treated the same as an unknown one, both to keep this route's
-      // error surface simple and so a since-detected swap attempt gets no
-      // signal distinguishing it from a plain 404.
-      try {
-        await assertDataPathStillContained(project.root, project.dataPath);
-      } catch {
-        return c.json({ errors: [{ message: `unknown project: ${name}` }] }, HTTP_NOT_FOUND);
-      }
-
       const parsed = bodySchema.safeParse(await c.req.json().catch(() => null));
       if (!parsed.success) {
         return c.json(
@@ -68,12 +53,25 @@ export function registerGraphql(app: Hono, deps: AppDeps): void {
         const data = await deps.runGraphql(
           configPath,
           project.dataPath,
+          project.root,
           parsed.data.query,
           parsed.data.variables,
           c.req.raw.signal,
         );
         return c.json({ data });
       } catch (err) {
+        // project.dataPath was resolved and contained once at discovery
+        // time, then cached - up to CACHE_TTL_MS/REFRESH_INTERVAL_MS old by
+        // the time a request actually arrives. runGraphql re-validates it
+        // live, immediately before spawning the beans child (see
+        // assertDataPathStillContained in util/containment.ts), which is
+        // what surfaces a ContainmentError here if the data directory was
+        // swapped for a symlink after discovery validated it. Treated the
+        // same as an unknown project, both to keep this route's error
+        // surface simple and so a caught swap attempt gets no signal
+        // distinguishing it from a plain 404.
+        if (err instanceof ContainmentError)
+          return c.json({ errors: [{ message: `unknown project: ${name}` }] }, HTTP_NOT_FOUND);
         if (err instanceof BeansError)
           return c.json({ errors: err.messages.map((m) => ({ message: m })) }, HTTP_BAD_REQUEST);
         throw err;

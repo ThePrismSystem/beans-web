@@ -7,9 +7,10 @@ import { buildAnalytics } from "./aggregate/analytics.js";
 import { globalSearch } from "./aggregate/search.js";
 import { createApp } from "./app.js";
 import { runBeansGraphql } from "./beans/executor.js";
-import { discoverProjects, assertWithinRoot } from "./discovery/scan.js";
+import { discoverProjects } from "./discovery/scan.js";
 import { env } from "./env.js";
 import { registerStatic } from "./routes/static.js";
+import { assertWithinRoot } from "./util/containment.js";
 import { BeansWatcher } from "./watch/watcher.js";
 
 import type { ProjectRecord } from "./discovery/scan.js";
@@ -23,10 +24,11 @@ const REFRESH_INTERVAL_MS = 30_000;
 const run = (
   configPath: string,
   beansPath: string,
+  root: string,
   query: string,
   variables?: Record<string, unknown>,
   signal?: AbortSignal,
-) => runBeansGraphql({ configPath, beansPath, query, variables, signal });
+) => runBeansGraphql({ configPath, beansPath, root, query, variables, signal });
 
 const discover = () => discoverProjects(env.GIT_ROOT, env.SCAN_DEPTH);
 

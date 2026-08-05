@@ -22,6 +22,7 @@ export interface AppDeps {
   runGraphql: (
     configPath: string,
     beansPath: string,
+    root: string,
     query: string,
     variables?: Record<string, unknown>,
     signal?: AbortSignal,

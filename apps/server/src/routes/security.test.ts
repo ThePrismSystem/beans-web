@@ -1,27 +1,11 @@
 import { EventEmitter } from "node:events";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
-import * as scan from "../discovery/scan.js";
 import { fakeAnalytics, fakeProject } from "../testing/fixtures.js";
 
 import type { AppDeps } from "../app.js";
-import type { MockInstance } from "vitest";
-
-// These tests exercise the cross-origin/host guards ahead of the graphql
-// route's own logic, not project.dataPath's containment. fakeProject's
-// dataPath is a fictional "/root/proj-a/.beans", which the route's live
-// re-check (assertDataPathStillContained) would otherwise try to resolve
-// against the real filesystem on every request here. Default it to "still
-// contained" so these tests stay focused on the guards they're named for.
-let dataPathCheck: MockInstance<typeof scan.assertDataPathStillContained>;
-beforeEach(() => {
-  dataPathCheck = vi.spyOn(scan, "assertDataPathStillContained").mockResolvedValue(undefined);
-});
-afterEach(() => {
-  dataPathCheck.mockRestore();
-});
 
 function deps(overrides: Partial<AppDeps> = {}): AppDeps {
   return {

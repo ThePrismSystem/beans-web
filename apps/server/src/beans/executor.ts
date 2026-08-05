@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 
 import { env } from "../env.js";
 import { withBeansSlot } from "../util/concurrency.js";
+import { assertDataPathStillContained } from "../util/containment.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -29,6 +30,13 @@ export class BeansError extends Error {
 export interface RunOpts {
   configPath: string;
   /**
+   * The project's configured root. Not passed to the CLI itself - used only
+   * to re-validate `beansPath`'s containment immediately before this call
+   * spawns a `beans` child (see `assertDataPathStillContained` in
+   * `util/containment.ts`).
+   */
+  root: string;
+  /**
    * The project's data directory, already resolved and contained by the
    * caller (see `resolveContainedDataPath` in `discovery/scan.ts`). Passed as
    * `--beans-path`, which the CLI honours over whatever `beans.path` says in
@@ -53,17 +61,6 @@ export interface RunOpts {
 }
 
 export function buildBeansArgs(opts: RunOpts): string[] {
-  // An empty --beans-path is not "no override" - the CLI treats it as absent
-  // and falls back to reading beans.path from the config file at configPath,
-  // which is exactly the trust this scheme exists to remove. beansPath is
-  // documented as required, and every caller currently derives it from
-  // resolve(), which never returns "", but that's an invariant this function
-  // asserts rather than one callers are trusted to uphold. A plain Error
-  // (not BeansError) - this is a caller bug, not something to surface to a
-  // client as a beans-side query error.
-  if (opts.beansPath === "") {
-    throw new Error("beansPath must not be empty");
-  }
   const args = ["graphql", "--json", "--config", opts.configPath, "--beans-path", opts.beansPath];
   if (opts.variables) args.push("-v", JSON.stringify(opts.variables));
   // "--" ends beans' option parsing: everything after it is a positional, so a
@@ -144,11 +141,31 @@ function extractBeansErrorMessage(err: unknown): string {
 }
 
 export async function runBeansGraphql(opts: RunOpts): Promise<unknown> {
+  // An empty --beans-path is not "no override" - the CLI treats it as absent
+  // and falls back to reading beans.path from the config file at configPath,
+  // which is exactly the trust this scheme exists to remove. beansPath is
+  // documented as required, and every caller currently derives it from
+  // resolve(), which never returns "", but that's an invariant this function
+  // asserts rather than one callers are trusted to uphold. Checked here,
+  // before withBeansSlot is even entered, so it (a) throws a plain Error,
+  // not the BeansError the catch below produces - this is a caller bug, not
+  // something to show a client as a query error - and (b) never claims a
+  // concurrency slot for a call that is guaranteed to fail.
+  if (opts.beansPath === "") {
+    throw new Error("beansPath must not be empty");
+  }
   const bin = opts.binPath ?? env.BEANS_BIN;
   // Every caller — the graphql route, search, analytics, discovery — reaches a
   // `beans` child through here, so gating at this one point bounds the whole
   // server. Doing it at the call sites would leave the graphql route unbounded.
   return withBeansSlot(async () => {
+    // Re-validated here, inside the slot, rather than by each caller before
+    // queueing for one: with the pool full, this call can wait behind up to
+    // BEANS_CONCURRENCY-1 other children - seconds, not milliseconds, under
+    // load - so a check made before the queue would leave that whole wait
+    // unguarded. See assertDataPathStillContained for what checking here,
+    // right before the spawn, narrows the window to.
+    await assertDataPathStillContained(opts.root, opts.beansPath);
     try {
       const { stdout } = await execFileAsync(bin, buildBeansArgs(opts), {
         maxBuffer: MAX_STDOUT_BYTES,

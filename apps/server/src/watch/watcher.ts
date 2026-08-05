@@ -51,14 +51,18 @@ export class BeansWatcher extends EventEmitter {
   }
 
   private projectFor(path: string): string | undefined {
-    // Longest matching project path wins so events under a nested project
-    // are not wrongly attributed to an ancestor project.
+    // Matched against each project's data directory - what is actually
+    // watched (see beansDir) - not its project directory: a symlinked or
+    // custom in-root beans.path resolves outside project.path, so an event
+    // under it would never match p.path + sep at all. Longest matching data
+    // path wins so an event is not wrongly attributed to another project
+    // whose own data directory happens to be a lexical ancestor of it.
     let best: string | undefined;
     let bestLength = -1;
     for (const p of this.projects) {
-      if (path.startsWith(p.path + sep) && p.path.length > bestLength) {
+      if (path.startsWith(p.dataPath + sep) && p.dataPath.length > bestLength) {
         best = p.name;
-        bestLength = p.path.length;
+        bestLength = p.dataPath.length;
       }
     }
     return best;

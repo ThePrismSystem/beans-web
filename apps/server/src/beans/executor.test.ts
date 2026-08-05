@@ -51,10 +51,19 @@ afterEach(() => {
   mockError = DEFAULT_ERROR();
 });
 
+// "/x" doesn't exist on the test machine, and nothing under it is symlinked,
+// so the real (unmocked) containment re-check every runBeansGraphql call now
+// performs resolves it to itself and finds it contained under root "/x" -
+// confirmed directly against node:fs/promises before relying on it here.
+// Tests below that care about the check's own behavior mock it explicitly;
+// every other test lets it run for real, the same as it will in production.
+const ROOT = "/x";
+
 describe("buildBeansArgs", () => {
   it("passes config, beans-path, json flag, and query as separate argv entries (no shell)", () => {
     const args = buildBeansArgs({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "{ beans { id } }",
     });
@@ -72,6 +81,7 @@ describe("buildBeansArgs", () => {
   it("keeps a flag-shaped query positional so it cannot be parsed as a beans flag", () => {
     const args = buildBeansArgs({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "--beans-path=/etc",
     });
@@ -83,6 +93,7 @@ describe("buildBeansArgs", () => {
   it("adds -v when variables are provided", () => {
     const args = buildBeansArgs({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "q",
       variables: { id: "a" },
@@ -93,6 +104,7 @@ describe("buildBeansArgs", () => {
   it("places --beans-path before the -- separator so it is parsed as a flag, not a positional", () => {
     const args = buildBeansArgs({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "q",
     });
@@ -101,20 +113,6 @@ describe("buildBeansArgs", () => {
     expect(flagIndex).toBeGreaterThan(-1);
     expect(flagIndex).toBeLessThan(sep);
     expect(args[flagIndex + 1]).toBe("/x/.beans");
-  });
-
-  // An empty --beans-path makes the CLI fall back to trusting the config
-  // file's own beans.path - the exact bypass the --beans-path scheme exists
-  // to close. Nothing today passes "" (dataPath always comes from resolve()),
-  // but that's an invariant worth asserting rather than leaving unstated.
-  it("refuses to build args when beansPath is empty, rather than silently omitting the override", () => {
-    expect(() =>
-      buildBeansArgs({
-        configPath: "/x/.beans.yml",
-        beansPath: "",
-        query: "q",
-      }),
-    ).toThrow(/beansPath must not be empty/);
   });
 });
 
@@ -131,6 +129,7 @@ describe("runBeansGraphql", () => {
   it("falls back to err.message when stderr doesn't match the ERROR_LINE pattern", async () => {
     const err = await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch((e: unknown) => e);
@@ -142,6 +141,7 @@ describe("runBeansGraphql", () => {
   it("passes a timeout and SIGKILL so a hung beans child is reaped", async () => {
     await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch(() => {});
@@ -151,6 +151,34 @@ describe("runBeansGraphql", () => {
     };
     expect(options.timeout).toBe(BEANS_EXEC_TIMEOUT_MS);
     expect(options.killSignal).toBe("SIGKILL");
+  });
+
+  // An empty --beans-path makes the CLI fall back to trusting the config
+  // file's own beans.path - the exact bypass the --beans-path scheme exists
+  // to close. Nothing today passes "" (dataPath always comes from resolve()),
+  // but that's an invariant worth asserting rather than leaving unstated.
+  // Checked as a plain Error (not a BeansError, and never reaching execFile
+  // at all): this is a caller bug, not a beans-side query error to show a
+  // client at 400.
+  it("rejects with a plain Error and never calls execFile when beansPath is empty", async () => {
+    const callsBefore = vi.mocked(execFile).mock.calls.length;
+
+    const err = await runBeansGraphql({
+      configPath: "/x/.beans.yml",
+      root: ROOT,
+      beansPath: "",
+      query: "q",
+    }).then(
+      () => {
+        throw new Error("expected runBeansGraphql to reject");
+      },
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(BeansError);
+    expect((err as Error).message).toMatch(/beansPath must not be empty/);
+    expect(vi.mocked(execFile).mock.calls.length).toBe(callsBefore);
   });
 });
 
@@ -164,6 +192,7 @@ describe("runBeansGraphql concurrency", () => {
       const calls = Array.from({ length: 40 }, () =>
         runBeansGraphql({
           configPath: "/x/.beans.yml",
+          root: ROOT,
           beansPath: "/x/.beans",
           query: "{ beans { id } }",
         }).catch(() => undefined),
@@ -197,6 +226,146 @@ describe("runBeansGraphql concurrency", () => {
     } finally {
       holdCallbacks = false;
       held.length = 0;
+    }
+  });
+});
+
+// Round-4 finding: the live containment re-check (assertDataPathStillContained)
+// was being called by routes/graphql.ts BEFORE runBeansGraphql was even
+// reached — i.e. before queueing for a concurrency slot, not after. With the
+// pool full and each child bounded only by BEANS_EXEC_TIMEOUT_MS, a queued
+// caller can wait seconds for its turn, leaving that entire wait unguarded.
+// The check now lives inside runBeansGraphql, inside withBeansSlot, so it
+// only runs once a slot is actually granted, immediately before the spawn.
+// These tests prove that placement empirically rather than by code reading.
+describe("runBeansGraphql containment re-check", () => {
+  it("checks containment before spawning the child, not after", async () => {
+    const containment = await import("../util/containment.js");
+    const order: string[] = [];
+    const checkSpy = vi
+      .spyOn(containment, "assertDataPathStillContained")
+      .mockImplementation(() => {
+        order.push("containment-check");
+        return Promise.resolve();
+      });
+
+    holdCallbacks = true;
+    held.length = 0;
+    try {
+      const promise = runBeansGraphql({
+        configPath: "/x/.beans.yml",
+        root: ROOT,
+        beansPath: "/x/.beans",
+        query: "q",
+      }).catch(() => undefined);
+
+      // Waiting for the (real, default) execFile mock to have parked a
+      // callback is proof the containment check - mocked above to resolve
+      // immediately - already ran: runBeansGraphql only reaches execFileAsync
+      // after awaiting it.
+      await vi.waitFor(() => {
+        expect(held.length).toBe(1);
+      });
+      order.push("execFile");
+
+      held.shift()?.();
+      await promise;
+
+      expect(order).toEqual(["containment-check", "execFile"]);
+    } finally {
+      holdCallbacks = false;
+      held.length = 0;
+      checkSpy.mockRestore();
+    }
+  });
+
+  it("propagates a containment failure as-is, without ever calling execFile", async () => {
+    const containment = await import("../util/containment.js");
+    const checkSpy = vi
+      .spyOn(containment, "assertDataPathStillContained")
+      .mockRejectedValue(new containment.ContainmentError("path is outside its configured root"));
+    const callsBefore = vi.mocked(execFile).mock.calls.length;
+
+    try {
+      const err = await runBeansGraphql({
+        configPath: "/x/.beans.yml",
+        root: ROOT,
+        beansPath: "/x/.beans",
+        query: "q",
+      }).then(
+        () => {
+          throw new Error("expected runBeansGraphql to reject");
+        },
+        (e: unknown) => e,
+      );
+
+      expect(err).toBeInstanceOf(containment.ContainmentError);
+      expect(err).not.toBeInstanceOf(BeansError);
+      expect(vi.mocked(execFile).mock.calls.length).toBe(callsBefore);
+    } finally {
+      checkSpy.mockRestore();
+    }
+  });
+
+  it("checks containment only once a concurrency slot is actually granted, not while merely queued", async () => {
+    const containment = await import("../util/containment.js");
+    const checkSpy = vi
+      .spyOn(containment, "assertDataPathStillContained")
+      .mockResolvedValue(undefined);
+
+    holdCallbacks = true;
+    inFlight = 0;
+    peakInFlight = 0;
+    held.length = 0;
+    try {
+      const opts = {
+        configPath: "/x/.beans.yml",
+        root: ROOT,
+        beansPath: "/x/.beans",
+        query: "q",
+      };
+      const blockers = Array.from({ length: BEANS_CONCURRENCY }, () =>
+        runBeansGraphql(opts).catch(() => undefined),
+      );
+      await vi.waitFor(() => {
+        expect(held.length).toBe(BEANS_CONCURRENCY);
+      });
+      checkSpy.mockClear();
+
+      // Every slot is held, so this 9th call can only be queued behind them.
+      // This assertion is deterministic, not timing-based: withBeansSlot's
+      // acquire() returns a promise that only resolves once release() below
+      // serves this caller's waiter, so nothing in its body — including the
+      // containment check — can run before then.
+      const queued = runBeansGraphql(opts).catch(() => undefined);
+      expect(checkSpy).not.toHaveBeenCalled();
+
+      // Free exactly one slot. FIFO hands it to the queued call, which must
+      // run its containment check before it can reach its own execFile call.
+      held.shift()?.();
+      await vi.waitFor(() => {
+        expect(checkSpy).toHaveBeenCalledTimes(1);
+      });
+
+      // Drain everything else so the test doesn't leak parked callbacks: the
+      // 7 original blockers still held, plus the queued call's own.
+      let remaining = BEANS_CONCURRENCY;
+      while (remaining > 0) {
+        const next = held.shift();
+        if (!next) {
+          await vi.waitFor(() => {
+            expect(held.length).toBeGreaterThan(0);
+          });
+          continue;
+        }
+        next();
+        remaining -= 1;
+      }
+      await Promise.all([...blockers, queued]);
+    } finally {
+      holdCallbacks = false;
+      held.length = 0;
+      checkSpy.mockRestore();
     }
   });
 });
@@ -327,6 +496,7 @@ describe("runBeansGraphql error redaction (end-to-end)", () => {
 
     const err = await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch((e: unknown) => e);
@@ -340,6 +510,7 @@ describe("runBeansGraphql error redaction (end-to-end)", () => {
 
     const err = await runBeansGraphql({
       configPath: "/x/.beans.yml",
+      root: ROOT,
       beansPath: "/x/.beans",
       query: "{ beans { id } }",
     }).catch((e: unknown) => e);

@@ -87,9 +87,9 @@ words:
   - hostnames
   - unparseable
   # Time-of-check-to-time-of-use; the class of race a symlink swap after
-  # discovery validation exploits. Used in scan.ts/scan.test.ts/graphql.test.ts.
+  # discovery validation exploits. cspell entries are case-insensitive, so
+  # this one covers "toctou" too. Used across discovery/, beans/, and util/.
   - TOCTOU
-  - toctou
   - repointed
 ignorePaths:
   - node_modules

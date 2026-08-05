@@ -24,7 +24,7 @@ export async function buildAnalytics(projects: ProjectRecord[], run: RunFn): Pro
     let total = 0;
     let open = 0;
     try {
-      const data = (await run(join(p.path, ".beans.yml"), p.dataPath, QUERY)) as {
+      const data = (await run(join(p.path, ".beans.yml"), p.dataPath, p.root, QUERY)) as {
         beans: { type: BeanType; status: BeanStatus; updatedAt: string }[];
       };
       for (const b of data.beans) {

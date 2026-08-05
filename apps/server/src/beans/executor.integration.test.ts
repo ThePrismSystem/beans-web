@@ -29,6 +29,7 @@ describe("runBeansGraphql (real binary)", () => {
   it("lists the seeded bean", async () => {
     const data = (await runBeansGraphql({
       configPath: cfg,
+      root: dir,
       beansPath: join(dir, ".beans"),
       query: "{ beans { id title type } }",
     })) as { beans: { title: string }[] };
@@ -38,6 +39,7 @@ describe("runBeansGraphql (real binary)", () => {
   it("rejects with a clean BeansError on an invalid query", async () => {
     const err = await runBeansGraphql({
       configPath: cfg,
+      root: dir,
       beansPath: join(dir, ".beans"),
       query: "{ beans { nope } }",
     }).then(
@@ -59,6 +61,7 @@ describe("runBeansGraphql (real binary)", () => {
     // separator it is a literal (invalid) GraphQL query and must reject.
     const result = await runBeansGraphql({
       configPath: cfg,
+      root: dir,
       beansPath: join(dir, ".beans"),
       query: `--beans-path=${join(outsideDir, ".beans")}`,
     }).then(
@@ -78,6 +81,7 @@ describe("runBeansGraphql (real binary)", () => {
     // this call still only ever sees this project's own bean.
     const data = (await runBeansGraphql({
       configPath: cfg,
+      root: dir,
       beansPath: join(dir, ".beans"),
       query: "{ beans { title } }",
     })) as { beans: { title: string }[] };
