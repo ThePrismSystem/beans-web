@@ -38,7 +38,7 @@ RUN cp "$(go env GOMODCACHE)"/github.com/hmans/beans@*/LICENSE /beans-LICENSE
 # ---------------------------------------------------------------------------
 # Stage 2 — install workspace deps and build the web SPA.
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS app-builder
+FROM node:24-bookworm-slim AS app-builder
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable
 WORKDIR /app
@@ -58,8 +58,13 @@ RUN pnpm --filter @beans-frontend/web build
 # Stage 3 — runtime. Debian (glibc) base to match the Node ecosystem; the
 # beans binary is static so it runs here regardless.
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 RUN corepack enable
+
+# The app runs pnpm through corepack and never invokes npm, but the base image's
+# bundled npm still ships its own dependency tree — and its CVEs — into the scan
+# surface. Removing it is what keeps the image clean as npm's deps churn.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 
 # The beans CLI, plus its Apache-2.0 license for redistribution attribution.
