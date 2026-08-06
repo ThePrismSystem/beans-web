@@ -17,7 +17,6 @@ words:
   - typeof
   - devcontainer
   - codecov
-  - dependabot
   - typecheck
   - codegen
   - browsable

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 9am on monday"],
+  "prConcurrentLimit": 10,
+  "dependencyDashboard": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "automerge": false,
+    "labels": ["security"]
+  },
+  "packageRules": [
+    {
+      "description": "Runtime dependencies ship to users; every bump gets read by a human.",
+      "matchDepTypes": ["dependencies", "engines", "packageManager"],
+      "automerge": false
+    },
+    {
+      "description": "Non-major dev dependencies: one PR a week, merged by the gate rather than by hand.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "dev dependencies (non-major)",
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Major dev dependencies still automerge, but one at a time — a group is only as mergeable as its worst member.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["major"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Actions run with a token and are not dev dependencies. Digest-pinned, and merged deliberately.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "pinDigests": true,
+      "automerge": false
+    },
+    {
+      "description": "The Node floor is stated in four places and they have drifted before, so they move in one PR: .nvmrc, engines.node, and both Dockerfile stages.",
+      "matchPackageNames": ["node"],
+      "groupName": "node"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "ARG BEANS_VERSION is the only pin for the beans binary — the Dockerfile builds from it and CI reads it back out with sed, so nothing else may state a version. No manager covers an ARG, so this is the one place a bot can see it.",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": ["ARG BEANS_VERSION=(?<currentValue>v[0-9][^\\s]*)"],
+      "depNameTemplate": "github.com/hmans/beans",
+      "datasourceTemplate": "go"
+    }
+  ]
+}
