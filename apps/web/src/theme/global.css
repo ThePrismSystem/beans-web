@@ -397,6 +397,41 @@ textarea:focus-visible,
   margin-bottom: var(--sp-6);
 }
 
+/* Tight cluster against the header's generous space-between: the controls
+   read as one group opposite the project name, rather than three things
+   distributed across the width. */
+.project-list-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* The page's one action ON the data, sitting beside controls that only change
+   how it is viewed. Accent text on the shared hairline chip is enough to
+   separate the two without a filled button — --fill-strong is reserved for
+   controls that commit, and this one only discloses the form. */
+.project-list-new {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Hover to --paper rather than inheriting the base button's --hairline:
+   --accent on --hairline is 4.51:1 light / 4.52:1 dark, which clears AA by a
+   margin thin enough that any token nudge would break it. On --paper it is
+   5.75:1 / 6.05:1, and it is the pair .view-toggle button.active already uses. */
+.project-list-new:hover:not(:disabled) {
+  background: var(--paper);
+}
+
+/* Separated from the filters below by a rule, not a box — the form is a
+   disclosure in the page flow, not a panel floating over it. */
+.project-list-create {
+  margin-bottom: var(--sp-7);
+  padding-bottom: var(--sp-7);
+  border-bottom: 1px solid var(--hairline);
+}
+
 .view-toggle {
   display: inline-flex;
   border: 1px solid var(--hairline);
@@ -1398,6 +1433,7 @@ textarea:focus-visible,
   .relation-editor-link,
   .relation-editor-remove,
   .view-toggle button,
+  .project-list-new,
   .nav-toggle,
   .filter-toggle,
   .checkbox-menu-trigger,
@@ -1497,6 +1533,16 @@ textarea:focus-visible,
 
   .project-list-header {
     flex-wrap: wrap;
+  }
+
+  /* The controls take the whole second line. At 360px a project name, a
+     two-button segmented control and the create action do not share one row
+     without the name truncating, and the name is what tells you where you
+     are. Pushed apart so the create action lands under the thumb on the side
+     the scroll hand already occupies. */
+  .project-list-header-actions {
+    flex-basis: 100%;
+    justify-content: space-between;
   }
 
   .filter-toggle {

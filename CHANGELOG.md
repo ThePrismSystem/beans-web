@@ -12,6 +12,13 @@ malicious web page or another local account could reach the beans under
 the container onto a patched base image and toolchain. Read `### Upgrading` —
 reaching the UI by anything other than `localhost` now needs configuration.
 
+### Added
+
+- A project page can create beans. Creation used to live only on a bean's own
+  page, where every new bean is a child of the one you are looking at — so a
+  top-level bean meant opening an unrelated bean and clearing its parent, and a
+  project with no beans yet had no way in at all.
+
 ### Security
 
 - A page on an attacker's domain whose DNS resolved to this server could read

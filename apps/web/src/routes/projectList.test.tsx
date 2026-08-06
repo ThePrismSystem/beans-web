@@ -15,13 +15,23 @@ import { ProjectList } from "./projectList.js";
 
 import type { BeanListItem } from "@beans-web/shared";
 
-const { useBeansMock } = vi.hoisted(() => ({ useBeansMock: vi.fn() }));
+const { useBeansMock, useCreateBeanMock } = vi.hoisted(() => ({
+  useBeansMock: vi.fn(),
+  useCreateBeanMock: vi.fn(),
+}));
 
 vi.mock("../hooks/useBeans.js", async () => {
   const actual =
     await vi.importActual<typeof import("../hooks/useBeans.js")>("../hooks/useBeans.js");
   return { ...actual, useProjectBeans: useBeansMock };
 });
+
+vi.mock("../hooks/useMutations.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/useMutations.js")>();
+  return { ...actual, useCreateBean: useCreateBeanMock };
+});
+
+const createBeanMutate = vi.fn();
 
 const milestone: BeanListItem = {
   id: "m1",
@@ -78,11 +88,18 @@ function renderProjectList(initialLocation = "/p/testproj") {
     routeTree: rootRoute.addChildren([projectRoute]),
     history: createMemoryHistory({ initialEntries: [initialLocation] }),
   });
-  return render(<RouterProvider router={router} />);
+  return { ...render(<RouterProvider router={router} />), router };
 }
 
 beforeEach(() => {
   window.localStorage.clear();
+  vi.clearAllMocks();
+  useCreateBeanMock.mockReturnValue({
+    mutate: createBeanMutate,
+    error: null,
+    isError: false,
+    submittedAt: 0,
+  });
 });
 
 afterEach(() => {
@@ -121,6 +138,104 @@ describe("ProjectList", () => {
 
     expect(await screen.findByText("Task One")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Expand Milestone One/ })).not.toBeInTheDocument();
+  });
+
+  it("offers a way to create the first bean in an empty project", async () => {
+    useBeansMock.mockReturnValue({ data: [], isPending: false, isError: false });
+
+    renderProjectList();
+
+    // The whole point of the affordance: with no beans there is no bean detail
+    // page to reach the create form from, so an empty project would otherwise
+    // be a dead end.
+    expect(await screen.findByRole("button", { name: "+ New bean" })).toBeInTheDocument();
+  });
+
+  it("reveals the create form when the disclosure is toggled, and hides it again", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    const toggle = await screen.findByRole("button", { name: "+ New bean" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Title (required)")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Title (required)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Title (required)")).not.toBeInTheDocument();
+  });
+
+  it("creates a bean with no parent, since the project view has no bean in context", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.type(screen.getByLabelText("Title (required)"), "Fresh task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(createBeanMutate).toHaveBeenCalledTimes(1);
+    expect(createBeanMutate.mock.calls[0]?.[0]).toMatchObject({
+      title: "Fresh task",
+      parent: null,
+    });
+  });
+
+  it("offers every bean as a parent, so a child can be created without opening its parent", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+
+    // Default type is "task", which milestones and epics may parent but tasks
+    // and bugs may not — so the list is hierarchy-filtered, not the raw set.
+    const parent = screen.getByLabelText("Parent");
+    expect(within(parent).getByRole("option", { name: "Milestone One" })).toBeInTheDocument();
+    expect(within(parent).getByRole("option", { name: "Epic One" })).toBeInTheDocument();
+    expect(within(parent).queryByRole("option", { name: "Bug One" })).not.toBeInTheDocument();
+    expect(within(parent).queryByRole("option", { name: "Task One" })).not.toBeInTheDocument();
+  });
+
+  it("opens the form with no parent options while the project is still loading", async () => {
+    // The header renders before either beans query resolves, so the form can
+    // be opened with the candidate list still undefined.
+    useBeansMock.mockReturnValue({ data: undefined, isPending: true, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+
+    expect(screen.getByLabelText("Title (required)")).toBeInTheDocument();
+    const parent = screen.getByLabelText("Parent");
+    expect(within(parent).getAllByRole("option")).toHaveLength(1);
+    expect(within(parent).getByRole("option", { name: "(none)" })).toBeInTheDocument();
+  });
+
+  it("closes the form and opens the new bean once creation succeeds", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    createBeanMutate.mockImplementation(
+      (_input: unknown, opts?: { onSuccess?: (created: { id: string }) => void }) => {
+        opts?.onSuccess?.({ id: "n1" });
+      },
+    );
+    const user = userEvent.setup();
+
+    const { router } = renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.type(screen.getByLabelText("Title (required)"), "Fresh task");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(screen.queryByLabelText("Title (required)")).not.toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe("/p/testproj/n1");
+    });
   });
 
   it("shows a loading message while beans are pending", async () => {
