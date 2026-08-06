@@ -18,7 +18,13 @@ concurrency:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    # The same trust boundary ci.yml draws: a fork pull request runs on
+    # GitHub's hardware, everything else on ours. `build-mode: none` reads the
+    # tree rather than running it, so the exposure here is smaller than the
+    # build jobs' — but a fork pull request still costs its author nothing, and
+    # the runner still sits on our LAN. On a push to main or the weekly cron
+    # the pull_request context is absent and this falls through to self-hosted.
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'self-hosted' }}
     permissions:
       security-events: write
       actions: read
