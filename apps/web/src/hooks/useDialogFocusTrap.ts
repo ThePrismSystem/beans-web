@@ -9,6 +9,36 @@ import type { RefObject } from "react";
  */
 const FOCUSABLE = 'button, input, select, textarea, [href], [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Every open dialog's surface. Each trap listens on `document`, so without this
+ * a dialog opened from inside another would leave two Escape handlers live and
+ * one keypress would close both — the create dialog vanishing along with the
+ * bean picker it opened.
+ */
+const openDialogs = new Set<RefObject<HTMLElement | null>>();
+
+/**
+ * Whether this dialog is the one a keypress belongs to: the innermost open
+ * surface. Decided by DOM containment rather than by which opened first,
+ * because React runs a child's effects before its parent's — so registration
+ * order reports a nest built in a single commit exactly backwards.
+ *
+ * A dialog whose ref is unattached contains nothing and so counts as innermost,
+ * which keeps Escape working on a surface the caller never wired up.
+ */
+function isInnermost(self: RefObject<HTMLElement | null>): boolean {
+  const element = self.current;
+  if (!element) {
+    return true;
+  }
+  for (const other of openDialogs) {
+    if (other !== self && other.current && element.contains(other.current)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export interface DialogFocusTrapOptions {
   /** The modal surface itself — the Tab cycle is everything focusable inside it. */
   dialogRef: RefObject<HTMLElement | null>;
@@ -43,7 +73,21 @@ export function useDialogFocusTrap({
     if (!open) {
       return;
     }
+    openDialogs.add(dialogRef);
+    return () => {
+      openDialogs.delete(dialogRef);
+    };
+  }, [open, dialogRef]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
     function onKeyDown(event: KeyboardEvent) {
+      // Deferred to whichever dialog this one has opened inside itself.
+      if (!isInnermost(dialogRef)) {
+        return;
+      }
       if (event.key === "Escape") {
         onClose();
         return;

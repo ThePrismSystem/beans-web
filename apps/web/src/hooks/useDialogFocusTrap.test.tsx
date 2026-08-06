@@ -96,4 +96,46 @@ describe("useDialogFocusTrap", () => {
 
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  describe("nested dialogs", () => {
+    it("gives Escape to the innermost dialog only", async () => {
+      const outer = vi.fn();
+      const inner = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <Harness open onClose={outer}>
+          <Harness open onClose={inner}>
+            <button type="button">deep</button>
+          </Harness>
+        </Harness>,
+      );
+
+      await user.keyboard("{Escape}");
+
+      // Every trap listens on the document, so an unstacked pair would close
+      // the whole nest on one keypress.
+      expect(inner).toHaveBeenCalledTimes(1);
+      expect(outer).not.toHaveBeenCalled();
+    });
+
+    it("hands Escape back to the outer dialog once the inner one closes", async () => {
+      const outer = vi.fn();
+      const user = userEvent.setup();
+      function Nest({ innerOpen }: { innerOpen: boolean }) {
+        return (
+          <Harness open onClose={outer}>
+            <Harness open={innerOpen} onClose={vi.fn()}>
+              <button type="button">deep</button>
+            </Harness>
+          </Harness>
+        );
+      }
+      const { rerender } = render(<Nest innerOpen />);
+
+      rerender(<Nest innerOpen={false} />);
+      await user.keyboard("{Escape}");
+
+      expect(outer).toHaveBeenCalledTimes(1);
+    });
+  });
 });

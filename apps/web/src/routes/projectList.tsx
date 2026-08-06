@@ -1,7 +1,7 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { CreateBeanForm } from "../components/CreateBeanForm.js";
+import { CreateBeanDialog } from "../components/CreateBeanDialog.js";
 import { FilterBar } from "../components/FilterBar.js";
 import { FlatList } from "../components/FlatList.js";
 import { HierarchyList } from "../components/HierarchyList.js";
@@ -22,8 +22,6 @@ import type { SortDir, SortKey } from "../lib/sort.js";
 import type { ChangeEvent } from "react";
 
 type ViewMode = "flat" | "hierarchy";
-
-const CREATE_SECTION_ID = "project-list-create";
 
 function readViewMode(key: string): ViewMode {
   return readString(key) === "flat" ? "flat" : "hierarchy";
@@ -215,31 +213,28 @@ export function ProjectList() {
           <button
             type="button"
             className="project-list-new"
-            aria-expanded={isCreating}
-            aria-controls={CREATE_SECTION_ID}
+            aria-haspopup="dialog"
             onClick={() => {
-              setIsCreating((v) => !v);
+              setIsCreating(true);
             }}
           >
             + New bean
           </button>
         </div>
       </div>
-      {isCreating && (
-        <div className="project-list-create" id={CREATE_SECTION_ID}>
-          <CreateBeanForm
-            // The unfiltered project dataset, for the same reason `orphaned`
-            // uses it: a parent the active search happens to exclude is still
-            // a valid parent, and offering a narrowed list would silently
-            // change what the new bean can be attached to.
-            candidates={fullBeans ?? []}
-            onSubmit={handleCreateSubmit}
-            onCancel={() => {
-              setIsCreating(false);
-            }}
-          />
-        </div>
-      )}
+      <CreateBeanDialog
+        open={isCreating}
+        // The unfiltered project dataset, for the same reason `orphaned` uses
+        // it: a bean the active search happens to exclude is still a valid
+        // parent or blocker, and offering a narrowed list would silently
+        // change what the new bean can be attached to.
+        candidates={fullBeans ?? []}
+        error={createBean.isError ? createBean.error : null}
+        onSubmit={handleCreateSubmit}
+        onClose={() => {
+          setIsCreating(false);
+        }}
+      />
       <FilterBar filter={filter} prefixOptions={prefixOptions} onChange={handleFilterChange} />
       <div className="sort-control">
         <label>

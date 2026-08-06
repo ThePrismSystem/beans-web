@@ -68,28 +68,55 @@ test.describe("the project view's create affordance", () => {
     expect(createBox.x + createBox.width).toBeCloseTo(filterBox.x + filterBox.width, 0);
   });
 
-  test("opens the form inline, above the filters, without covering the page", async ({ page }) => {
+  test("opens as a dialog that fits the phone viewport", async ({ page }) => {
     const { projectName } = readSeedState();
     await page.setViewportSize(MOBILE);
     await page.goto(`/p/${projectName}`);
 
     await page.getByRole("button", { name: "+ New bean" }).click();
 
-    const form = page.locator(".create-bean-form");
-    await expect(form).toBeVisible();
-    // A disclosure in the page flow, not a modal over it: the filter bar is
-    // still there, pushed down rather than hidden behind a scrim.
-    await expect(page.locator(".filter-bar")).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "New bean" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
 
-    const formBox = (await form.boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 };
-    const filterBox = (await page.locator(".filter-bar").boundingBox()) ?? {
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-    };
-    expect(formBox.y).toBeLessThan(filterBox.y);
-    // The form's first field is reachable without scrolling past the fold.
-    expect(formBox.y).toBeLessThan(MOBILE.height);
+    const box = (await dialog.boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 };
+    // Wholly on screen in both axes. A dialog taller than the viewport with no
+    // internal scroll puts Create bean somewhere unreachable on a phone.
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(MOBILE.width);
+    expect(box.height).toBeLessThanOrEqual(MOBILE.height);
+    // The submit control is reachable by scrolling the dialog, not the page.
+    await dialog.getByRole("button", { name: "Create bean" }).scrollIntoViewIfNeeded();
+    await expect(dialog.getByRole("button", { name: "Create bean" })).toBeVisible();
+  });
+
+  test("its bean picker stacks above it, and Escape unwinds one layer at a time", async ({
+    page,
+  }) => {
+    const { projectName } = readSeedState();
+    await page.goto(`/p/${projectName}`);
+
+    await page.getByRole("button", { name: "+ New bean" }).click();
+    const createDialog = page.getByRole("dialog", { name: "New bean" });
+    await createDialog.getByRole("button", { name: "Set parent" }).click();
+
+    const picker = page.getByRole("dialog", { name: "Set parent" });
+    await expect(picker).toBeVisible();
+
+    // Rendered over the dialog that opened it rather than under it: a point in
+    // the middle of the picker must hit the picker's own subtree.
+    const box = (await picker.boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 };
+    const onTop = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y)?.closest(".picker") !== null,
+      [box.x + box.width / 2, box.y + box.height / 2],
+    );
+    expect(onTop).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect(picker).toBeHidden();
+    await expect(createDialog).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(createDialog).toBeHidden();
   });
 });

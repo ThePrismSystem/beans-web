@@ -4,7 +4,7 @@ import { useId, useMemo, useState } from "react";
 
 import { BeanTypeTag } from "../components/BeanTypeTag.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
-import { CreateBeanForm } from "../components/CreateBeanForm.js";
+import { CreateBeanDialog } from "../components/CreateBeanDialog.js";
 import { EnumSelect } from "../components/EnumSelect.js";
 import { InlineEditRow } from "../components/InlineEditRow.js";
 import { RelationEditor } from "../components/RelationEditor.js";
@@ -415,7 +415,9 @@ function BeanDetailContent({
     addBlockedBy,
     removeBlockedBy,
     deleteBean,
-    createBean,
+    // createBean is deliberately absent: its dialog stays open on failure and
+    // reports the error itself, so listing it here would only leave a stale
+    // banner on the page behind once that dialog is dismissed.
     reopenAncestors,
   ];
   const latestMutation = mutations.reduce((latest, m) =>
@@ -619,8 +621,9 @@ function BeanDetailContent({
       <section className="bean-detail-actions">
         <button
           type="button"
+          aria-haspopup="dialog"
           onClick={() => {
-            setIsCreating((v) => !v);
+            setIsCreating(true);
           }}
         >
           + New bean
@@ -644,22 +647,19 @@ function BeanDetailContent({
         </button>
       </section>
 
-      {isCreating && (
-        <section className="bean-detail-section">
-          <h2 className="bean-detail-section-title">New bean</h2>
-          <CreateBeanForm
-            // Include the current bean so a pre-filled parent can render and be
-            // hierarchy-validated; RelationEditor still uses `candidates` (which
-            // excludes the current bean, since a bean cannot parent itself).
-            candidates={[bean, ...candidates]}
-            defaultParentId={bean.id}
-            onSubmit={handleCreateSubmit}
-            onCancel={() => {
-              setIsCreating(false);
-            }}
-          />
-        </section>
-      )}
+      <CreateBeanDialog
+        open={isCreating}
+        // Include the current bean so a pre-filled parent can render and be
+        // hierarchy-validated; RelationEditor still uses `candidates` (which
+        // excludes the current bean, since a bean cannot parent itself).
+        candidates={[bean, ...candidates]}
+        defaultParentId={bean.id}
+        error={createBean.isError ? createBean.error : null}
+        onSubmit={handleCreateSubmit}
+        onClose={() => {
+          setIsCreating(false);
+        }}
+      />
 
       <BeanDetailDialogs
         bean={bean}

@@ -1,10 +1,33 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { CreateBeanForm } from "./CreateBeanForm.js";
 
 import type { BeanListItem } from "@beans-web/shared";
+import type { UserEvent } from "@testing-library/user-event";
+
+/** The relation blocks render a chosen bean's title, or "(none)". */
+function relation(name: "parent" | "blocking" | "blocked-by") {
+  return screen.getByTestId(`create-bean-${name}`);
+}
+
+/**
+ * Opens a picker and chooses beans by title. A picker row's accessible name is
+ * built from its type tag, title and status dot, so rows are found by their
+ * title text rather than by an assembled name.
+ */
+async function pick(user: UserEvent, opener: string, dialogTitle: string, ...titles: string[]) {
+  await user.click(screen.getByRole("button", { name: opener }));
+  const dialog = within(screen.getByRole("dialog", { name: dialogTitle }));
+  for (const title of titles) {
+    await user.click(dialog.getByText(title));
+  }
+  const add = dialog.queryByRole("button", { name: /^Add \d/ });
+  if (add) {
+    await user.click(add);
+  }
+}
 
 const base: BeanListItem = {
   id: "x1",
@@ -34,10 +57,11 @@ describe("CreateBeanForm", () => {
     render(<CreateBeanForm candidates={candidates} onSubmit={vi.fn()} />);
 
     await user.selectOptions(screen.getByLabelText("Type"), "epic");
+    await user.click(screen.getByRole("button", { name: "Set parent" }));
 
-    const select = screen.getByLabelText("Parent");
-    expect(select).toHaveTextContent("M1");
-    expect(select).not.toHaveTextContent("E2");
+    const picker = within(screen.getByRole("dialog", { name: "Set parent" }));
+    expect(picker.getByText("M1")).toBeInTheDocument();
+    expect(picker.queryByText("E2")).not.toBeInTheDocument();
   });
 
   it("requires a title before submitting", async () => {
@@ -58,7 +82,7 @@ describe("CreateBeanForm", () => {
 
     await user.type(screen.getByLabelText("Title (required)"), "New epic");
     await user.selectOptions(screen.getByLabelText("Type"), "epic");
-    await user.selectOptions(screen.getByLabelText("Parent"), "m1");
+    await pick(user, "Set parent", "Set parent", "M1");
     await user.selectOptions(screen.getByLabelText("Priority"), "high");
     await user.type(screen.getByLabelText("Tags"), "a, b");
     await user.type(screen.getByLabelText("Body"), "details");
@@ -72,7 +96,54 @@ describe("CreateBeanForm", () => {
       tags: ["a", "b"],
       body: "details",
       parent: "m1",
+      blocking: [],
+      blockedBy: [],
     });
+  });
+
+  it("submits the beans chosen in each blocking direction", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<CreateBeanForm candidates={candidates} onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Title (required)"), "Wired task");
+    await pick(user, "Add blocks", "Add blocks", "M1");
+    await pick(user, "Add blocked by", "Add blocked by", "E2");
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    // The two directions must not be crossed: M1 blocks, E2 blocked by.
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ blocking: ["m1"], blockedBy: ["e2"] }),
+    );
+  });
+
+  it("drops a bean from its own picker once chosen, so it cannot be added twice", async () => {
+    const user = userEvent.setup();
+    render(<CreateBeanForm candidates={candidates} onSubmit={vi.fn()} />);
+
+    await pick(user, "Add blocks", "Add blocks", "M1");
+    await user.click(screen.getByRole("button", { name: "Add blocks" }));
+
+    const picker = within(screen.getByRole("dialog", { name: "Add blocks" }));
+    expect(picker.queryByText("M1")).not.toBeInTheDocument();
+    expect(picker.getByText("E2")).toBeInTheDocument();
+  });
+
+  it("removes a chosen bean from the list and from the payload", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<CreateBeanForm candidates={candidates} onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Title (required)"), "Wired task");
+    await pick(user, "Add blocks", "Add blocks", "M1");
+    expect(within(relation("blocking")).getByText("M1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove M1 from blocks" }));
+    await user.click(screen.getByRole("button", { name: "Create bean" }));
+
+    expect(within(relation("blocking")).queryByText("M1")).not.toBeInTheDocument();
+    expect(within(relation("blocking")).getByText("(none)")).toBeInTheDocument();
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ blocking: [] }));
   });
 
   it("pre-fills a valid child type and the parent for a milestone defaultParentId", async () => {
@@ -82,7 +153,7 @@ describe("CreateBeanForm", () => {
 
     // milestone can parent an epic (first valid child type in BEAN_TYPES order)
     expect(screen.getByLabelText("Type")).toHaveValue("epic");
-    expect(screen.getByLabelText("Parent")).toHaveValue("m1");
+    expect(within(relation("parent")).getByText("M1")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Title (required)"), "Child epic");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
@@ -102,7 +173,7 @@ describe("CreateBeanForm", () => {
 
     // A task cannot be a parent, so parentId is cleared and type stays "task".
     expect(screen.getByLabelText("Type")).toHaveValue("task");
-    expect(screen.getByLabelText("Parent")).toHaveValue("");
+    expect(within(relation("parent")).getByText("(none)")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Title (required)"), "Sibling task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
@@ -122,7 +193,7 @@ describe("CreateBeanForm", () => {
     );
 
     expect(screen.getByLabelText("Type")).toHaveValue("task");
-    expect(screen.getByLabelText("Parent")).toHaveValue("");
+    expect(within(relation("parent")).getByText("(none)")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Title (required)"), "Orphan task");
     await user.click(screen.getByRole("button", { name: "Create bean" }));
@@ -135,13 +206,13 @@ describe("CreateBeanForm", () => {
     render(<CreateBeanForm candidates={candidates} defaultParentId="m1" onSubmit={vi.fn()} />);
 
     expect(screen.getByLabelText("Type")).toHaveValue("epic");
-    expect(screen.getByLabelText("Parent")).toHaveValue("m1");
+    expect(within(relation("parent")).getByText("M1")).toBeInTheDocument();
 
     // "feature" can also parent under a milestone, so the pre-filled parent
     // should survive the type change instead of being cleared.
     await user.selectOptions(screen.getByLabelText("Type"), "feature");
 
-    expect(screen.getByLabelText("Parent")).toHaveValue("m1");
+    expect(within(relation("parent")).getByText("M1")).toBeInTheDocument();
   });
 
   it("sets a chosen status", async () => {
@@ -162,7 +233,8 @@ describe("CreateBeanForm", () => {
 
     await user.selectOptions(screen.getByLabelText("Type"), "milestone");
 
-    expect(screen.queryByLabelText("Parent")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set parent" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("create-bean-parent")).not.toBeInTheDocument();
   });
 
   it("still renders the Parent control when no candidate parents exist for a non-milestone type", () => {
@@ -171,9 +243,8 @@ describe("CreateBeanForm", () => {
     // milestones.
     render(<CreateBeanForm candidates={[]} onSubmit={vi.fn()} />);
 
-    const parent = screen.getByLabelText("Parent");
-    expect(parent).toBeInTheDocument();
-    expect(parent).toHaveTextContent("(none)");
+    expect(screen.getByRole("button", { name: "Set parent" })).toBeInTheDocument();
+    expect(within(relation("parent")).getByText("(none)")).toBeInTheDocument();
   });
 
   describe("required-title error reporting", () => {
