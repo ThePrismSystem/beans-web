@@ -18,6 +18,12 @@ reaching the UI by anything other than `localhost` now needs configuration.
   page, where every new bean is a child of the one you are looking at — so a
   top-level bean meant opening an unrelated bean and clearing its parent, and a
   project with no beans yet had no way in at all.
+- The new-bean form can set **Blocks** and **Blocked by**, alongside the parent.
+  All three now use the same searchable, filterable bean picker the bean detail
+  page uses, in place of a plain dropdown that listed every candidate by title
+  and nothing else. The relations are declared in the same request that creates
+  the bean rather than as follow-up edits.
+- The form opens as a dialog rather than expanding the page beneath the button.
 
 ### Security
 

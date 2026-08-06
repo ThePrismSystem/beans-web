@@ -107,12 +107,12 @@ test("core client-visible contract", async ({ page }) => {
   const childTitle = `${editedTitle} child`;
   await test.step("create a child bean respecting hierarchy", async () => {
     await page.getByRole("button", { name: "+ New bean" }).click();
-    const createForm = page.locator(".create-bean-form");
-    // The feature bean should be pre-selected as parent, since a task can
+    const createDialog = page.getByRole("dialog", { name: "New bean" });
+    // The feature bean should be pre-filled as parent, since a task can
     // validly nest under a feature.
-    await expect(createForm.getByLabel("Parent")).toHaveValue(/.+/);
-    await createForm.getByLabel("Title (required)", { exact: true }).fill(childTitle);
-    await createForm.getByRole("button", { name: "Create bean" }).click();
+    await expect(createDialog.getByTestId("create-bean-parent")).toContainText(editedTitle);
+    await createDialog.getByLabel("Title (required)", { exact: true }).fill(childTitle);
+    await createDialog.getByRole("button", { name: "Create bean" }).click();
 
     // Successful creation navigates to the new child's detail page.
     await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);
@@ -143,22 +143,34 @@ test("core client-visible contract", async ({ page }) => {
     await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);
   });
 
-  // Last, because it adds a bean to the seeded project: the create form on the
-  // bean detail page can only ever produce a child, so this is the only path
-  // that exercises a create with no parent at all against the real binary.
-  await test.step("create a bean with no parent from the project view", async () => {
+  // Last, because it adds a bean to the seeded project. Two things only this
+  // path reaches against the real binary: a create with no parent at all (the
+  // detail page's form always pre-fills one), and a create that declares a
+  // blocking edge in the same mutation rather than in a follow-up.
+  await test.step("create a top-level bean with a blocking edge, from the project view", async () => {
     await page.locator("nav.sidebar").getByText(projectName).first().click();
     await page.getByRole("button", { name: "+ New bean" }).click();
 
-    const createForm = page.locator(".create-bean-form");
-    await expect(createForm.getByLabel("Parent")).toHaveValue("");
-    await createForm.getByLabel("Title (required)", { exact: true }).fill("Top level bean");
-    await createForm.getByRole("button", { name: "Create bean" }).click();
+    const createDialog = page.getByRole("dialog", { name: "New bean" });
+    await expect(createDialog.getByTestId("create-bean-parent")).toContainText("(none)");
+    await createDialog.getByLabel("Title (required)", { exact: true }).fill("Top level bean");
+
+    await createDialog.getByRole("button", { name: "Add blocks" }).click();
+    const picker = page.getByRole("dialog", { name: "Add blocks" });
+    // The feature, not the child bean: the child was scrapped two steps ago and
+    // the picker lists open statuses only.
+    await picker.getByLabel(`Select ${editedTitle}`).check();
+    await picker.getByRole("button", { name: /^Add 1/ }).click();
+    await expect(createDialog.getByTestId("create-bean-blocking")).toContainText(editedTitle);
+
+    await createDialog.getByRole("button", { name: "Create bean" }).click();
 
     await expect(page.locator("button.bean-detail-title")).toHaveText("Top level bean");
-    // The Parent row always renders for a type that could have one; what
-    // proves the bean is top level is that it holds "(none)" rather than a link.
-    await expect(page.getByTestId("relations").getByText("(none)")).toBeVisible();
+    const relations = page.getByTestId("relations");
+    // The Parent row always renders for a type that could have one; what proves
+    // the bean is top level is that it holds "(none)" rather than a link.
+    await expect(relations.getByText("(none)")).toBeVisible();
+    await expect(relations.getByRole("link", { name: editedTitle })).toBeVisible();
   });
 
   await test.step("analytics page renders", async () => {

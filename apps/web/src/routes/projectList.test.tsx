@@ -151,24 +151,72 @@ describe("ProjectList", () => {
     expect(await screen.findByRole("button", { name: "+ New bean" })).toBeInTheDocument();
   });
 
-  it("reveals the create form when the disclosure is toggled, and hides it again", async () => {
+  it("opens the create dialog and closes it again", async () => {
     useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
     const user = userEvent.setup();
 
     renderProjectList();
-    const toggle = await screen.findByRole("button", { name: "+ New bean" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Title (required)")).not.toBeInTheDocument();
+    const opener = await screen.findByRole("button", { name: "+ New bean" });
+    expect(opener).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.queryByRole("dialog", { name: "New bean" })).not.toBeInTheDocument();
 
-    await user.click(toggle);
+    await user.click(opener);
 
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("dialog", { name: "New bean" })).toBeInTheDocument();
     expect(screen.getByLabelText("Title (required)")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Title (required)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "New bean" })).not.toBeInTheDocument();
+    // Focus returns to the control that opened the dialog (WCAG 2.4.3).
+    expect(opener).toHaveFocus();
+  });
+
+  it("closes the create dialog on Escape", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    expect(screen.getByRole("dialog", { name: "New bean" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "New bean" })).not.toBeInTheDocument();
+  });
+
+  it("Escape closes only the bean picker, leaving the dialog that opened it", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.click(screen.getByRole("button", { name: "Set parent" }));
+    expect(screen.getByRole("dialog", { name: "Set parent" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    // Both traps listen on the document, so without a stack this one keypress
+    // would take the create dialog down with the picker — losing the whole form.
+    expect(screen.queryByRole("dialog", { name: "Set parent" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "New bean" })).toBeInTheDocument();
+  });
+
+  it("reports a failed create inside the dialog, where the dialog has not closed", async () => {
+    useBeansMock.mockReturnValue({ data: beans, isPending: false, isError: false });
+    useCreateBeanMock.mockReturnValue({
+      mutate: createBeanMutate,
+      error: new Error("beans said no"),
+      isError: true,
+      submittedAt: 1,
+    });
+    const user = userEvent.setup();
+
+    renderProjectList();
+    await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+
+    const dialog = within(screen.getByRole("dialog", { name: "New bean" }));
+    expect(dialog.getByRole("alert")).toHaveTextContent("beans said no");
   });
 
   it("creates a bean with no parent, since the project view has no bean in context", async () => {
@@ -193,14 +241,15 @@ describe("ProjectList", () => {
 
     renderProjectList();
     await user.click(await screen.findByRole("button", { name: "+ New bean" }));
+    await user.click(screen.getByRole("button", { name: "Set parent" }));
 
     // Default type is "task", which milestones and epics may parent but tasks
     // and bugs may not — so the list is hierarchy-filtered, not the raw set.
-    const parent = screen.getByLabelText("Parent");
-    expect(within(parent).getByRole("option", { name: "Milestone One" })).toBeInTheDocument();
-    expect(within(parent).getByRole("option", { name: "Epic One" })).toBeInTheDocument();
-    expect(within(parent).queryByRole("option", { name: "Bug One" })).not.toBeInTheDocument();
-    expect(within(parent).queryByRole("option", { name: "Task One" })).not.toBeInTheDocument();
+    const picker = within(screen.getByRole("dialog", { name: "Set parent" }));
+    expect(picker.getByText("Milestone One")).toBeInTheDocument();
+    expect(picker.getByText("Epic One")).toBeInTheDocument();
+    expect(picker.queryByText("Bug One")).not.toBeInTheDocument();
+    expect(picker.queryByText("Task One")).not.toBeInTheDocument();
   });
 
   it("opens the form with no parent options while the project is still loading", async () => {
@@ -213,9 +262,9 @@ describe("ProjectList", () => {
     await user.click(await screen.findByRole("button", { name: "+ New bean" }));
 
     expect(screen.getByLabelText("Title (required)")).toBeInTheDocument();
-    const parent = screen.getByLabelText("Parent");
-    expect(within(parent).getAllByRole("option")).toHaveLength(1);
-    expect(within(parent).getByRole("option", { name: "(none)" })).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("create-bean-parent")).getByText("(none)"),
+    ).toBeInTheDocument();
   });
 
   it("closes the form and opens the new bean once creation succeeds", async () => {

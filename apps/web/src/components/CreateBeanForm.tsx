@@ -7,6 +7,8 @@ import {
 } from "@beans-web/shared";
 import { useRef, useState } from "react";
 
+import { BeanPicker } from "./BeanPicker.js";
+import { BeanTypeTag } from "./BeanTypeTag.js";
 import { EnumSelect } from "./EnumSelect.js";
 
 import type { CreateBeanInput } from "../api/generated.js";
@@ -14,6 +16,55 @@ import type { BeanListItem, BeanPriority, BeanStatus, BeanType } from "@beans-we
 import type { ChangeEvent, SubmitEvent } from "react";
 
 const TITLE_ERROR_ID = "create-bean-title-error";
+
+type Picker = null | "parent" | "blocking" | "blockedBy";
+
+/**
+ * A chosen relation, before the bean exists. Deliberately not `RelationRow`:
+ * these have no origin to distinguish (nothing has declared an edge to a bean
+ * that has no id yet) and nothing to link to, so they are titles and a Remove.
+ * The `relation-editor-*` classes are shared so both surfaces read alike.
+ */
+function RelationChoices({
+  label,
+  rows,
+  addLabel,
+  onRemove,
+}: {
+  label: string;
+  rows: BeanListItem[];
+  addLabel: string;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <>
+      <h3 className="relation-editor-label">{label}</h3>
+      <ul className="relation-editor-list">
+        {rows.length === 0 && (
+          <li className="relation-editor-item">
+            <span className="muted">(none)</span>
+          </li>
+        )}
+        {rows.map((row) => (
+          <li key={row.id} className="relation-editor-item">
+            <BeanTypeTag type={row.type} />
+            <span className="relation-editor-title">{row.title}</span>
+            <button
+              type="button"
+              className="relation-editor-remove"
+              aria-label={`Remove ${row.title} from ${addLabel}`}
+              onClick={() => {
+                onRemove(row.id);
+              }}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
 
 export interface CreateBeanFormProps {
   candidates: BeanListItem[];
@@ -62,9 +113,23 @@ export function CreateBeanForm({
   const [tags, setTags] = useState("");
   const [body, setBody] = useState("");
   const [titleError, setTitleError] = useState(false);
+  const [blockingIds, setBlockingIds] = useState<string[]>([]);
+  const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
+  const [picker, setPicker] = useState<Picker>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
+  const byId = (id: string) => candidates.find((candidate) => candidate.id === id);
+  const chosen = (ids: string[]) => ids.map(byId).filter((row) => row !== undefined);
+
   const parentOptions = candidates.filter((candidate) => canParent(type, candidate.type));
+  const parentBean = parentId ? byId(parentId) : undefined;
+  const blockingRows = chosen(blockingIds);
+  const blockedByRows = chosen(blockedByIds);
+  // Already-chosen beans drop out of their own picker; the reverse direction is
+  // left alone, so blocking and being blocked by the same bean is still
+  // offerable and is rejected by the server's cycle check rather than guessed at.
+  const blockingOptions = candidates.filter((candidate) => !blockingIds.includes(candidate.id));
+  const blockedByOptions = candidates.filter((candidate) => !blockedByIds.includes(candidate.id));
   // Show the parent control iff the selected type can have a parent at all
   // (hidden only for milestones), regardless of whether the project currently
   // has candidate parents of the right type — matching RelationEditor.
@@ -78,18 +143,6 @@ export function CreateBeanForm({
     if (!stillValid) {
       setParentId("");
     }
-  }
-
-  function handleParentChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextParentId = event.target.value;
-    // Only accept a parent that is a valid parent for the current type; any
-    // other value (including a stale one) collapses to "(none)".
-    const valid =
-      nextParentId === "" ||
-      candidates.some(
-        (candidate) => candidate.id === nextParentId && canParent(type, candidate.type),
-      );
-    setParentId(valid ? nextParentId : "");
   }
 
   function handleTagsChange(event: ChangeEvent<HTMLInputElement>) {
@@ -119,6 +172,8 @@ export function CreateBeanForm({
       tags: tagList,
       body,
       parent: parentId || null,
+      blocking: blockingIds,
+      blockedBy: blockedByIds,
     });
   }
 
@@ -160,18 +215,68 @@ export function CreateBeanForm({
       </div>
 
       {showParent && (
-        <div className="create-bean-field">
-          <label htmlFor="create-bean-parent">Parent</label>
-          <select id="create-bean-parent" value={parentId} onChange={handleParentChange}>
-            <option value="">(none)</option>
-            {parentOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.title}
-              </option>
-            ))}
-          </select>
+        <div className="create-bean-field create-bean-relations" data-testid="create-bean-parent">
+          <h3 className="relation-editor-label">Parent</h3>
+          <ul className="relation-editor-list">
+            <li className="relation-editor-item">
+              {parentBean ? (
+                <>
+                  <BeanTypeTag type={parentBean.type} />
+                  <span className="relation-editor-title">{parentBean.title}</span>
+                </>
+              ) : (
+                <span className="muted">(none)</span>
+              )}
+            </li>
+          </ul>
+          <button
+            type="button"
+            onClick={() => {
+              setPicker("parent");
+            }}
+          >
+            Set parent
+          </button>
         </div>
       )}
+
+      <div className="create-bean-field create-bean-relations" data-testid="create-bean-blocking">
+        <RelationChoices
+          label="Blocks"
+          rows={blockingRows}
+          addLabel="blocks"
+          onRemove={(id) => {
+            setBlockingIds((ids) => ids.filter((each) => each !== id));
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setPicker("blocking");
+          }}
+        >
+          Add blocks
+        </button>
+      </div>
+
+      <div className="create-bean-field create-bean-relations" data-testid="create-bean-blocked-by">
+        <RelationChoices
+          label="Blocked by"
+          rows={blockedByRows}
+          addLabel="blocked by"
+          onRemove={(id) => {
+            setBlockedByIds((ids) => ids.filter((each) => each !== id));
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setPicker("blockedBy");
+          }}
+        >
+          Add blocked by
+        </button>
+      </div>
 
       <div className="create-bean-field">
         <label htmlFor="create-bean-status">Status</label>
@@ -218,6 +323,47 @@ export function CreateBeanForm({
         )}
         <button type="submit">Create bean</button>
       </div>
+
+      <BeanPicker
+        open={picker === "parent"}
+        title="Set parent"
+        candidates={parentOptions}
+        mode="single"
+        allowNone
+        onClose={() => {
+          setPicker(null);
+        }}
+        onPick={(ids) => {
+          setPicker(null);
+          setParentId(ids[0] ?? "");
+        }}
+      />
+      <BeanPicker
+        open={picker === "blocking"}
+        title="Add blocks"
+        candidates={blockingOptions}
+        mode="multi"
+        onClose={() => {
+          setPicker(null);
+        }}
+        onPick={(ids) => {
+          setPicker(null);
+          setBlockingIds((current) => [...current, ...ids]);
+        }}
+      />
+      <BeanPicker
+        open={picker === "blockedBy"}
+        title="Add blocked by"
+        candidates={blockedByOptions}
+        mode="multi"
+        onClose={() => {
+          setPicker(null);
+        }}
+        onPick={(ids) => {
+          setPicker(null);
+          setBlockedByIds((current) => [...current, ...ids]);
+        }}
+      />
     </form>
   );
 }
