@@ -143,6 +143,24 @@ test("core client-visible contract", async ({ page }) => {
     await expect(page.locator("button.bean-detail-title")).toHaveText(childTitle);
   });
 
+  // Last, because it adds a bean to the seeded project: the create form on the
+  // bean detail page can only ever produce a child, so this is the only path
+  // that exercises a create with no parent at all against the real binary.
+  await test.step("create a bean with no parent from the project view", async () => {
+    await page.locator("nav.sidebar").getByText(projectName).first().click();
+    await page.getByRole("button", { name: "+ New bean" }).click();
+
+    const createForm = page.locator(".create-bean-form");
+    await expect(createForm.getByLabel("Parent")).toHaveValue("");
+    await createForm.getByLabel("Title (required)", { exact: true }).fill("Top level bean");
+    await createForm.getByRole("button", { name: "Create bean" }).click();
+
+    await expect(page.locator("button.bean-detail-title")).toHaveText("Top level bean");
+    // The Parent row always renders for a type that could have one; what
+    // proves the bean is top level is that it holds "(none)" rather than a link.
+    await expect(page.getByTestId("relations").getByText("(none)")).toBeVisible();
+  });
+
   await test.step("analytics page renders", async () => {
     await page.getByRole("link", { name: "Analytics" }).click();
     await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
