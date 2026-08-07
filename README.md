@@ -12,6 +12,31 @@ gives each one a browsable overview, hierarchy and flat bean lists, and a detail
 editing and relationship management. It also does cross-project search and simple analytics.
 Everything reads and writes your on-disk `.beans` files directly; there is no separate database.
 
+## Screenshots
+
+Every project under your `GIT_ROOT`, with open and total counts broken down by bean type:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
+  <img src="docs/screenshots/overview-light.png" alt="The overview, listing five beans projects with their open and total counts broken down by type">
+</picture>
+
+Inside a project, beans nest by parent so a milestone shows the epics and bugs underneath it.
+Filters and sorting sit above the list, and a flat view is one click away:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/project-dark.png">
+  <img src="docs/screenshots/project-light.png" alt="A project view showing a milestone expanded into nested epics, features, tasks and bugs, above filter and sort controls">
+</picture>
+
+A bean renders its Markdown body and puts every field inline — type, status, priority and tags
+are editable in place, as are its parent and blocking relationships:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/bean-detail-dark.png">
+  <img src="docs/screenshots/bean-detail-light.png" alt="A bug's detail view showing its rendered Markdown body, inline-editable fields, its parent epic, and the feature it blocks">
+</picture>
+
 It is a pnpm monorepo with two apps and a shared package:
 
 - `apps/server` is a [Hono](https://hono.dev) API server. It discovers `beans` projects, proxies
@@ -29,7 +54,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
 - **Node.js 24+** (see `.nvmrc`)
 - **pnpm** (see [pnpm.io/installation](https://pnpm.io/installation); this repo was built against
-  pnpm 10)
+  pnpm 11)
 - The **`beans`** CLI binary on your `PATH`. Install it with:
 
   ```bash
