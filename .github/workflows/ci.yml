@@ -237,8 +237,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # No --with-deps: that shells out to sudo to install system libraries, and
+      # the runners have no passwordless sudo. The libraries are already part of
+      # the runner image; only the browser build itself, which lands in the
+      # user's cache, has to track the pinned Playwright version.
       - name: Install Playwright browser
-        run: pnpm --filter @beans-web/web exec playwright install --with-deps chromium
+        run: pnpm --filter @beans-web/web exec playwright install chromium
 
       - name: Run e2e tests
         run: pnpm --filter @beans-web/web e2e
