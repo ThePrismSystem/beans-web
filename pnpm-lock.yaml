@@ -68,7 +68,7 @@ importers:
         version: link:../../packages/shared
       '@hono/node-server':
         specifier: ^2.1.0
-        version: 2.1.0(hono@4.13.0)
+        version: 2.1.0(hono@4.13.5)
       '@t3-oss/env-core':
         specifier: ^0.13.11
         version: 0.13.11(typescript@6.0.3)(zod@4.4.3)
@@ -77,7 +77,7 @@ importers:
         version: 5.0.0
       hono:
         specifier: ^4.13.0
-        version: 4.13.0
+        version: 4.13.5
       tsx:
         specifier: ^4.23.9
         version: 4.23.9
@@ -2905,8 +2905,8 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
-  hono@4.13.0:
-    resolution: {integrity: sha512-jhunvfHWxd7J5EFfSgH4xsYJzSe/lfqbUCxiyyeaQasUsXeEHXtzVid+7EOGByc5JnFa23SSFL3Y2RV/z1T+eQ==}
+  hono@4.13.5:
+    resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
     engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@6.0.0:
@@ -5205,9 +5205,9 @@ snapshots:
     dependencies:
       graphql: 17.0.2
 
-  '@hono/node-server@2.1.0(hono@4.13.0)':
+  '@hono/node-server@2.1.0(hono@4.13.5)':
     dependencies:
-      hono: 4.13.0
+      hono: 4.13.5
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -6816,7 +6816,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.25.1
 
-  hono@4.13.0: {}
+  hono@4.13.5: {}
 
   html-encoding-sniffer@6.0.0:
     dependencies:
