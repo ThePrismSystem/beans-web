@@ -71,7 +71,7 @@ importers:
         version: 2.1.0(hono@4.13.0)
       '@t3-oss/env-core':
         specifier: ^0.13.11
-        version: 0.13.11(typescript@6.0.3)(zod@4.4.3)
+        version: 0.13.11(typescript@6.0.3)(zod@4.6.6)
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
@@ -83,7 +83,7 @@ importers:
         version: 4.23.9
       zod:
         specifier: ^4.4.3
-        version: 4.4.3
+        version: 4.6.6
     devDependencies:
       '@types/node':
         specifier: ^24.13.3
@@ -4067,6 +4067,9 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
+
 snapshots:
 
   '@actions/core@3.0.1':
@@ -5660,10 +5663,10 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@t3-oss/env-core@0.13.11(typescript@6.0.3)(zod@4.4.3)':
+  '@t3-oss/env-core@0.13.11(typescript@6.0.3)(zod@4.6.6)':
     optionalDependencies:
       typescript: 6.0.3
-      zod: 4.4.3
+      zod: 4.6.6
 
   '@tanstack/history@1.162.1': {}
 
@@ -7894,3 +7897,5 @@ snapshots:
   zod@3.25.76: {}
 
   zod@4.4.3: {}
+
+  zod@4.6.6: {}
