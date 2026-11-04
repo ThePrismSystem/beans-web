@@ -17,3 +17,17 @@ minimumReleaseAgeExclude:
 overrides:
   lodash: ">=4.18.0"
   brace-expansion: ">=5.0.8"
+
+# Dev-only advisories with no fix reachable from our dependents. Drop each entry
+# once its upstream moves and `pnpm audit` stays clean without it.
+auditConfig:
+  ignoreGhsas:
+    # minimatch 10 (glob-pattern DoS) is fixed only in 11, which removes makeRe.
+    # ESLint pins ^10 and eslint-plugin-import-x calls makeRe. Every glob it
+    # sees comes from our own lint config.
+    - GHSA-g3hv-75wg-m249
+    # zod < 4.6.6 (memory exhaustion) has no patched 3.x, and
+    # @codecov/vite-plugin still needs zod 3. It validates only our own plugin
+    # options. The server's zod is floored at ^4.6.6 so this ignore cannot
+    # hide a vulnerable copy on the runtime path.
+    - GHSA-mrhx-c7xc-m3w5
