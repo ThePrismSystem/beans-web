@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-11-04
+
+Raises the server and the bundled UI past the open advisories for hono, zod and
+DOMPurify, and brings the toolchain up to date. Nothing to do to upgrade.
+
+### Security
+
+- `hono` 4.13.11, `zod` 4.6.6 and `dompurify` 3.4.17 are the advisory-covered
+  packages that ship in the image. None of their advisories reaches this code as
+  written: static files are served by `@hono/node-server`'s own `serveStatic`
+  rather than hono's, nothing calls `parseBody()` or renders `hono/jsx`, zod
+  validates no length-constrained collection, and the UI sanitizes markdown from
+  a string, never in DOMPurify's `IN_PLACE` mode, with a hook that removes
+  nothing. They are raised anyway so that stays true without re-checking.
+- `vite` 8.2.4 and `vitest` 4.1.11 close dev-server and test-runner advisories:
+  files outside `server.fs.allow` being served, Windows command injection through
+  `launch-editor`, and file reads through a redirected mock. Neither package is
+  in the image, so this matters only when running `pnpm dev` or the tests.
+
+### Changed
+
+- The toolchain moves to pnpm 11 and TypeScript 6, along with the rest of the
+  pending updates, among them zod 4, graphql 17 and jsdom 30. TypeScript stops
+  at 6 because typescript-eslint cannot load under 7 yet. Contributors pick up
+  pnpm 11 through `packageManager`, with nothing to install by hand.
+
 ## [0.3.0] - 2026-08-05
 
 A full audit before the repository goes public. This closes several ways a
@@ -395,6 +421,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.3.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.0
 [0.2.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.0
