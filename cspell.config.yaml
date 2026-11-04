@@ -93,6 +93,8 @@ words:
   # The /proc mount option that hides other users' processes; named in
   # SECURITY.md as an operator mitigation for the same exposure.
   - hidepid
+  # TanStack Router's serializer; named in the 0.3.1 changelog's advisory list.
+  - seroval
 ignorePaths:
   - node_modules
   - dist

@@ -20,7 +20,7 @@
 # a newer patch can fix stdlib CVEs that the image-scan job's gobinary scan
 # would otherwise catch drifting. CI derives its toolchain from this line (see
 # .github/workflows/ci.yml) so both sides compile beans with the identical Go.
-FROM golang:1.26.5-bookworm AS beans-builder
+FROM golang:1.26.10-bookworm AS beans-builder
 # Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
 # the binary CI tested against.
 ARG BEANS_VERSION=v0.4.2

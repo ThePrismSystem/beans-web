@@ -1,11 +1,11 @@
 ---
 # bf-65xl
 title: Add a new-bean affordance to the project view
-status: in-progress
+status: completed
 type: feature
 priority: high
 created_at: 2026-08-06T14:33:51Z
-updated_at: 2026-08-06T15:39:16Z
+updated_at: 2026-08-09T00:57:44Z
 ---
 
 The project view has no create affordance. The only way to create a bean is from a bean detail page, so an empty project is a dead end and a top-level bean requires opening an unrelated bean to clear its parent. Reuse the existing CreateBeanForm and the '+ New bean' disclosure pattern; place it responsively for mobile and desktop.

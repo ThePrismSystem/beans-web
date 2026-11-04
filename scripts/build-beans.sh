@@ -39,6 +39,6 @@ go mod init beansbuild
 go get "github.com/hmans/beans@${version}"
 # Deliberate, not `@latest`: builds stay reproducible, and the image-scan CI
 # job goes red when these go stale, which is the signal to bump them.
-go get golang.org/x/net@v0.55.0 golang.org/x/text@v0.39.0
+go get golang.org/x/net@v0.60.0 golang.org/x/text@v0.42.0
 
 go build -o "$output" github.com/hmans/beans

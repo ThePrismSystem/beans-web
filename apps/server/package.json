@@ -22,7 +22,7 @@
     "chokidar": "^5.0.0",
     "hono": "^4.13.0",
     "tsx": "^4.23.9",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

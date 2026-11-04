@@ -4,6 +4,44 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-11-04
+
+Clears the advisories that had accumulated against the image since 0.3.0: in
+the server's and the UI's own dependencies, in the tooling that ships beside
+them, and in the bundled `beans` binary. It also brings the toolchain up to
+date. Nothing to do to upgrade.
+
+### Security
+
+- The runtime dependencies move past their advisories: `hono` 4.13.11,
+  `@hono/node-server` 2.1.6, `zod` 4.6.6 and `dompurify` 3.4.17. The nearest
+  miss was `@hono/node-server`'s `serveStatic`, which decoded the request path
+  twice and so let a request skip path-scoped middleware. Here it serves only
+  the public UI bundle, after every API route and behind headers that apply to
+  every path, so nothing protected sat behind it. The rest cover code this app
+  does not call: hono's own `serveStatic`, `parseBody()` and `hono/jsx`, zod's
+  length-constrained collections, and DOMPurify's `IN_PLACE` mode.
+- The `beans` binary is now built with Go 1.26.10, `golang.org/x/net` 0.60.0
+  and `golang.org/x/text` 0.42.0, clearing the fifteen high-severity findings
+  the image scan reported against it.
+- Tooling that sits in the image's `node_modules` without running in it is
+  refreshed too. That includes a critical command-injection fix in
+  `shell-quote`, pulled in by GraphQL Codegen, along with `undici`, `fast-uri`,
+  `seroval`, `js-yaml`, `@fastify/busboy`, `vite` 8.2.4 and `vitest` 4.1.12.
+  `seroval` comes in through TanStack Router but is tree-shaken out of the UI
+  bundle.
+- Two development-only advisories have no upstream fix yet and are ignored by
+  `pnpm audit`, with the reasoning beside them in `pnpm-workspace.yaml`:
+  minimatch 10 under ESLint, and zod 3 under the Codecov bundle plugin. Neither
+  reads anything but this repository's own configuration.
+
+### Changed
+
+- The toolchain moves to pnpm 11 and TypeScript 6, along with the rest of the
+  pending updates, among them zod 4, graphql 17 and jsdom 30. TypeScript stops
+  at 6 because typescript-eslint cannot load under 7 yet. Contributors pick up
+  pnpm 11 through `packageManager`, with nothing to install by hand.
+
 ## [0.3.0] - 2026-08-05
 
 A full audit before the repository goes public. This closes several ways a
@@ -395,6 +433,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.3.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.0
 [0.2.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.0
