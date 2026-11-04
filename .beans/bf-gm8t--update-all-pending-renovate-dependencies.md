@@ -1,11 +1,11 @@
 ---
 # bf-gm8t
 title: Update all pending Renovate dependencies
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-08-06T17:18:31Z
-updated_at: 2026-08-06T17:30:59Z
+updated_at: 2026-08-09T00:57:08Z
 ---
 
 Apply all 21 Renovate dashboard updates and run the full CI gate.
