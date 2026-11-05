@@ -12,7 +12,7 @@ import type { BeanDetail, BeanListItem, LinkedBean } from "@beans-web/shared";
  * side wrote it and never resolves the inverse, so removing an `inbound` edge
  * means mutating the *other* bean — see `RelationEditorProps.onChange`.
  */
-export type RelationOrigin = "own" | "inbound";
+type RelationOrigin = "own" | "inbound";
 
 export type RelationChange =
   | { kind: "setParent"; parentId: string | null }

@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "scripts": {
     "dev": "pnpm --parallel -r dev",
@@ -25,22 +25,22 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.1",
-    "@commitlint/config-conventional": "^21.2.0",
-    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.2",
-    "cspell": "^10.0.1",
-    "eslint": "^10.8.0",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
+    "cspell": "^10.4.0",
+    "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import-x": "^4.17.1",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.3",
-    "eslint-plugin-unicorn": "^73.0.0",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "eslint-plugin-unicorn": "^79.0.0",
     "husky": "^9.1.7",
-    "knip": "^6.32.0",
-    "lint-staged": "^17.3.0",
-    "prettier": "^3.9.6",
+    "knip": "^6.43.0",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.66.0"
+    "typescript-eslint": "^8.72.1"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

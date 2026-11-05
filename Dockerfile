@@ -12,15 +12,19 @@
 #     package is consumed as raw TS), so the runtime image keeps the source +
 #     node_modules rather than a compiled JS bundle.
 
+# Node 25 stopped bundling corepack, so both Node stages install it from npm.
+# Declared before the first FROM so the two stages share one pin.
+ARG COREPACK_VERSION=0.36.0
+
 # ---------------------------------------------------------------------------
 # Stage 1 — build the `beans` CLI. CGO is disabled so the result is a static
 # binary that runs on any glibc/musl base without extra shared libraries.
 # ---------------------------------------------------------------------------
-# The Go patch version is pinned explicitly, not floated as "1.26-bookworm":
+# The Go patch version is pinned explicitly, not floated as "1.27-bookworm":
 # a newer patch can fix stdlib CVEs that the image-scan job's gobinary scan
 # would otherwise catch drifting. CI derives its toolchain from this line (see
 # .github/workflows/ci.yml) so both sides compile beans with the identical Go.
-FROM golang:1.26.10-bookworm AS beans-builder
+FROM golang:1.27.3-bookworm AS beans-builder
 # Keep in sync with the pin in .github/workflows/ci.yml — the image must ship
 # the binary CI tested against.
 ARG BEANS_VERSION=v0.4.2
@@ -37,9 +41,10 @@ RUN cp "$(go env GOMODCACHE)"/github.com/hmans/beans@*/LICENSE /beans-LICENSE
 # ---------------------------------------------------------------------------
 # Stage 2 — install workspace deps and build the web SPA.
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS app-builder
+FROM node:26-bookworm-slim AS app-builder
+ARG COREPACK_VERSION
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
-RUN corepack enable
+RUN npm install -g "corepack@${COREPACK_VERSION}" && npm cache clean --force && corepack enable
 WORKDIR /app
 
 # Install with only the manifests first so the dependency layer caches well.
@@ -57,8 +62,13 @@ RUN pnpm --filter @beans-web/web build
 # Stage 3 — runtime. Debian (glibc) base to match the Node ecosystem; the
 # beans binary is static so it runs here regardless.
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS runtime
-RUN corepack enable
+FROM node:26-bookworm-slim AS runtime
+ARG COREPACK_VERSION
+# pnpm 12 is a native executable, and Docker mounts tmpfs noexec, so corepack
+# can no longer fetch pnpm into a tmpfs cache on first run and start it from
+# there. pnpm is installed into the image instead (see below).
+ENV COREPACK_HOME=/usr/local/share/corepack
+RUN npm install -g "corepack@${COREPACK_VERSION}" && npm cache clean --force && corepack enable
 
 # The app runs pnpm through corepack and never invokes npm, but the base image's
 # bundled npm still ships its own dependency tree — and its CVEs — into the scan
@@ -72,6 +82,12 @@ COPY --from=beans-builder /beans-LICENSE /usr/local/share/licenses/beans/LICENSE
 
 # The app: source + node_modules (incl. tsx) + built web dist.
 COPY --from=app-builder /app ./
+
+# Install the pnpm that package.json's packageManager pins into COREPACK_HOME,
+# readable by whatever uid compose runs the container as. `corepack install`
+# stores only the package; its first run downloads the native binary beside
+# it, so that run happens here rather than in a read-only container.
+RUN corepack install && pnpm --version && chmod -R a+rX "$COREPACK_HOME"
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
@@ -96,9 +112,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # owner differs.
 #
 # Docker leaves HOME=/ for a numeric uid with no /etc/passwd entry (the case
-# for any uid compose substitutes via `user:`), and corepack needs a writable
-# HOME to place its cache. Pin it to the `node` user's home so the tmpfs at
-# /home/node/.cache is actually the path corepack writes to.
+# for any uid compose substitutes via `user:`). Pin it to the `node` user's
+# home so every uid resolves the same paths.
 ENV HOME=/home/node
 USER node
 

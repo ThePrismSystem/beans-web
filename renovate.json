@@ -55,6 +55,14 @@
     },
     {
       "customType": "regex",
+      "description": "Node 25 stopped bundling corepack, so the image installs it from npm at the version in ARG COREPACK_VERSION. No manager reads an ARG.",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": ["ARG COREPACK_VERSION=(?<currentValue>[0-9][^\\s]*)"],
+      "depNameTemplate": "corepack",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
       "description": "The scanners CI downloads by release tag and checks against a SHA-256. Renovate takes the new hash from the release, so VERSION and SHA256 always change together.",
       "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.yml$/"],
       "matchStrings": [

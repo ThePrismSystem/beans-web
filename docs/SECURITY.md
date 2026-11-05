@@ -222,11 +222,10 @@ it defused. The only client-controlled argument remaining is the value of `-v`, 
 
 The published image runs as the unprivileged `node` user, and the compose stack drops all
 capabilities, sets `no-new-privileges`, and mounts the root filesystem read-only with a
-tmpfs for `/tmp` and one for `/home/node/.cache` — corepack writes the pinned pnpm version
-into that cache on first run, and without it a read-only container fails to boot with
-`EROFS`. The project bind mount stays read-write because the UI writes beans; run
-the container as the host UID that owns those files (`user:` in `docker-compose.yml`) so
-they are not written as root.
+tmpfs for `/tmp`. The pinned pnpm is installed into the image at build time rather than
+fetched on first run, so the container needs no network access to start. The project
+bind mount stays read-write because the UI writes beans; run the container as the host UID
+that owns those files (`user:` in `docker-compose.yml`) so they are not written as root.
 
 The `beans` CLI version baked into the image is pinned in exactly one place: the
 `ARG BEANS_VERSION` default in the `Dockerfile`. `docker compose build` inherits it, and
