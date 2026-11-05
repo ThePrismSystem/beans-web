@@ -8,8 +8,7 @@ on:
   schedule:
     - cron: "23 5 * * 1"
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -17,7 +16,7 @@ concurrency:
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze (${{ matrix.language }})
     # The same trust boundary ci.yml draws: a fork pull request runs on
     # GitHub's hardware, everything else on ours. `build-mode: none` reads the
     # tree rather than running it, so the exposure here is smaller than the
@@ -29,15 +28,31 @@ jobs:
       security-events: write
       actions: read
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `actions` reads the workflows themselves.
+          - language: actions
+            category: /language:actions
+          # The category this analysis uploaded under before the matrix
+          # existed. Keeping it keeps the alert history and dismissals, and
+          # lets code scanning compare a pull request against main.
+          - language: javascript-typescript
+            category: .github/workflows/codeql.yml:analyze
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
-          languages: javascript-typescript
+          languages: ${{ matrix.language }}
           build-mode: none
           queries: security-and-quality
 
       - name: Analyze
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: ${{ matrix.category }}
