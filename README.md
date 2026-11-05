@@ -3,7 +3,7 @@
 [![CI](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml/badge.svg)](https://github.com/ThePrismSystem/beans-web/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ThePrismSystem/beans-web/graph/badge.svg?token=N7I7FNHSIO)](https://codecov.io/gh/ThePrismSystem/beans-web)
 [![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](tsconfig.base.json)
-[![Node](https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white)](.nvmrc)
+[![Node](https://img.shields.io/badge/node-%3E%3D26-339933?logo=node.js&logoColor=white)](.nvmrc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A web UI for [`beans`](https://github.com/hmans/beans), the local-first, Markdown-backed issue
@@ -52,9 +52,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
 ## Prerequisites
 
-- **Node.js 24+** (see `.nvmrc`)
+- **Node.js 26+** (see `.nvmrc`)
 - **pnpm** (see [pnpm.io/installation](https://pnpm.io/installation); this repo was built against
-  pnpm 11)
+  pnpm 12)
 - The **`beans`** CLI binary on your `PATH`. Install it with:
 
   ```bash
@@ -248,9 +248,9 @@ whose immediate subfolders contain a `.beans.yml`.
 Two things to know about the image. It ships source plus `node_modules` rather
 than a compiled bundle, because the server runs through `tsx`, which makes it
 larger than a typical Node image. And the shipped `docker-compose.yml` sets
-`read_only: true` unconditionally, with tmpfs mounts for both `/tmp` and
-`/home/node/.cache` — the latter is where corepack writes the pinned pnpm
-version on first run, and the container fails to boot without it.
+`read_only: true` unconditionally, with a tmpfs mount for `/tmp`. pnpm is
+installed into the image at build time, so the container downloads nothing
+when it starts.
 
 ## Quality checks
 

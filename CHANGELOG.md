@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-05
+
+Moves the image and the toolchain to Node 26 and applies the pending dependency
+updates. The Docker image needs nothing new; running from source now needs
+Node 26.
+
+### Changed
+
+- The image runs on Node 26, and the bundled `beans` binary is built with Go
+  1.27.3. Node 25 stopped shipping corepack, so the image installs it from npm.
+- pnpm is now installed into the image at build time instead of being
+  downloaded on the container's first start. pnpm 12 is a native binary, and
+  Docker mounts tmpfs `noexec`, so the old approach could no longer run it. The
+  container now boots without network access, and `docker-compose.yml` drops
+  the `/home/node/.cache` tmpfs, which nothing writes to any more. A compose
+  file that still has it keeps working.
+- The runtime dependencies move to React 19.3, TanStack Router 1.170.46,
+  TanStack Query 5.105, hono 4.13.14, zod 4.6.7, tsx 4.23.15, marked 18.1.2 and
+  chokidar 6, which now drives the `.beans` watcher behind live updates.
+- The toolchain moves to pnpm 12, Vitest 5, Playwright 1.64 and
+  eslint-plugin-unicorn 79. TypeScript stays at 6, because typescript-eslint
+  still cannot load under 7.
+
+### Upgrading
+
+- Running from source needs Node 26 (see `.nvmrc`). pnpm 12 comes through
+  `packageManager`, with nothing to install by hand.
+
 ## [0.3.1] - 2026-11-04
 
 Clears the advisories that had accumulated against the image since 0.3.0: in
@@ -433,6 +461,7 @@ local-first, Markdown-backed issue tracker.
   subprocess timeout. Host filesystem paths are no longer exposed by
   `GET /api/projects`. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
+[0.4.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.4.0
 [0.3.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.3.0
 [0.2.1]: https://github.com/ThePrismSystem/beans-web/releases/tag/v0.2.1

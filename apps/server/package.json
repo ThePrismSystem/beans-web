@@ -19,14 +19,14 @@
     "@beans-web/shared": "workspace:*",
     "@hono/node-server": "^2.1.0",
     "@t3-oss/env-core": "^0.13.11",
-    "chokidar": "^5.0.0",
-    "hono": "^4.13.0",
-    "tsx": "^4.23.9",
-    "zod": "^4.6.6"
+    "chokidar": "^6.0.0",
+    "hono": "^4.13.14",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@vitest/coverage-v8": "^4.1.10",
-    "vitest": "^4.1.10"
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.0.5",
+    "vitest": "^5.0.5"
   }
 }

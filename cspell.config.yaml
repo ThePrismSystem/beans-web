@@ -74,8 +74,9 @@ words:
   - unredacted
   - safelisted
   - bypassable
-  # The errno a read-only container fails to boot with; named in SECURITY.md.
-  - EROFS
+  # The tmpfs mount option that stops pnpm 12's native binary running from a
+  # cache; named in the 0.4.0 changelog.
+  - noexec
   # The errno a bind-mount write fails with under a mismatched uid; README.md.
   - EACCES
   # cspell knows "reentrant" but not the noun.
