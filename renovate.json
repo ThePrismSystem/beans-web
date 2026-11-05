@@ -1,14 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "schedule": ["before 9am on monday"],
+  "minimumReleaseAge": "7 days",
   "prConcurrentLimit": 10,
+  "platformCommit": "enabled",
   "dependencyDashboard": true,
   "vulnerabilityAlerts": {
     "enabled": true,
     "schedule": ["at any time"],
     "automerge": false,
-    "labels": ["security"]
+    "labels": ["security"],
+    "minimumReleaseAge": null
   },
   "packageRules": [
     {
@@ -21,21 +24,18 @@
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["patch", "minor"],
       "groupName": "dev dependencies (non-major)",
-      "automerge": true,
-      "minimumReleaseAge": "3 days"
+      "automerge": true
     },
     {
       "description": "Major dev dependencies still automerge, but one at a time — a group is only as mergeable as its worst member.",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["major"],
-      "automerge": true,
-      "minimumReleaseAge": "3 days"
+      "automerge": true
     },
     {
       "description": "Actions run with a token and are not dev dependencies. Digest-pinned, and merged deliberately.",
       "matchManagers": ["github-actions"],
       "groupName": "github actions",
-      "pinDigests": true,
       "automerge": false
     },
     {
@@ -52,6 +52,14 @@
       "matchStrings": ["ARG BEANS_VERSION=(?<currentValue>v[0-9][^\\s]*)"],
       "depNameTemplate": "github.com/hmans/beans",
       "datasourceTemplate": "go"
+    },
+    {
+      "customType": "regex",
+      "description": "The scanners CI downloads by release tag and checks against a SHA-256. Renovate takes the new hash from the release, so VERSION and SHA256 always change together.",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.yml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s+VERSION: (?<currentValue>v\\S+)\\n\\s+SHA256: (?<currentDigest>[0-9a-f]{64})"
+      ]
     }
   ]
 }
